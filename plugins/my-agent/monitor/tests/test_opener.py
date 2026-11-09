@@ -50,6 +50,20 @@ class ReadModeTest(unittest.TestCase):
         self.assertEqual(self.mode('[]'), 'window')
 
 
+class ReadReportOpenTest(unittest.TestCase):
+    def value(self, text):
+        with tempfile.TemporaryDirectory() as d:
+            if text is not None:
+                (Path(d) / 'monitor-config.json').write_text(text)
+            return opener.read_report_open(d)
+
+    def test_only_json_true_opens(self):
+        self.assertIs(self.value('{"report_open": true}'), True)
+        for text in (None, '{}', '{"report_open": false}', '{"report_open": "true"}', '{"report_open": 1}',
+                     '{"open": "tab"}', '{not json', '[]', 'null'):
+            self.assertIs(self.value(text), False, text)
+
+
 class ReadBrowserTest(unittest.TestCase):
     def browser(self, text):
         with tempfile.TemporaryDirectory() as d:

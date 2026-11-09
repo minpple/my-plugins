@@ -35,6 +35,15 @@ def read_mode(tasks_dir) -> str:
     return 'tab' if isinstance(data, dict) and data.get('open') == 'tab' else 'window'
 
 
+def read_report_open(tasks_dir) -> bool:
+    """True only when monitor-config.json says {"report_open": true}; anything else (missing, broken, any other value) is False (the gate Report tab is not opened)."""
+    try:
+        data = json.loads((Path(tasks_dir) / 'monitor-config.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and data.get('report_open') is True
+
+
 def read_browser(tasks_dir) -> str:
     """The `browser` key of monitor-config.json ('safari' | 'chrome'); anything else (missing, broken, unknown) is 'default'."""
     try:

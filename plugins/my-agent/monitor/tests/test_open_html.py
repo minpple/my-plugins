@@ -182,7 +182,27 @@ class ReportModeTest(unittest.TestCase):
             s.bind(('127.0.0.1', 0))
             return s.getsockname()[1]
 
+    def report_open(self, **extra):
+        (self.data / 'monitor-config.json').write_text(json.dumps({'report_open': True, **extra}))
+
+    def test_report_default_is_not_opened(self):
+        for config in (None, {}, {'open': 'tab'}, {'report_open': False}, {'report_open': 'true'}, {'report_open': 1}):
+            if config is not None:
+                (self.data / 'monitor-config.json').write_text(json.dumps(config))
+            run = FakeRun(0)
+            self.assertEqual(self.call('--report', str(self.folder), run=run), 'not opened', config)
+            self.assertEqual(run.argvs, [])
+        (self.data / 'monitor-config.json').write_text('{broken')
+        self.assertEqual(self.call('--report', str(self.folder), run=FakeRun(0)), 'not opened')
+
+    def test_report_default_still_checks_monitor_and_task(self):
+        port = self.free_port()
+        rng = f'{port}-{port + 1}'
+        self.assertEqual(self.call('--report', str(self.folder), ports=rng), f'failed: monitor not running (ports {rng})')
+        self.assertEqual(self.call('--report', str(self.dir / 'missing')), f'failed: no such task folder {self.dir / "missing"}')
+
     def test_report_opens_window(self):
+        self.report_open()
         run = FakeRun(0)
         self.assertEqual(self.call('--report', str(self.folder), run=run), 'window')
         self.assertEqual(run.argvs[0][:2], ['osascript', '-e'])
@@ -190,12 +210,13 @@ class ReportModeTest(unittest.TestCase):
         self.assertIn('%2F261102-full-report&tab=report', self.url)
 
     def test_report_tab_from_config(self):
-        (self.data / 'monitor-config.json').write_text(json.dumps({'open': 'tab'}))
+        self.report_open(open='tab')
         run = FakeRun(0)
         self.assertEqual(self.call('--report', str(self.folder), run=run), 'tab')
         self.assertEqual(run.argvs[0], ['open', self.url])
 
     def test_report_no_browser(self):
+        self.report_open()
         line = self.call('--report', str(self.folder), platform='linux', web_open=lambda u: False)
         self.assertEqual(line, 'failed: no browser opened')
         self.assertEqual(self.call('--report', str(self.folder), '--url', platform='linux', web_open=lambda u: False), self.url)

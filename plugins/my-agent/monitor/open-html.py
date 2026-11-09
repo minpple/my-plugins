@@ -11,7 +11,9 @@ through webbrowser). Prints exactly one line and always exits 0 (argparse's 2 fo
 Router carries on: `window`, `tab`, or `failed: <reason>`. Reads only; writes nothing.
 
 --report opens the running monitor (never starts it) on the Report tab of that task folder:
-http://127.0.0.1:<port>/#task=<key>&tab=report. With --url it prints that URL and opens nothing.
+http://127.0.0.1:<port>/#task=<key>&tab=report, only when monitor-config.json has "report_open": true; otherwise
+(the default) it opens nothing and prints `not opened` once the monitor lists the task. With --url it prints that
+URL and opens nothing.
 """
 import argparse
 import http.client
@@ -21,7 +23,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from monitor.locate import is_ours
-from monitor.opener import open_monitor, read_browser, read_mode
+from monitor.opener import open_monitor, read_browser, read_mode, read_report_open
 from monitor.taskview import show_path
 
 import ma_data   # on sys.path through monitor/__init__.py
@@ -90,6 +92,8 @@ def open_report(folder, url_only=False, ports_text=DEFAULT_PORTS, data_dir_arg=N
         if url_only:
             return url
         data = ma_data.data_dir(data_dir_arg)
+        if not read_report_open(data):
+            return 'not opened'
         result = open_monitor(url, read_mode(data), browser=read_browser(data), **opener_kw)
         return 'failed: no browser opened' if result == 'failed' else result
     except Exception as exc:   # one line and exit 0 whatever happens

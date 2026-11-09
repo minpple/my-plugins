@@ -683,8 +683,10 @@ class SkillMdTest(unittest.TestCase):
             self.assertIn(word, sec, word)
         self.assertLess(sec.index('`ask` line'), sec.index('--report'))
         url_sentence = next(x for x in re.split(r'(?<=\.)\s', sec) if '--url' in x and 'only when' in x)
-        for word in ('window', 'tab', 'failed: no browser opened'):
+        for word in ('window', 'tab', '`not opened`', 'failed: no browser opened'):
             self.assertIn(word, url_sentence, word)
+        self.assertIn('report_open', sec)
+        self.assertIn('(not opened: report_open is off; open it yourself)', sec)
         self.assertRegex(sec, r'any other `failed:` line[^.]*does not run `--url`[^.]*third pointer form')
 
     def test_g1b_row_opens_report_tab(self):
