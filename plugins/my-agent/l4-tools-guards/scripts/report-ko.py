@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Korean copy of the Report texts (SKILL.md "Gate reports"): which items L1 still has to translate.
+"""The Korean copy of the Report texts (gates.md "Gate reports"): which items L1 still has to translate.
 
 usage: report-ko.py --task TASK_FOLDER todo    print {key: {sha, en}} of the items whose copy is missing or stale, then
                                                `report-ko: <n> to translate, <m> current`; writes nothing

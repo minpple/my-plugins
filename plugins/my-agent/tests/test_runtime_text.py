@@ -31,7 +31,8 @@ class RuntimeTextTest(unittest.TestCase):
         skill = (REPO / 'skills' / 'my-agent' / 'SKILL.md').read_text(encoding='utf-8')
         plan = (REPO / 'l1-orchestration/phases/plan.md').read_text(encoding='utf-8')
         accept = (REPO / 'l1-orchestration/phases/accept.md').read_text(encoding='utf-8')
-        for text in (skill, plan, accept):
+        recorder = (REPO / 'l1-orchestration/recorder.md').read_text(encoding='utf-8')
+        for text in (skill, plan, accept, recorder):
             for old in ('blocks them as commands whose write target', 'blocks a relative path after',
                         'blocks a Bash write containing', 'blocks the G3 save and commit'):
                 self.assertNotIn(old, text)
@@ -41,7 +42,7 @@ class RuntimeTextTest(unittest.TestCase):
             self.assertEqual(len(hits), 1, key)
             return hits[0]
         self.assertIn('asks (the G2 dialog)', line(skill, 'plan-approved-check.py'))
-        self.assertIn('asks (the G2 dialog)', line(skill, 'the verdict hook cannot tell whether it is a commit'))
+        self.assertIn('asks (the G2 dialog)', line(recorder, 'the verdict hook cannot tell whether it is a commit'))
         commit = line(accept, 'git add <files>')
         self.assertIn('asks (the G2 dialog)', commit)
         self.assertNotIn('blocks it. If blocked, redo from Verify', commit)

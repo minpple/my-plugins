@@ -4,7 +4,7 @@
 
 usage: usage-snapshot.py [--cwd DIR] [--data-dir DIR] [--task-dir DIR]
                                             the active task of DIR (L1, at the end of a task: accept.md
-                                            "Retrospective", SKILL.md "Abort")
+                                            "Retrospective", changes.md "Abort")
        usage-snapshot.py --task-folder DIR  any task folder (archive-tasks.py, or by hand for an older task)
 --task-dir is the task subfolder (setting `task_dir`, default .my-agent).
 --data-dir is the data folder (its active-index.json finds the task of a run folder outside git; its prices.json

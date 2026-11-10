@@ -18,7 +18,7 @@ The phase, profile and agent files use Claude Code names. In a Codex session, re
 | Subagent hand-back (its final message) | the subagent's final message, read by the main session with `wait_agent` | |
 | `Bash` | `Bash` | One `command` string. |
 | `Edit`, `Write` | `apply_patch` | One `command` string holding the patch text. |
-| `Read`, `Grep`, `Glob` | not available in Codex | No dedicated tool in the findings; read through `Bash`. |
+| `Read`, `Grep`, `Glob` | not available in Codex | No dedicated tool in the findings; read through `Bash`. Read one rule file (phase, profile or procedure file) per command: the command's output has a token budget, and several files in one command were cut in a recorded session. |
 | `WebFetch`, `WebSearch` | not available in Codex | |
 | `${CLAUDE_PLUGIN_ROOT}` in skill text | the plugin folder of the session line | Codex passes the text literally, not expanded. Read it as the plugin folder that the session line `my-agent on Codex: plugin folder <path> …` names. When that line is absent, the plugin folder is two levels above the folder of the skill's `SKILL.md` (`<plugin folder>/skills/my-agent/SKILL.md`). Hooks get `CLAUDE_PLUGIN_ROOT` expanded. |
 | `$CLAUDE_CODE_SESSION_ID` | `$CODEX_THREAD_ID` | The thread id is the session id of the Codex record. The findings list no other shell variable. |

@@ -35,6 +35,7 @@ import ma_schema  # noqa: E402
 import ma_usage  # noqa: E402
 
 SKILL = 'skills/my-agent/SKILL.md'   # the main skill, relative to the plugin
+NEW_TASK = 'l1-orchestration/new-task.md'   # Flags and Intake: the procedure file L1 reads when a new task starts
 PROFILES = ('general', 'research', 'dev')
 LOC, TASK = Path('/LOC'), Path('/LOC/.my-agent/TASK')   # stand-ins for scope-guard's rules()
 
@@ -44,8 +45,8 @@ LOC, TASK = Path('/LOC'), Path('/LOC/.my-agent/TASK')   # stand-ins for scope-gu
 # 'doc' = a Python file's docstring.
 ARTIFACTS = [
     ('.active', ['1'], 'L1', [(SKILL, 'h', '`.active` rules')]),
-    ('.gitignore', ['1'], 'L1', [(SKILL, 'item', ('Intake (step 1, Router)', '5.'))]),
-    ('intake.md', ['1'], 'L1 Router', [(SKILL, 'fence', 'Status: active')]),
+    ('.gitignore', ['1'], 'L1', [(NEW_TASK, 'item', ('Intake (step 1, Router)', '5.'))]),
+    ('intake.md', ['1'], 'L1 Router', [(NEW_TASK, 'fence', 'Status: active')]),
     ('run-log.md', ['1', '2', '3', '4', '5', '6', '7', '8'], 'L1 Recorder · L4 hooks',
      [(ARCH, 'b', 'line format'), (ARCH, 'b', 'who records what')]),
     ('explore.md', ['2'], 'my-agent:explorer (L1 saves the report)',
@@ -72,10 +73,11 @@ ARTIFACTS = [
 
 # The L1 procedure for each step, as the phase files write it.
 STEP_RULES = {
-    '1': [(SKILL, 'Intake (step 1, Router)')],
+    '1': [(NEW_TASK, 'Intake (step 1, Router)')],
     '2': [('l1-orchestration/phases/define.md', '2. Explore → Scope')],
     '3': [('l1-orchestration/phases/plan.md', '3. Plan')],
-    '4': [('l1-orchestration/phases/plan.md', '4. Plan Review'), ('l1-orchestration/phases/plan.md', 'G1b plan approval')],
+    '4': [('l1-orchestration/phases/plan.md', '4. Plan Review'), ('l1-orchestration/phases/plan.md', 'G1b plan approval'),
+          ('l1-orchestration/phases/plan.md', 'Rewrite before approval')],
     '5': [('l1-orchestration/phases/build.md', '5. Execute'), ('l1-orchestration/phases/build.md', 'Workflow rules')],
     '6': [('l1-orchestration/phases/build.md', '6. Merge')],
     '7': [('l1-orchestration/phases/accept.md', '7. Verify'), ('l1-orchestration/phases/accept.md', 'Back to Execute')],
@@ -87,8 +89,8 @@ STEP_RULES = {
 
 # Where each L1 component's rules are written (besides the steps it leads in the 4.3 table).
 L1_SOURCES = {
-    'Router': [(SKILL, 'h', 'Arguments')],
-    'Orchestrator': [(SKILL, 'h', 'Phase files'), (SKILL, 'h', 'Change requests'),
+    'Router': [(SKILL, 'h', 'Arguments'), (NEW_TASK, 'h', 'Flags')],
+    'Orchestrator': [(SKILL, 'h', 'Phase files'), (SKILL, 'h', 'Procedure files'), (SKILL, 'h', 'Change requests'),
                      (SKILL, 'h', 'Data and instructions')],
     'Gatekeeper': [(SKILL, 'h', 'Question rules'), (SKILL, 'h', 'Gates')],
     'Recorder': [(ARCH, 'b', 'who records what'), (ARCH, 'b', 'Popup records')],

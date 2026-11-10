@@ -1,0 +1,23 @@
+# Resume: status · continue
+
+L1 reads this file on `/my-agent status` and `/my-agent continue` (SKILL.md "Procedure files").
+
+## status
+
+1. Find the task location: the git root of the folder you ran in → `<data folder>/active-index.json` → `<data folder>`.
+2. Collect `Status:` and `Request:` from `<task_dir>/*/intake.md` and show them as a table. Only the running task and the 4 with the most recent task ID dates; `status all` shows every task.
+3. If `.active` exists, add that task's phase and gate state: G1b from the `Approved` line in `plan.md` `## Approval`, G3 from `intake.md` `Status: done`.
+4. Add the number of open improvements per level: the output of `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/feedback.py" count --data-dir "<data folder>"` (and its `REVIEW:` lines, if any).
+5. If there are more than 20 task folders, add one line: "N task folders. To clean up, delete or move them yourself". Delete nothing.
+6. status only reads. It does not write to the run-log.
+
+## continue
+
+1. Find `.active` (order of status item 1) and check that the task's `intake.md` says `Status: active`. If not, say so and stop. But if it says `Status: done`, the retrospective was cut off: delete only `.active` and that task's line in `<data folder>/active-index.json`, report the one line "Task `<id>` is already accepted. The retrospective may not have finished, so only `.active` cleared", and stop. Do not touch the task folder or the run-log, and do not redo the retrospective. For `Status: aborted`, say so and stop.
+2. If the `my-agent:` value in `intake.md` differs from the current value (the value Intake writes: `git -C "${CLAUDE_PLUGIN_ROOT}" log -1 --format=%h -- .`, plus `-dirty` if `git -C "${CLAUDE_PLUGIN_ROOT}" status --porcelain -- .` prints any line, `none` if there is no commit), show `git -C "${CLAUDE_PLUGIN_ROOT}" diff --stat <old value> -- .` and popup: `Proceed as is (Recommended)` / `Abort`. To proceed, update that line and run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" rules-changed from=<old value> to=<new value> --data-dir "<data folder>" --task-dir "<task_dir>"`.
+3. If `session:` in `.active` differs from `$CLAUDE_CODE_SESSION_ID`, popup: `Take over (Recommended)` / `Cancel`. To take over, update `session:`.
+4. Re-read that phase file and the profile file, and read `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/recorder.md`. Rerun the monitor command `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/monitor-up.py" --data-dir "<data folder>" --task-dir "<task_dir>"` and show its one output line as `Monitor: <line>`; if it does not start, show `Monitor: not started (<reason>)` and continue.
+   - When `intake.md` has `Models:`, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/agent-models.py" show --profile <p> --preset <name> --data-dir "<data folder>"`. If it exits 1 because the preset is gone, report one line (`Preset "<name>" (intake.md Models:) is no longer in agent-models.json for <p> (presets: …); the definition values are used for the rest of the task.`) and use the definition values from then on.
+5. In `plan.md` `## Work units`, match each unit with `Status: running` (`### u<n>`) against `unit=` in the run-log `call:`/`stop:` lines. If that unit's `stop:` is `end=ok` and, for a writer or researcher unit, its result file exists, set it to `done` (a coder unit has no result file); a unit with an `inline` line for its unit is `done` the same way (with its result file for a writer or researcher); otherwise set it back to `pending`. If `git worktree list` shows a leftover coder worktree not tied to a work unit, popup: `Merge` / `Redo` / `Discard`. A worktree on a `my-agent-task/` branch is a person's task worktree, not a leftover coder worktree; it gets no such popup.
+6. If the run-log has a `revision` line with `state=pending` and no `state=done` line with the same `rev=`, the revision was cut off. Archiving finished before that line, so do not redo it; only check that the line's `archive=` folder exists and is not empty (if missing or empty, stop and report). Then go through items 4 and 5 of "In-flight revision" → Revise this task (`changes.md`) in order, skip what is already done, and finish: the `rev<new rev>` line in `plan.md` `## Revisions`, deleting the judgment files, clearing `## Approval` (and `## Confirmation` for ①), `phase:` in `.active` (the `to=` value), and last the `state=done` line.
+7. Write `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" resume session=<session ID> --data-dir "<data folder>" --task-dir "<task_dir>"` and continue from the remaining step.

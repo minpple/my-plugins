@@ -7,6 +7,7 @@ from helpers import REPO
 
 PROFILES = REPO / 'l1-orchestration' / 'profiles'
 SKILL = REPO / 'skills' / 'my-agent' / 'SKILL.md'
+NEW_TASK = REPO / 'l1-orchestration' / 'new-task.md'   # Flags and Intake (SKILL.md "Procedure files")
 FIXTURES = REPO / 'tests' / 'judge-fixtures'
 
 
@@ -26,8 +27,8 @@ class ProfilesTest(unittest.TestCase):
         text = SKILL.read_text(encoding='utf-8')
         for name in ('general', 'research', 'dev'):
             self.assertIn(f'${{CLAUDE_PLUGIN_ROOT}}/l1-orchestration/profiles/{name}.md', text)
-            self.assertRegex(text, rf'`{name}`')
-        self.assertIn('Profile: <', text)
+            self.assertRegex(NEW_TASK.read_text(encoding='utf-8'), rf'`{name}`')
+        self.assertIn('Profile: <', NEW_TASK.read_text(encoding='utf-8'))
 
     def test_build_passes_result_path_only_to_writer_and_researcher(self):
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
@@ -112,13 +113,17 @@ class ProfilesTest(unittest.TestCase):
 
     def test_arguments_table_names_every_flag(self):
         text = SKILL.read_text(encoding='utf-8')
-        args = text[text.index('## Arguments'):text.index('## Intake')]
+        new_task = NEW_TASK.read_text(encoding='utf-8')
+        args = text[text.index('## Arguments'):]
+        flags = new_task[new_task.index('## Flags'):new_task.index('## Intake')]
         for p in PROFILES.glob('*.md'):
             self.assertIn(f'--{p.stem}', args)
-        self.assertIn('Let the Router pick (Recommended)', args)
-        self.assertIn('`Let the Router pick (Recommended)` / `Abort`', args)
-        self.assertIn('`Type the request in Other (Recommended)` / `Abort`', args)
-        intake = text[text.index('## Intake'):text.index('## status')]
+            self.assertIn(f'--{p.stem}', flags)
+        self.assertIn('"Flags" in `new-task.md`', args)
+        self.assertIn('Let the Router pick (Recommended)', flags)
+        self.assertIn('`Let the Router pick (Recommended)` / `Abort`', flags)
+        self.assertIn('`Type the request in Other (Recommended)` / `Abort`', flags)
+        intake = new_task[new_task.index('## Intake'):new_task.index('## Task worktree')]
         self.assertIn('`Proceed as general (Recommended)` / `Abort`', intake)
         self.assertIn('the flag is ignored', intake)
         self.assertIn('keeps `--dev` as its first word', intake)
