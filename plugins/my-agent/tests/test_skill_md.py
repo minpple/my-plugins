@@ -323,8 +323,8 @@ class SkillMdTest(unittest.TestCase):
         intake = self.text[self.text.index('## Intake'):self.text.index('## status')]
         self.assertIn('delegate state=on how=flag', intake)
         self.assertIn('Delegated approval: on (--auto)', intake)
-        self.assertIn('6 lines or fewer', intake)
-        self.assertNotIn('5 lines or fewer', intake)
+        self.assertIn('7 lines or fewer', intake)
+        self.assertNotIn('6 lines or fewer', intake)
         self.assertIn('item 1–5', intake[intake.index('Delegation covers'):])
 
     def test_delegated_approval_core_rules(self):
@@ -503,6 +503,17 @@ class SkillMdTest(unittest.TestCase):
             self.assertIn(word, section, word)
         self.assertIn('my-agent-task/', self.section('## continue', '## Task worktree'))
         self.assertIn('baseline', self.intake_item(10))
+
+    def test_intake_git_check_any_profile(self):
+        self.assertIn('**Git check**', self.intake_item(2))
+        self.assertLess(self.text.index('**Git check**'), self.text.index('\n3. **Profile:**'))
+        section = self.section('**Git check (item 2)**', '**Models preset (item 3)**')
+        for word in ('every profile', 'rev-parse --is-inside-work-tree', 'skip the whole check', 'status --porcelain', 'branch --show-current', 'detached HEAD',
+                     '`main` or `master`', 'Fix it first (Recommended)', 'Proceed as is', 'item 1 already asked'):
+            self.assertIn(word, section, word)
+        self.assertNotIn('$(', section.replace('no `$(`', ''))
+        report = self.text[self.text.index('\n11. **Report:**'):self.text.index('**Git check (item 2)**')]
+        self.assertIn('Git: <branch>, clean', report)
 
     def test_flags_em_dash(self):
         flags = self.section('**Flags:**', '## Intake')
