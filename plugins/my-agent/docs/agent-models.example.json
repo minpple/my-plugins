@@ -119,15 +119,15 @@
   "codex": {
     "general": {
       "standard": {
-        "architect": {"effort": "high"},
-        "plan-reviewer": {"model": "gpt-6-luna", "effort": "high"},
-        "verifier": {"effort": "high"},
-        "reviewer": {"model": "gpt-6-luna", "effort": "high"},
-        "gate-analyst": {"model": "gpt-6-luna", "effort": "high"},
+        "architect": {"model": "gpt-6.1-sol", "effort": "high"},
+        "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
+        "verifier": {"model": "gpt-6.1-sol", "effort": "high"},
+        "reviewer": {"model": "gpt-6.1-sol", "effort": "high"},
+        "gate-analyst": {"model": "gpt-6-luna", "effort": "medium"},
         "explorer": {"model": "gpt-6-luna", "effort": "low"},
         "researcher": {"model": "gpt-6-luna", "effort": "medium"},
-        "writer": {"model": "gpt-6-luna", "effort": "medium"},
-        "coder": {"model": "gpt-6-luna", "effort": "medium"}
+        "writer": {"model": "gpt-6.1-terra", "effort": "medium"},
+        "coder": {"model": "gpt-6.1-sol", "effort": "medium"}
       },
       "economy": {
         "architect": {"model": "gpt-6-luna", "effort": "medium"},
@@ -153,11 +153,11 @@
       },
       "inline": {
         "architect": {"model": "inline"},
-        "plan-reviewer": {"model": "inline"},
+        "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "inline"},
-        "reviewer": {"model": "inline"},
+        "reviewer": {"model": "gpt-6.1-sol", "effort": "high"},
         "gate-analyst": {"model": "inline"},
-        "explorer": {"model": "inline"},
+        "explorer": {"model": "gpt-6-luna", "effort": "low"},
         "researcher": {"model": "inline"},
         "writer": {"model": "inline"},
         "coder": {"model": "inline"}
@@ -165,15 +165,15 @@
     },
     "research": {
       "standard": {
-        "architect": {"effort": "high"},
-        "plan-reviewer": {"model": "gpt-6-luna", "effort": "high"},
-        "verifier": {"effort": "high"},
-        "reviewer": {"model": "gpt-6-luna", "effort": "high"},
-        "gate-analyst": {"model": "gpt-6-luna", "effort": "high"},
+        "architect": {"model": "gpt-6.1-sol", "effort": "high"},
+        "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
+        "verifier": {"model": "gpt-6.1-sol", "effort": "high"},
+        "reviewer": {"model": "gpt-6.1-sol", "effort": "high"},
+        "gate-analyst": {"model": "gpt-6-luna", "effort": "medium"},
         "explorer": {"model": "gpt-6-luna", "effort": "low"},
         "researcher": {"model": "gpt-6-luna", "effort": "medium"},
-        "writer": {"model": "gpt-6-luna", "effort": "medium"},
-        "coder": {"model": "gpt-6-luna", "effort": "medium"}
+        "writer": {"model": "gpt-6.1-terra", "effort": "medium"},
+        "coder": {"model": "gpt-6.1-sol", "effort": "medium"}
       },
       "economy": {
         "architect": {"model": "gpt-6-luna", "effort": "medium"},
@@ -199,11 +199,11 @@
       },
       "inline": {
         "architect": {"model": "inline"},
-        "plan-reviewer": {"model": "inline"},
+        "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "inline"},
-        "reviewer": {"model": "inline"},
+        "reviewer": {"model": "gpt-6.1-sol", "effort": "high"},
         "gate-analyst": {"model": "inline"},
-        "explorer": {"model": "inline"},
+        "explorer": {"model": "gpt-6-luna", "effort": "low"},
         "researcher": {"model": "inline"},
         "writer": {"model": "inline"},
         "coder": {"model": "inline"}
@@ -211,15 +211,15 @@
     },
     "dev": {
       "standard": {
-        "architect": {"effort": "high"},
-        "plan-reviewer": {"model": "gpt-6-luna", "effort": "high"},
-        "verifier": {"effort": "high"},
-        "reviewer": {"model": "gpt-6-luna", "effort": "high"},
-        "gate-analyst": {"model": "gpt-6-luna", "effort": "high"},
+        "architect": {"model": "gpt-6.1-sol", "effort": "high"},
+        "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
+        "verifier": {"model": "gpt-6.1-sol", "effort": "high"},
+        "reviewer": {"model": "gpt-6.1-sol", "effort": "high"},
+        "gate-analyst": {"model": "gpt-6-luna", "effort": "medium"},
         "explorer": {"model": "gpt-6-luna", "effort": "low"},
         "researcher": {"model": "gpt-6-luna", "effort": "medium"},
-        "writer": {"model": "gpt-6-luna", "effort": "medium"},
-        "coder": {"model": "gpt-6-luna", "effort": "medium"}
+        "writer": {"model": "gpt-6.1-terra", "effort": "medium"},
+        "coder": {"model": "gpt-6.1-sol", "effort": "medium"}
       },
       "economy": {
         "architect": {"model": "gpt-6-luna", "effort": "medium"},
@@ -245,11 +245,11 @@
       },
       "inline": {
         "architect": {"model": "inline"},
-        "plan-reviewer": {"model": "inline"},
+        "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "inline"},
-        "reviewer": {"model": "inline"},
+        "reviewer": {"model": "gpt-6.1-sol", "effort": "high"},
         "gate-analyst": {"model": "inline"},
-        "explorer": {"model": "inline"},
+        "explorer": {"model": "gpt-6-luna", "effort": "low"},
         "researcher": {"model": "inline"},
         "writer": {"model": "inline"},
         "coder": {"model": "inline"}

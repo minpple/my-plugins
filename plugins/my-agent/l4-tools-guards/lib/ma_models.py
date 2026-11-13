@@ -23,7 +23,9 @@ FILE_NAME = 'agent-models.json'
 PROFILES = ('general', 'research', 'dev')
 EFFORTS = ('low', 'medium', 'high', 'xhigh', 'max')
 MODELS = ('opus', 'sonnet', 'haiku', 'fable')   # the families of ma_schema.FAMILY
-CODEX_MODELS = ('gpt-6-luna', 'gpt-5.6-terra', 'gpt-5.6-luna')   # the ids the spawn tool lists
+CODEX_MODELS = (
+    'gpt-6-luna', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6.1-sol', 'gpt-6.1-terra',
+)
 INLINE = 'inline'   # a model value valid on both hosts: L1 runs the role in the main session
 CODEX_KEY = 'codex'
 STANDARD = 'standard'
