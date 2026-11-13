@@ -28,3 +28,12 @@ The phase, profile and agent files use Claude Code names. In a Codex session, re
 | `/my-agent:monitor` | the skill `my-agent:monitor` | Codex lists it among its skills. |
 | `.claude/worktrees` | not available in Codex | There is no `isolation`, so no coder worktree. |
 | Agent identity on tool calls | `agent_type` and `agent_id` on the call | The identity findings show both fields on every subagent call and neither on the main session's calls. |
+
+## Codex gate popup without a response
+
+For a gate sent to the person through `request_user_input`, require a valid answer for the question ID in that call. An empty `answers` object, a missing question ID, or a missing or invalid answer leaves the gate pending. This is separate from the tool being unavailable.
+
+- Keep the existing `ask` open, leave the task at that gate, and end the turn with a short message that the decision is pending. Write no `answer` or approval marker and take no action that requires the decision.
+- On `continue` or a chat reply about the decision, check the current phase and run-log for the outstanding `ask` before advancing. Reopen that gate with the same choices and use the original `ask` for the answer record. If the person requests a scope or plan change, follow the in-flight revision procedure and ask for approval of the revised material.
+- Resolve only the gate named in the popup. A chat reply, an earlier decision, or an answer to a later gate cannot close it. In particular, G1b approval cannot confirm a pending G1a, and a pending G3 blocks commit or delivery until its popup returns a valid decision.
+- For G2, reopen the popup for the exact blocked call using the hook reason and match key. If those details cannot be recovered, report the pending G2 and stop before the gated action.
