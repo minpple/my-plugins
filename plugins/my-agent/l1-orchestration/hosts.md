@@ -29,11 +29,19 @@ The phase, profile and agent files use Claude Code names. In a Codex session, re
 | `.claude/worktrees` | not available in Codex | There is no `isolation`, so no coder worktree. |
 | Agent identity on tool calls | `agent_type` and `agent_id` on the call | The identity findings show both fields on every subagent call and neither on the main session's calls. |
 
-## Codex gate popup without a response
+## Codex new-task entry
 
-For a gate sent to the person through `request_user_input`, require a valid answer for the question ID in that call. An empty `answers` object, a missing question ID, or a missing or invalid answer leaves the gate pending. This is separate from the tool being unavailable.
+A new request invoking my-agent, including a Codex plugin mention with a work request, starts at Intake. Before the first task question, read `l1-orchestration/new-task.md` and follow its Intake order. A request to modify an existing app can still be a new my-agent task.
 
-- Keep the existing `ask` open, leave the task at that gate, and end the turn with a short message that the decision is pending. Write no `answer` or approval marker and take no action that requires the decision.
+After setting the profile, run the Intake item 3 preset lookup for that profile. If it returns two or more presets, ask the person to choose through `request_user_input`, including under `--auto`. The recommended preset is a choice the person must submit. Follow the waiting rule below until the person submits a valid choice. Apply the existing one-preset, no-preset, and lookup-error rules in `new-task.md`.
+
+Complete Intake, including creation of `.active` and recording the preset decision where applicable, before asking Explore or Scope questions or delegating to any worker or planner.
+
+## Waiting for Codex popup responses
+
+For a question sent to the person through `request_user_input`, require a valid answer for the question ID in that call. While the popup is open, wait for the tool to return. If it returns an empty `answers` object, a missing question ID, or a missing or invalid answer, reopen the same question with the same ID and choices in the current turn and wait again. Continue waiting until the person submits a valid answer or explicitly cancels the task. If the tool is unavailable, follow the tool-unavailable rule in the table above.
+
+- Keep the task at the pending decision and reuse the existing `ask` when there is one. Write the `answer` and any approval marker only after the corresponding valid response. Wait for that response before taking any dependent action.
 - On `continue` or a chat reply about the decision, check the current phase and run-log for the outstanding `ask` before advancing. Reopen that gate with the same choices and use the original `ask` for the answer record. If the person requests a scope or plan change, follow the in-flight revision procedure and ask for approval of the revised material.
 - Resolve only the gate named in the popup. A chat reply, an earlier decision, or an answer to a later gate cannot close it. In particular, G1b approval cannot confirm a pending G1a, and a pending G3 blocks commit or delivery until its popup returns a valid decision.
 - For G2, reopen the popup for the exact blocked call using the hook reason and match key. If those details cannot be recovered, report the pending G2 and stop before the gated action.
