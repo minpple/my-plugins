@@ -245,7 +245,7 @@ class SkillMdTest(unittest.TestCase):
         # the plugin lives in a multi-plugin repo (~/dev/my-plugins): another plugin's commit must not look like a rules change
         self.assertNotIn('"${CLAUDE_PLUGIN_ROOT}" rev-parse', self.rules)
         version = 'git -C "${CLAUDE_PLUGIN_ROOT}" log -1 --format=%h -- .'
-        for text in (self.new_task, self.resume):   # Intake item 9 writes it, continue item 2 compares it
+        for text in (self.new_task, self.resume):   # Intake item 7 writes it, continue item 2 compares it
             self.assertIn(version, text)
             self.assertIn('git -C "${CLAUDE_PLUGIN_ROOT}" status --porcelain -- .', text)
         with tempfile.TemporaryDirectory() as tmp:
@@ -469,8 +469,8 @@ class SkillMdTest(unittest.TestCase):
                     self.assertEqual(line[:m.start()][-14:], '<data folder>/', f'{path.name}:{n}')
 
     def test_autostart_off_in_intake_and_monitor_skill(self):
-        item = self.intake_item(8)
-        self.assertTrue(item.startswith('8. **Monitor:**'))
+        item = self.intake_item(9)
+        self.assertTrue(item.startswith('9. **Monitor:**'))
         self.assertIn('autostart off', item)
         self.assertIn('<data folder>/monitor-config.json', item)
         self.assertIn('autostart off', self.MONITOR_SKILL.read_text(encoding='utf-8'))
@@ -497,6 +497,21 @@ class SkillMdTest(unittest.TestCase):
         section = self.section('## Intake (step 1, Router)', '\n## Task worktree', self.new_task)
         self.assertEqual(re.findall(r'^(\d+)\. \*\*', section, re.M), [str(n) for n in range(1, 12)])
         self.assertIsNone(re.search(r'\.\d+\. \*\*', section))
+
+    def test_intake_md_follows_active(self):
+        """`intake.md` is written right after `.active`, before the project list and the monitor (a task with
+        `.active` and no `intake.md` can be neither continued nor aborted)."""
+        for n, head in ((6, '**`.active` and index:**'), (7, '**`intake.md`:**'), (8, '**Project list:**'),
+                        (9, '**Monitor:**')):
+            self.assertTrue(self.intake_item(n).startswith(f'{n}. {head}'), n)
+
+    def test_intake_running_task_candidates(self):
+        """Item 1 names where it looks for `.active`; item 2 checks a location typed as `Other path`."""
+        one = self.intake_item(1)
+        self.assertIn('the location `<data folder>/active-index.json` gives for the run folder', one)
+        self.assertIn('the folders the item 2 popup offers', one)
+        self.assertIn('If `<task_dir>/.active` exists in one, popup:', one)
+        self.assertIn('(an `Other path`) and has `<task_dir>/.active`, show the item 1 popup', self.intake_item(2))
 
     def test_record_popups_bullet_is_its_own_line(self):
         lines = self.new_task.splitlines()
@@ -675,13 +690,13 @@ class SkillMdTest(unittest.TestCase):
 
     # --- agent model presets and report-style gate reports (task 261101-agent-model-config-report-b, u5) ---
     def test_intake_models_preset(self):
-        """Criterion 3: Intake item 3 asks the preset only with 2 or more presets; item 9 and 10 carry it."""
+        """Criterion 3: Intake item 3 asks the preset only with 2 or more presets; item 7 and 10 carry it."""
         self.assertIn('"Models preset" below item 11', self.intake_item(3))
         item = self.section('**Models preset (item 3)**', '## Task worktree', self.new_task)
         for word in ('Models preset', 'agent-models.py" presets --profile', '2 or more presets', '`standard` is used',
                      'Use definition values (Recommended)', 'Abort', '(Recommended)', 'item 10'):
             self.assertIn(word, item, word)
-        self.assertIn('Models: <preset>', self.intake_item(9))
+        self.assertIn('Models: <preset>', self.intake_item(7))
         ten = self.intake_item(10)
         self.assertIn('run-log.py" models preset=<name> source=file', ten)
         self.assertIn('only when `Models:` was written', ten)

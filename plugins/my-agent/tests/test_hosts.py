@@ -121,11 +121,12 @@ class HostsTest(unittest.TestCase):
         self.assertIn('`task_name` allows only `[a-z0-9_]`', self.find('`Agent`')[2])
 
     def test_intake_codex_agents_row(self):
-        row = self.find('Intake item 8')
-        self.assertEqual(row[1], 'item 8, then the Codex agents check')
+        row = self.find('Intake item 9')
+        self.assertEqual(row[1], 'item 9, then the Codex agents check')
         note = row[2]
         self.assertIn('build-codex.py --check-agents', note)
         self.assertIn('build-codex.py --install-agents', note)
+        self.assertIn('beyond its 7-line limit', note)   # the Intake report limit (new-task.md item 11)
         self.assertIn('`Install (Recommended)` / `Skip`', note)
         self.assertIn('Like the item 1\u20135 popups, this popup goes to the person: L1 never answers it, '
                       'also under delegated approval.', note)
@@ -164,7 +165,7 @@ class HostsTest(unittest.TestCase):
                      'not a run-log line'):
             self.assertIn(text, note)
         rows_in_order = list(rows())
-        self.assertLess(rows_in_order.index(row[0]), rows_in_order.index('Intake item 8 (Monitor)'))
+        self.assertLess(rows_in_order.index(row[0]), rows_in_order.index('Intake item 9 (Monitor)'))
 
     def test_g2_row_describes_the_codex_flow(self):
         row = self.find('G2 permission dialog')

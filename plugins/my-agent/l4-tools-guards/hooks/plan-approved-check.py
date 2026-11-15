@@ -12,7 +12,7 @@ Bash command whose write target cannot be told, is the person's call, allowed on
 before approval: my-agent:explorer / architect / plan-reviewer (and writer once `Prototype: requested` is under
 plan.md's or scope.md's `## Prototype`: the G1a prototype), and writes under the active task folder (`<location>/<task_dir>/<task>/`), to the records
 folder's `.active`, or to the data folder's `active-index.json` / `projects.txt` (and `mkdir -p` of the data folder
-itself, Intake step 7). A `.active` without `task:` → pass with a warning (C9). A task folder that is gone → pass with
+itself, Intake item 8). A `.active` without `task:` → pass with a warning (C9). A task folder that is gone → pass with
 a warning. A data-folder write other than those two files is asked like any other outside write. Any error → exit 2,
 so the tool call is blocked (and `onFailure: block` covers a crash or timeout).
 
