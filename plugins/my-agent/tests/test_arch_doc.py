@@ -38,6 +38,9 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('If the person picks `Continue it` or `Cancel`, the flag is ignored.', section)
         self.assertIn('`Request:` keeps `--dev` as its first word while `Profile:` is general', section)
         self.assertIn('the label is `(set by you)` because the person chose general', section)
+        self.assertIn('No flag (2026-11-15): the Router recommends a profile from the request and the person '
+                      'confirms it in a popup of Intake item 3', section)
+        self.assertIn('a confirmed recommendation keeps `(Router)`', section)
 
     def test_draft_frontmatter_has_no_hooks_key(self):
         start = self.text.index('**Draft frontmatter**')

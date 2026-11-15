@@ -33,6 +33,8 @@ The phase, profile and agent files use Claude Code names. In a Codex session, re
 
 A new request invoking my-agent, including a Codex plugin mention with a work request, starts at Intake. Before the first task question, read `l1-orchestration/new-task.md` and follow its Intake order. A request to modify an existing app can still be a new my-agent task.
 
+When the call has no profile flag, ask the Intake item 3 profile popup through `request_user_input`, including under `--auto`. The recommended profile is a choice the person must submit.
+
 After setting the profile, run the Intake item 3 preset lookup for that profile. If it returns two or more presets, ask the person to choose through `request_user_input`, including under `--auto`. The recommended preset is a choice the person must submit. Follow the waiting rule below until the person submits a valid choice. Apply the existing one-preset, no-preset, and lookup-error rules in `new-task.md`.
 
 Complete Intake, including creation of `.active` and recording the preset decision where applicable, before asking Explore or Scope questions or delegating to any worker or planner.

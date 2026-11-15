@@ -308,6 +308,21 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('keeps `--dev` as its first word', intake)
         self.assertIn('Profile change at the first gate', intake)
 
+    def test_intake_profile_popup_without_flag(self):
+        """Without a profile flag the Router recommends a profile and the person confirms it in a popup."""
+        three = self.intake_item(3)
+        self.assertNotIn('does not ask', three)
+        for text in ('Without a flag, the Router picks one from the request by the rules below and asks',
+                     '`<profile> (Recommended)`', 'no `dev` outside a git repository',
+                     'the reason for the pick in one line', 'item 10 writes a `profile` line'):
+            self.assertIn(text, three, text)
+        ten = self.intake_item(10)
+        self.assertIn("picked another profile than the Router's (item 3)", ten)
+        self.assertIn("from=<Router's pick> to=<choice> back=- archive=-", ten)
+        row = next(l for l in self.recorder.splitlines() if l.startswith('| Profile change at the first gate'))
+        self.assertIn("at Intake, a profile other than the Router's pick (`back=- archive=-`)", row)
+        self.assertIn('run-log.py" profile from=<old> to=<new>', row)
+
     def test_profile_change_procedure(self):
         section = self.section('## In-flight revision', '## Abort', self.changes)
         bullet = section[section.index('**Profile change at the first gate'):]
