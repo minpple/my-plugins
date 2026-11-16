@@ -410,6 +410,25 @@ class SkillMdTest(unittest.TestCase):
         for path in ONE_READ:
             self.assertLess(len(path.read_text(encoding='utf-8')), PROCEDURE_CHARS, path.name)
 
+    def test_fewer_main_session_calls(self):
+        """2026-11-16: an archive is one script call, the approval time comes from the answer line, independent calls
+        go in one message, and the profile file is read only when it is not in context."""
+        rec = self.section('## Revision records and archive', '## Failure handling', self.recorder)
+        self.assertIn('scripts/archive.py" --task "<absolute task folder>" --name', rec)
+        self.assertIn('prints that folder, which is the `archive=` value', rec)
+        for gone in ('cp -pR', '`cmp`', 'date +%y%m%d-%H%M%S'):
+            self.assertNotIn(gone, rec)
+        self.assertTrue((L4 / 'scripts' / 'archive.py').is_file())
+        approve = next(l for l in self.phase('plan').splitlines() if l.startswith('4. **Approve:**'))
+        self.assertIn('from the line the `answer` command printed (no `date` call)', approve)
+        self.assertIn('the date and minute the `answer` line printed', self.phase('define'))
+        tools = self.section('### Tool choice', '### Change requests')
+        self.assertIn("that do not need each other's result in one message", tools)
+        self.assertIn('each message re-reads the whole conversation', tools)
+        phase = self.section('### Phase files', '### Procedure files')
+        self.assertIn('Read the profile file the same way, but only when its text is not in context', phase)
+        self.assertIn('read the profile file when its text is not in context', self.resume)
+
     def test_accept_split(self):
         """2026-11-16: dev G3 is in profiles/dev.md, E escalation in gates.md, the retrospective in retro.md."""
         accept = self.phase('accept')
@@ -579,7 +598,7 @@ class SkillMdTest(unittest.TestCase):
                      'A command with the word `git` but no such shape'):
             self.assertNotIn(gone, self.rules)
         for kept in ('write `Follows:`', 'the verdict hook cannot tell whether it is a commit',
-                     'run `git rev-parse HEAD` first', '("Tool choice")'):
+                     'run `git rev-parse HEAD` first', 'follow "Tool choice"'):
             self.assertIn(kept, self.rules)
         row = next(l for l in self.text.splitlines() if l.startswith('| L4 |'))
         self.assertIn('the monitor and the G2 dialog are outside the levels', row)
@@ -628,7 +647,8 @@ class SkillMdTest(unittest.TestCase):
 
     def test_cost_row_baseline_and_moments(self):
         row = next(l for l in self.recorder.splitlines() if l.startswith('|') and 'run-log.py" cost' in l)
-        for word in ('baseline=1', 'start of Verify', 'right before the G3 popup'):
+        for word in ('baseline=1', 'Right before the G3 popup', '`n=3`', '`n=5` (also Back to Execute)', '`n=7`',
+                     'L1 runs nothing then'):
             self.assertIn(word, row, word)
 
     def test_failure_row_structural_argument(self):
@@ -637,7 +657,7 @@ class SkillMdTest(unittest.TestCase):
 
     def test_gate_reports_section(self):
         section = self.section('## Gate reports', None, self.gates)
-        for word in ('### Details', 'first two rows', 'G1a', 'G1b', 'G3', 'E', '--report', '--url', 'Report:',
+        for word in ('### Details', 'first two rows', 'G1a', 'G1b', 'G3', 'E', '--report', '--pointer', 'Report:',
                      'task folder', 'no harness tool'):
             self.assertIn(word, section, word)
         self.assertLess(self.gates.index('## Check before anything leaves'), self.gates.index('## Gate reports'))
@@ -668,16 +688,16 @@ class SkillMdTest(unittest.TestCase):
         dev = self.dev_g3()
         esc = self.section('## E escalation', None, self.gates)
         for part in (general, dev):
-            for word in ('Gate reports', '### Overview', '### Takeaway', '--report', '--url',
-                         'failed: no browser opened', 'pointer line'):
+            for word in ('Gate reports', '### Overview', '### Takeaway', '--report', '--pointer', 'pointer line'):
                 self.assertIn(word, part)
+            self.assertNotIn('--url', part)
             self.assertNotIn('### Details', part)
         for word in ('Commit message', 'Diff', '+<a>/-<b>'):
             self.assertIn(word, dev)
         self.assertNotIn('the main diffs', dev)
         self.assertIn('Gate reports', esc)
         self.assertIn('### Details', esc)
-        self.assertIn('Tool choice', accept)
+        self.assertIn('scripts/archive.py" --task', accept)   # Back to Execute archives with the script, not cp and cmp
 
     def test_accept_popup_bodies(self):
         accept = self.phase('accept')
@@ -702,8 +722,8 @@ class SkillMdTest(unittest.TestCase):
         accept = self.phase('accept')
         cmd = 'run-log.py" cost'
         verify = accept[accept.index('## 7. Verify'):accept.index('## Back to Execute')]
-        self.assertIn(cmd, verify)
-        self.assertLess(verify.index('step n=7'), verify.index(cmd))
+        self.assertNotIn(cmd, verify)   # the step line that opens the phase writes the cost line itself (2026-11-16)
+        self.assertIn('the script writes the `cost` line of the moment itself', verify)
         general = accept[accept.index('5. **G3 popup:**'):accept.index('6. **Accept:**')]
         devp = self.dev_g3()
         dev = devp[devp.index('3. Record before and after the popup.'):devp.index('4. **Commit:**')]
@@ -802,17 +822,16 @@ class SkillMdTest(unittest.TestCase):
     def test_gate_reports_open_report_tab(self):
         """Criterion 7: the gate report is read on the Report tab; the chat keeps a pointer line."""
         sec = self.section('## Gate reports', None, self.gates)
-        for word in ('`ask` line', 'three pointer forms', 'failed:', 'Commit message', 'Diff', '+<a>/-<b>', 'Save path',
-                     'the full diff is not printed', 'Report: not opened (',
-                     '(not opened: no browser opened; open it yourself)'):
+        for word in ('`ask` line', 'Commit message', 'Diff', '+<a>/-<b>', 'Save path',
+                     'the full diff is not printed', 'Report: not opened (<reason>); task folder: <absolute task folder>',
+                     '(opened in the browser: <window|tab>)', '(not opened: no browser opened; open it yourself)',
+                     '(not opened: report_open is off; open it yourself)', 'report_open'):
             self.assertIn(word, sec, word)
         self.assertLess(sec.index('`ask` line'), sec.index('--report'))
-        url_sentence = next(x for x in re.split(r'(?<=\.)\s', sec) if '--url' in x and 'only when' in x)
-        for word in ('window', 'tab', '`not opened`', 'failed: no browser opened'):
-            self.assertIn(word, url_sentence, word)
-        self.assertIn('report_open', sec)
-        self.assertIn('(not opened: report_open is off; open it yourself)', sec)
-        self.assertRegex(sec, r'any other `failed:` line[^.]*does not run `--url`[^.]*third pointer form')
+        # one call: the script opens the tab and prints the pointer line, so the rule has no cases to tell apart
+        self.assertIn('--report "<absolute task folder>" --pointer --data-dir "<data folder>"', sec)
+        self.assertIn('the line the `--pointer` call printed, as it is', sec)
+        self.assertNotIn('--url', sec)
 
     def test_g1b_row_opens_report_tab(self):
         row = next(l for l in self.text.splitlines() if l.startswith('| G1b Plan approval'))

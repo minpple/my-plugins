@@ -247,6 +247,44 @@ class ReportModeTest(unittest.TestCase):
             self.assertEqual(line, f'failed: monitor not running (ports {rng})')
             self.assertEqual(run.argvs, [])
 
+    def test_pointer_line_forms(self):
+        """--pointer opens like --report and prints the gate report's pointer line (gates.md "Gate reports")."""
+        run = FakeRun(0)
+        self.assertEqual(self.call('--report', str(self.folder), '--pointer', run=run),
+                         f'Report: {self.url} (not opened: report_open is off; open it yourself)')
+        self.assertEqual(run.argvs, [])
+        self.report_open()
+        run = FakeRun(0)
+        self.assertEqual(self.call('--report', str(self.folder), '--pointer', run=run),
+                         f'Report: {self.url} (opened in the browser: window)')
+        self.assertEqual(run.argvs[0][-1], self.url)
+        self.report_open(open='tab')
+        self.assertEqual(self.call('--report', str(self.folder), '--pointer', run=FakeRun(0)),
+                         f'Report: {self.url} (opened in the browser: tab)')
+        line = self.call('--report', str(self.folder), '--pointer', platform='linux', web_open=lambda u: False)
+        self.assertEqual(line, f'Report: {self.url} (not opened: no browser opened; open it yourself)')
+
+    def test_pointer_line_without_a_url(self):
+        port = self.free_port()
+        rng = f'{port}-{port + 1}'
+        self.assertEqual(self.call('--report', str(self.folder), '--pointer', ports=rng),
+                         f'Report: not opened (monitor not running (ports {rng})); task folder: {self.folder}')
+        missing = self.dir / 'missing'
+        self.assertEqual(self.call('--report', str(missing), '--pointer'),
+                         f'Report: not opened (no such task folder {missing}); task folder: {missing}')
+
+        def boom(*a, **k):
+            raise RuntimeError('boom')
+        self.report_open()
+        self.mod.open_monitor = boom
+        self.assertEqual(self.call('--report', str(self.folder), '--pointer'),
+                         f'Report: not opened (RuntimeError: boom); task folder: {self.folder}')
+
+    def test_url_and_pointer_exclusive(self):
+        with self.assertRaises(SystemExit) as cm, redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            self.mod.main(['--report', str(self.folder), '--url', '--pointer'])
+        self.assertEqual(cm.exception.code, 2)
+
     def test_report_task_not_listed(self):
         other = self.dir / 'elsewhere' / 'docs' / 'agent' / '261199-x'
         other.mkdir(parents=True)

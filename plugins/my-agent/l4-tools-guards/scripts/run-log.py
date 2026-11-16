@@ -21,7 +21,10 @@ result file prints `run-log: inline needs the result file <path> (missing)`, exi
 result model (--model gives model=).
 After the `step` line with n=1 the script writes a second line `cost: session=<sid> usd=<value> baseline=1` (the
 baseline the tally measures the Intake stretch against), when the statusline file gives a value (same lookup as `cost`)
-and the run-log has no `cost:` line yet; otherwise it writes and prints nothing extra. Other `step` lines never do.
+and the run-log has no `cost:` line yet; otherwise it writes and prints nothing extra.
+After a `step` line that opens a phase (n=3 Plan, n=5 Execute, also with back=, n=7 Verify) the script writes the `cost:`
+line of that moment itself, as `cost` would (reset=1 when lower), so the two lines keep their order in one call; without a
+statusline value it writes and prints nothing extra. Steps 2, 4, 6 and 8 never write a cost line.
 `ask` takes no prose=, other= or pre= (they belong on the `answer` line): one line on stderr, exit 1, nothing written.
 Prints the line, then one MISMATCH line per subagent stop: line with
 mismatch=1 written since the previous L1 line, and PARTIAL lines (with unit=)
@@ -50,6 +53,7 @@ import ma_schema  # noqa: E402
 import ma_subagent  # noqa: E402
 import ma_usage  # noqa: E402
 
+PHASE_STEPS = ('3', '5', '7')   # the steps that open phases ② ③ ④: their step line is followed by a cost line
 KINDS = ('step', 'ask', 'answer', 'revision', 'cost', 'stale', 'base', 'abort', 'deliver', 'resume',
          'rules-changed', 'merge', 'fix', 'delegate', 'profile', 'models', 'inline')
 RESULT_CHARS = 200   # longest `result=` an inline line takes from its result file
@@ -124,6 +128,20 @@ def inline_fields(fields, given, cwd):
     return [('agent', given['agent']), ('unit', given.get('unit') or '-'), ('file', path), ('result', result)]
 
 
+def cost_fields(active, lines, data_dir):
+    """(the fields of a `cost:` line for the task's session, None), or (None, reason) without a statusline value."""
+    sid = active.session or ma_host.session_id()
+    usd, why = session_cost(sid, data_dir)
+    if why:
+        return None, why
+    prev = [f.get('usd') for k, f in lines if k == 'cost' and f.get('session') == sid]
+    try:
+        lower = bool(prev) and usd < float(prev[-1])
+    except (TypeError, ValueError):
+        lower = False
+    return [('session', sid), ('usd', usd)] + ([('reset', '1')] if lower else []), None
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('kind')
@@ -190,17 +208,11 @@ def main(argv=None) -> int:
         if sid:
             fields.append(('session', sid))
     if args.kind == 'cost':
-        sid = active.session or ma_host.session_id()
-        usd, why = session_cost(sid, args.data_dir)
+        cost, why = cost_fields(active, lines, args.data_dir)
         if why:
             print(f'run-log: no cost line ({why})')
             return 0
-        prev = [f.get('usd') for k, f in lines if k == 'cost' and f.get('session') == sid]
-        try:
-            lower = bool(prev) and usd < float(prev[-1])
-        except (TypeError, ValueError):
-            lower = False
-        fields += [('session', sid), ('usd', usd)] + ([('reset', '1')] if lower else [])
+        fields += cost
     session = dict(fields).get('session') or ma_host.session_id() or active.session
     try:
         model = (ma_subagent.main_model(session) if args.kind == 'step' or args.model else None) or args.model
@@ -225,6 +237,15 @@ def main(argv=None) -> int:
             try:
                 ma_logline.append(active.log, base)
                 print(base)
+            except OSError as exc:
+                print(f'run-log: cannot write {active.log}: {exc}', file=sys.stderr)
+    if args.kind == 'step' and dict(fields).get('n') in PHASE_STEPS:
+        cost, why = cost_fields(active, lines, args.data_dir)
+        if not why:   # no statusline value: no cost line, nothing printed
+            opened = ma_logline.format_line('cost', cost)
+            try:
+                ma_logline.append(active.log, opened)
+                print(opened)
             except OSError as exc:
                 print(f'run-log: cannot write {active.log}: {exc}', file=sys.stderr)
     if model:

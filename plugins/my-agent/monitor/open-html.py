@@ -2,7 +2,7 @@
 """Open a local HTML file in the person's browser, the way the monitor opens itself (architecture 4.7.4).
 
 usage: open-html.py <file> [--data-dir DIR]
-       open-html.py --report <task folder> [--url] [--ports A-B] [--data-dir DIR]
+       open-html.py --report <task folder> [--url | --pointer] [--ports A-B] [--data-dir DIR]
 
 The mode (window or tab) and the browser come from monitor-config.json in the data folder (ma_data.data_dir:
 $MA_TASKS_DIR, else --data-dir, else $CLAUDE_PLUGIN_OPTION_DATA_DIR, else ~/dev/log/my-agent); the file is opened
@@ -13,7 +13,12 @@ Router carries on: `window`, `tab`, or `failed: <reason>`. Reads only; writes no
 --report opens the running monitor (never starts it) on the Report tab of that task folder:
 http://127.0.0.1:<port>/#task=<key>&tab=report, only when monitor-config.json has "report_open": true; otherwise
 (the default) it opens nothing and prints `not opened` once the monitor lists the task. With --url it prints that
-URL and opens nothing.
+URL and opens nothing. With --pointer it does what --report does and prints the pointer line of a gate report
+instead, so L1 needs one call and no rule about the outcomes:
+  Report: <URL> (opened in the browser: <window|tab>)
+  Report: <URL> (not opened: report_open is off; open it yourself)
+  Report: <URL> (not opened: no browser opened; open it yourself)
+  Report: not opened (<reason>); task folder: <absolute task folder>      (no URL: monitor not running, task not listed, …)
 """
 import argparse
 import http.client
@@ -100,6 +105,25 @@ def open_report(folder, url_only=False, ports_text=DEFAULT_PORTS, data_dir_arg=N
         return f'failed: {type(exc).__name__}: {exc}'
 
 
+def report_pointer(folder, ports_text=DEFAULT_PORTS, data_dir_arg=None, **opener_kw) -> str:
+    """The pointer line of a gate report for `folder`: opens the Report tab as `open_report` does."""
+    target = Path(folder).expanduser()
+    target = target if target.is_absolute() else Path.cwd() / target
+    try:
+        url, failed = report_target(folder, ports_text)
+        if failed:
+            return f'Report: not opened ({failed[len("failed: "):]}); task folder: {target}'
+        data = ma_data.data_dir(data_dir_arg)
+        if not read_report_open(data):
+            return f'Report: {url} (not opened: report_open is off; open it yourself)'
+        result = open_monitor(url, read_mode(data), browser=read_browser(data), **opener_kw)
+        if result == 'failed':
+            return f'Report: {url} (not opened: no browser opened; open it yourself)'
+        return f'Report: {url} (opened in the browser: {result})'
+    except Exception as exc:   # one line and exit 0 whatever happens
+        return f'Report: not opened ({type(exc).__name__}: {exc}); task folder: {target}'
+
+
 def open_file(path, data_dir_arg=None, **opener_kw) -> str:
     """The one output line for `path`."""
     try:
@@ -122,11 +146,15 @@ def main(argv=None, **opener_kw) -> int:
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument('file', nargs='?', default=None)
     g.add_argument('--report', metavar='TASK_FOLDER', help="open the running monitor on this task's Report tab")
-    ap.add_argument('--url', action='store_true', help='with --report: print the URL and open nothing')
+    how = ap.add_mutually_exclusive_group()
+    how.add_argument('--url', action='store_true', help='with --report: print the URL and open nothing')
+    how.add_argument('--pointer', action='store_true', help="with --report: print the gate report's pointer line")
     ap.add_argument('--ports', default=DEFAULT_PORTS, metavar='A-B', help='with --report: the monitor ports to look at')
     ap.add_argument('--data-dir', default=None, metavar='DIR', help='the my-agent data folder (the plugin setting)')
     args = ap.parse_args(argv)
-    if args.report is not None:
+    if args.report is not None and args.pointer:
+        line = report_pointer(args.report, args.ports, args.data_dir, **opener_kw)
+    elif args.report is not None:
         line = open_report(args.report, args.url, args.ports, args.data_dir, **opener_kw)
     else:
         line = open_file(args.file, args.data_dir, **opener_kw)

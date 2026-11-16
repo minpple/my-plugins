@@ -160,10 +160,33 @@ class RunLogTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(len(log_lines(self.task)), 2)
 
-    def test_other_steps_never_write_baseline(self):
+    def test_steps_inside_a_phase_write_no_cost_line(self):
         env = self.statusline('s-active', '{"cost_usd": 0.4}')
-        self.assertEqual(self.run_log('step', 'n=3', 'name=Plan', env=env).returncode, 0)
+        for n, name in (('2', 'Explore-Scope'), ('4', 'Plan-Review'), ('6', 'Merge'), ('8', 'Review-Deliver')):
+            self.assertEqual(self.run_log('step', f'n={n}', f'name={name}', env=env).returncode, 0)
+        self.assertEqual([l.split()[2] for l in log_lines(self.task)], ['step:'] * 4)
+
+    def test_phase_opening_steps_write_the_cost_line(self):
+        env = self.statusline('s-active', '{"cost_usd": 3.0}')
+        r = self.run_log('step', 'n=3', 'name=Plan', env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        lines = log_lines(self.task)
+        self.assertEqual([l.split()[2] for l in lines], ['step:', 'cost:'])
+        f = parse(lines[1])
+        self.assertEqual((f['session'], f['usd']), ('s-active', '3.0'))
+        self.assertNotIn('baseline', f)
+        self.assertEqual(r.stdout.splitlines()[:2], lines)
+        self.statusline('s-active', '{"cost_usd": 0.5}')   # a lower value is a reset, as for `cost`
+        self.run_log('step', 'n=5', 'name=Execute', 'back=Verify FAIL 2', 'archive=archive/x', env=env)
+        self.assertEqual(parse(log_lines(self.task)[-1])['reset'], '1')
+        self.run_log('step', 'n=7', 'name=Verify', env=env)
+        self.assertEqual([l.split()[2] for l in log_lines(self.task)], ['step:', 'cost:'] * 3)
+
+    def test_phase_opening_step_without_statusline_file_writes_one_line(self):
+        r = self.run_log('step', 'n=5', 'name=Execute')
+        self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(len(log_lines(self.task)), 1)
+        self.assertEqual(len(r.stdout.strip().splitlines()), 1)
 
     def test_second_step_1_after_a_cost_line_writes_no_baseline(self):
         env = self.statusline('s-active', '{"cost_usd": 0.4}')

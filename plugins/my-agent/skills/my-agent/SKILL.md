@@ -69,7 +69,8 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 ### Tool choice
 
 - Read files with Read, Grep and Glob; write them with Edit and Write; never `cat`, `sed -i`, `echo >` or a heredoc for a file.
-- Bash only for plugin scripts, single git commands, `date`, check commands (`python3 -m unittest discover -s <absolute folder>`) and archive commands (`mkdir -p`, `cp -pR`, `cp -p`, `cmp`): one command per call, absolute paths, no `cd`, no variable assignment, no `;`/`&&`/`|`, no redirection, no `$(` or backticks. Get a value in its own call first.
+- Bash only for plugin scripts, single git commands, `date`, check commands (`python3 -m unittest discover -s <absolute folder>`) and copy commands (`mkdir -p`, `cp -pR`, `cp -p`, `cmp`; an archive is `archive.py`): one command per call, absolute paths, no `cd`, no variable assignment, no `;`/`&&`/`|`, no redirection, no `$(` or backticks. Get a value in its own call first.
+- Send the tool calls of one step that do not need each other's result in one message (the `step` line, the data folder command, the phase-file Read, the `.active` edit): each message re-reads the whole conversation.
 
 ### Change requests
 
@@ -77,7 +78,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 
 ### Phase files
 
-- At the start of a phase, and after `continue` or compaction, re-read that phase file and the profile file with Read and follow them.
+- At the start of a phase, and after `continue` or compaction, re-read that phase file with Read and follow it. Read the profile file the same way, but only when its text is not in context (the first phase of a session, after compaction).
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/define.md` (① Define: 1 Intake, 2 Explore → Scope)
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/plan.md` (② Plan: 3 Plan, 4 Plan Review → G1b)
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/build.md` (③ Build: 5 Execute, 6 Merge)

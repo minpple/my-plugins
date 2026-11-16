@@ -249,8 +249,9 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('`Prototype` row', g1b_item1)
         item3 = plan.split('3. Record before and after')[1].split('4. **Approve:**')[0]
         for gate, sec in (('G1a', g1a), ('G1b', item3)):
-            for word in ('--report', 'pointer line', '--url', 'failed: no browser opened'):
+            for word in ('--report', '--pointer', 'pointer line', 'Gate reports'):
                 self.assertIn(word, sec)
+            self.assertNotIn('--url', sec)   # one `--pointer` call prints the pointer line (2026-11-16)
             self.assertLess(sec.index('ask gate=%s' % gate), sec.index('--report'))
             self.assertLess(sec.index('--report'), sec.index('answer gate=%s' % gate))
 
@@ -318,7 +319,9 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('When only Review is redone, without Verify, do both:', accept)
         self.assertIn('(on a rerun, a carried criterion is `- <n>. PASS (carried from Run <m>) <evidence>`, read as PASS)', verify)   # item 4 names the carried form
         back = accept.split('## Back to Execute')[1].split('\n## ')[0]
-        self.assertIn('`changed-files.md`', back)
+        self.assertIn('archive.py" --task "<absolute task folder>" --name run<Run: value of verify.md> '
+                      '--only verify.md review.md changed-files.md', back)
+        self.assertNotIn('cp -p', back)
         review = accept[accept.index('## 8. Review'):]
         self.assertIn('the `verify.md` and `changed-files.md` paths', review)
         self.assertIn('instead of running the suites again', review)
