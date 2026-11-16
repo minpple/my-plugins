@@ -47,7 +47,7 @@ When `Abort` was picked in a popup, or Intake decided to abort the previous task
 
 When the person picks `New task in a worktree` (Intake item 1):
 
-1. Compute the task ID first (Intake item 4's date and slug).
+1. Compute the task ID first (Intake item 4: the facts call's `date:` and `ids:` lines and the slug).
 2. Make sure `.claude/worktrees/` is excluded (the `git check-ignore` / `info/exclude` step of `build.md` step 5 item 2).
 3. Run `git worktree add -b my-agent-task/<task-id> <task location>/.claude/worktrees/task-<task-id>` as one command (absolute path).
 4. Tell the person to open a new session in that folder and send the request again.

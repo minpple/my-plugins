@@ -286,9 +286,10 @@ def codex_subagents(session) -> list:
 # --- record hooks and hook health (Codex) ---
 # Codex runs a plugin's hooks only after the person trusts them, and a changed hook needs trust again (findings:
 # after a stale trust no hook of the plugin fired). Its trusted hash cannot be recomputed, so every my-agent hook
-# marks a Codex run in the OS temp folder and `hook_health()` (data-dir.py, run at Intake) looks for the marks.
+# marks a Codex run in the OS temp folder and `hook_health()` (intake.py facts at the start of Intake, and
+# data-dir.py) looks for the marks.
 
-# PreToolUse hooks that run on the Intake call. scope-guard is not listed: it returns before `parse` for an input that
+# PreToolUse hooks that run on the Intake facts call. scope-guard is not listed: it returns before `parse` for an input that
 # names no my-agent agent, so it leaves no mark on a main-session call.
 GATE_HOOKS = ('plan-approved-check', 'verdict-fresh-check')
 NOTICE_HOOK = 'session-notice'                                                # SessionStart: once per session

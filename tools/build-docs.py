@@ -44,9 +44,9 @@ LOC, TASK = Path('/LOC'), Path('/LOC/.my-agent/TASK')   # stand-ins for scope-gu
 # 'fence' = the fenced block holding `key`, 'item' = numbered list item under heading key[0] starting with key[1],
 # 'doc' = a Python file's docstring.
 ARTIFACTS = [
-    ('.active', ['1'], 'L1', [(SKILL, 'h', '`.active` rules')]),
-    ('.gitignore', ['1'], 'L1', [(NEW_TASK, 'item', ('Intake (step 1, Router)', '5.'))]),
-    ('intake.md', ['1'], 'L1 Router', [(NEW_TASK, 'fence', 'Status: active')]),
+    ('.active', ['1'], 'L1 · L4 intake.py create', [(SKILL, 'h', '`.active` rules')]),
+    ('.gitignore', ['1'], 'L1 · L4 intake.py create', [(NEW_TASK, 'item', ('Intake (step 1, Router)', '5.'))]),
+    ('intake.md', ['1'], 'L1 Router · L4 intake.py create', [(NEW_TASK, 'fence', 'Status: active')]),
     ('run-log.md', ['1', '2', '3', '4', '5', '6', '7', '8'], 'L1 Recorder · L4 hooks',
      [(ARCH, 'b', 'line format'), (ARCH, 'b', 'who records what')]),
     ('explore.md', ['2'], 'my-agent:explorer (L1 saves the report)',

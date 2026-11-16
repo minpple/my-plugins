@@ -1,6 +1,6 @@
 # Recorder: run-log commands · archive · failures
 
-L1 reads this file before the first run-log command or delegation of a session: at Intake item 10 and at `continue` item 4, and again after compaction (SKILL.md "Procedure files").
+L1 reads this file before the first run-log command or delegation of a session: at Intake (read with the facts call, before the create call writes the first line) and at `continue` item 4, and again after compaction (SKILL.md "Procedure files").
 
 ## Recorder rules
 
@@ -8,7 +8,7 @@ The run-log is `run-log.md` in the task folder; only `run-log.py` writes its lin
 
 | When | Command |
 |---|---|
-| On entering each step (1–8) | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" step n=<1-8> name=<step name> --model <main session model ID> --data-dir "<data folder>" --task-dir "<task_dir>"` |
+| On entering each step (2–8; the Intake create call writes step 1's line) | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" step n=<1-8> name=<step name> --model <main session model ID> --data-dir "<data folder>" --task-dir "<task_dir>"` |
 | Right before a popup | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" ask gate=<G1a/G1b/G3/E/Q> q="<question summary>" rec="<recommended choice>" --data-dir "<data folder>" --task-dir "<task_dir>"` (`Q` for a popup that is not a gate; `rec=-` if there is no recommendation. A popup with several questions gets one `ask` per question with `qn=1`, `qn=2`, ...; a single question needs no `qn=`) |
 | After the answer | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" answer gate=<same value> choice="<chosen choice>" --data-dir "<data folder>" --task-dir "<task_dir>"` (if the answer was typed in (Other), add `other=1` at the end; for a prose reply sent while the popup is pending, add `prose=1`; for an answer the person gave in advance, add `pre=1`; with several questions, add the same `qn=` as its `ask`. Do not add `(Recommended)` to choice; if present, the tally strips it before comparing) |
 | Right before the G3 popup. The `step` lines that open a phase write the `cost` line themselves, so L1 runs nothing then: `n=1` (`baseline=1`), `n=3`, `n=5` (also Back to Execute) and `n=7` | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" cost --data-dir "<data folder>" --task-dir "<task_dir>"` (see Cost below) |
@@ -16,7 +16,7 @@ The run-log is `run-log.md` in the task folder; only `run-log.py` writes its lin
 | In-flight revision cleanup done | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" revision rev=<new rev> state=done --data-dir "<data folder>" --task-dir "<task_dir>"` |
 | Rewrite before approval (architect rewrites before G1b) | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" revision rev=<current rev> before=G1b why="<what changed>" archive=<archive folder> --data-dir "<data folder>" --task-dir "<task_dir>"` |
 | Plan edit by L1 before approval (small change: Plan Review finding or G1b `Request changes`) | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" fix what="<finding or request>" files=plan.md before=G1b archive=<archive folder> --data-dir "<data folder>" --task-dir "<task_dir>"` |
-| Delegated approval starts (message) | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" delegate state=on how=message --data-dir "<data folder>" --task-dir "<task_dir>"` (by `--auto`: `how=flag`, Intake item 10) |
+| Delegated approval starts (message) | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" delegate state=on how=message --data-dir "<data folder>" --task-dir "<task_dir>"` (by `--auto`: `how=flag`, written by the Intake create call) |
 | Delegated approval ends | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" delegate state=off how=<person or end> --data-dir "<data folder>" --task-dir "<task_dir>"` (`person`: take-back message; `end`: G3 acceptance or Abort) |
 | Popup answered by L1 (delegated approval) | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" answer gate=<same value> choice="<recommended choice>" by=L1 --data-dir "<data folder>" --task-dir "<task_dir>"` (an `answer` line without `by=` is the person's) |
 | Profile change at the first gate; at Intake, a profile other than the Router's pick (`back=- archive=-`) | `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" profile from=<old> to=<new> back=<1, 2 or -> archive=<archive folder or -> --data-dir "<data folder>" --task-dir "<task_dir>"` |

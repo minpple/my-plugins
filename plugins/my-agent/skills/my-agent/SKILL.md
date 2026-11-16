@@ -59,7 +59,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 ### `.active` rules
 
 - `<task_dir>/.active` in the task location marks the running task: four lines, `task:`, `phase:` (1–4), `session:`, `started:`.
-- Write it once Intake sets the task location. Update `phase:` on each phase change. Delete it when the retrospective after G3 acceptance ends, on abort, and when switching tasks.
+- The Intake create call writes it (`new-task.md` item 6). Update `phase:` on each phase change. Delete it when the retrospective after G3 acceptance ends, on abort, and when switching tasks.
 - If it already exists, overwrite it only after a popup. `session:` is the value of `$CLAUDE_CODE_SESSION_ID`.
 
 ### Data and instructions
@@ -85,7 +85,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/accept.md` (④ Accept: 7 Verify, 8 Review → G3)
   - Profile (`Profile:` in `intake.md`): `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/profiles/general.md`, `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/profiles/research.md`, `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/profiles/dev.md`
 - Read does not expand the plugin path variables in these files or the procedure files. When you run a command, replace the variable with this plugin's folder.
-- Data folder: whenever you (re)read a phase file (also `continue`, compaction, a direct `define|plan|build|accept`) and at the start of Intake and status, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/data-dir.py" --data-dir '${user_config.data_dir}' --task-dir '${user_config.task_dir}'`. Its two output lines are `<data folder>` and `<task_dir>`. Use it for the popup, `projects.txt`, `<data folder>/active-index.json`, and as `--data-dir "<data folder>"` at the end of every run-log, usage-snapshot, gate-report, feedback and monitor-up call (all but feedback then take `--task-dir "<task_dir>"`); `agent-models.py` and `open-html.py` take `--data-dir` only.
+- Data folder: whenever you (re)read a phase file (also `continue`, compaction, a direct `define|plan|build|accept`) and at the start of status, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/data-dir.py" --data-dir '${user_config.data_dir}' --task-dir '${user_config.task_dir}'`; at the start of Intake run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/intake.py" facts --data-dir '${user_config.data_dir}' --task-dir '${user_config.task_dir}'` in its place. Its two output lines (the `data:` and `task_dir:` lines of the facts call) are `<data folder>` and `<task_dir>`. Use it for the popup, `projects.txt`, `<data folder>/active-index.json`, and as `--data-dir "<data folder>"` at the end of every run-log, usage-snapshot, gate-report, feedback and monitor-up call (all but feedback then take `--task-dir "<task_dir>"`); `agent-models.py` and `open-html.py` take `--data-dir` only.
 
 ### Procedure files
 
@@ -95,7 +95,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 |---|---|---|
 | `new-task.md` | when a new task starts, before Intake item 1 | Flags, Intake (step 1, Router) |
 | `resume.md` | on `continue` and on `status` | status, continue |
-| `recorder.md` | before the first run-log command or delegation of a session (Intake item 10, `continue` item 4) | Recorder rules, Revision records and archive, Failure handling, Model and effort per call |
+| `recorder.md` | before the first run-log command or delegation of a session (Intake, with the facts call; `continue` item 4) | Recorder rules, Revision records and archive, Failure handling, Model and effort per call |
 | `gates.md` | before the first gate popup of a session (G1a, G1b, G3, E), when delegated approval is asked for or turns on, and before a deliverable leaves the task folder | Delegated approval details, Check before anything leaves, Gate reports, E escalation |
 | `retro.md` | after G3 `Accept` or `Commit`, before the retrospective | Retrospective |
 | `changes.md` | on a change request, a profile change at the first gate, `Abort`, or `New task in a worktree` (Intake item 1) | In-flight revision, Abort, Task worktree |

@@ -130,8 +130,8 @@ class HostsTest(unittest.TestCase):
         self.assertIn('`Install (Recommended)` / `Skip`', note)
         self.assertIn('Like the item 1\u20135 popups, this popup goes to the person: L1 never answers it, '
                       'also under delegated approval.', note)
-        self.assertIn('Its popup is recorded in item 10 as ask/answer lines; the check line itself is not a run-log line.', note)
-        self.assertNotIn('It is recorded in item 10.', note)
+        self.assertIn('Its popup is recorded after the create call as `run-log.py` ask/answer lines (the create call already wrote Intake\'s lines); the check line itself is not a run-log line.', note)
+        self.assertNotIn('recorded in item 10', note)
         self.assertIn('New agents show in a new Codex session.', note)
         self.assertIn('Codex agents: installed 9 (<version>)', note)
 

@@ -79,13 +79,16 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('without command substitution', plan)
 
     def test_intake_active_time_without_substitution(self):
-        """Criterion 7: Intake item 6 gets the time first with `date`, then writes `.active` with the Write tool, no `$(`."""
+        """Intake item 6 is the create call (it writes `.active` with its own time): no `date`, no Write tool."""
         intake = self.intake()
         item = next(l for l in intake.splitlines() if l.startswith('6. **`.active` and index:**'))
-        self.assertNotIn('$(', item)
-        self.assertIn("Run `date '+%Y-%m-%d %H:%M'` first", item)
-        self.assertIn('Write tool', item)
-        self.assertIn('without command substitution', item)
+        self.assertIn('intake.py" create', item)
+        self.assertIn('`phase: 1`', item)
+        self.assertIn('`started:`', item)
+        # the one sentence that says a `$(` inside the single-quoted values is data is the only allowed mention
+        self.assertNotIn('$(', item.replace('a backtick, `$(`, `;` or `|` inside them', ''))
+        self.assertNotIn("date '+%Y-%m-%d %H:%M'", item)
+        self.assertNotIn('Write tool', item)
 
     def test_no_substitution_in_git_commands(self):
         """Live run: `echo "HEAD=$(git rev-parse HEAD)"` during Execute was blocked by the verdict hook."""
@@ -251,7 +254,7 @@ class SkillMdTest(unittest.TestCase):
         # the plugin lives in a multi-plugin repo (~/dev/my-plugins): another plugin's commit must not look like a rules change
         self.assertNotIn('"${CLAUDE_PLUGIN_ROOT}" rev-parse', self.rules)
         version = 'git -C "${CLAUDE_PLUGIN_ROOT}" log -1 --format=%h -- .'
-        for text in (self.new_task, self.resume):   # Intake item 7 writes it, continue item 2 compares it
+        for text in (self.resume,):   # continue item 2 compares it; the Intake script writes it (its test checks the value)
             self.assertIn(version, text)
             self.assertIn('git -C "${CLAUDE_PLUGIN_ROOT}" status --porcelain -- .', text)
         with tempfile.TemporaryDirectory() as tmp:
@@ -462,10 +465,10 @@ class SkillMdTest(unittest.TestCase):
                 self.assertTrue(head.startswith(section), f'{name}: {head}')
 
     def test_recorder_read_before_the_first_run_log_command(self):
-        """The Recorder rules are outside the skill: Intake item 10 and continue item 4 name the file to read first."""
+        """The Recorder rules are outside the skill: Intake (before the create call) and continue item 4 name the file to read first."""
         path = '`${CLAUDE_PLUGIN_ROOT}/l1-orchestration/recorder.md`'
-        ten = self.intake_item(10)
-        self.assertLess(ten.index(path), ten.index('run-log.py'))
+        intake = self.intake()
+        self.assertLess(intake.index(path), intake.index('intake.py" create'))
         four = next(l for l in self.section('## continue', None, self.resume).splitlines() if l.startswith('4. '))
         self.assertIn(path, four)
         self.assertIn('monitor-up.py" --data-dir "<data folder>" --task-dir "<task_dir>"', four)
@@ -488,7 +491,7 @@ class SkillMdTest(unittest.TestCase):
             self.assertIn(word, rules, word)
 
     # --- data folder (task 261028-data-dir-config, u3) ---
-    DATA_SCRIPTS = ('run-log', 'usage-snapshot', 'gate-report', 'feedback', 'monitor-up', 'open-html')
+    DATA_SCRIPTS = ('run-log', 'usage-snapshot', 'gate-report', 'feedback', 'monitor-up', 'open-html', 'intake')
     MONITOR_SKILL = REPO / 'skills' / 'monitor' / 'SKILL.md'
 
     def command_spans(self, path):
@@ -556,6 +559,16 @@ class SkillMdTest(unittest.TestCase):
         self.assertEqual(re.findall(r'^(\d+)\. \*\*', section, re.M), [str(n) for n in range(1, 12)])
         self.assertIsNone(re.search(r'\.\d+\. \*\*', section))
 
+    def test_intake_uses_two_calls(self):
+        """Intake is the facts call, the popups and one create call: no step the script does is left as an L1 command."""
+        intake = self.intake()
+        for gone in ('run-log.py', 'monitor-up.py', 'agent-models.py', 'git -C', 'date +%y%m%d', "date '+"):
+            self.assertNotIn(gone, intake, gone)
+        self.assertEqual(intake.count('intake.py" create'), 1)
+        self.assertIn("--request='", self.intake_item(6))
+        self.assertIn('hold no quote characters', self.intake_item(6))   # the script refuses a `'` or `"` in them
+        self.assertIn('intake.py" facts', self.section('- Data folder:', None))
+
     def test_intake_md_follows_active(self):
         """`intake.md` is written right after `.active`, before the project list and the monitor (a task with
         `.active` and no `intake.md` can be neither continued nor aborted)."""
@@ -618,7 +631,7 @@ class SkillMdTest(unittest.TestCase):
 
     def test_intake_worktree_and_gitignore_rules(self):
         self.assertIn('`New task in a worktree`', self.intake_item(1))
-        self.assertIn('git check-ignore', self.intake_item(5))
+        self.assertIn('gitignore:', self.intake_item(5))
         self.assertIn('("Task worktree" in `changes.md`)', self.intake_item(1))
         self.assertNotIn('## Task worktree', self.new_task)   # moved to changes.md on 2026-11-16
         section = self.section('## Task worktree', None, self.changes)
@@ -633,10 +646,11 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('**Git check**', self.intake_item(2))
         self.assertLess(self.new_task.index('**Git check**'), self.new_task.index('\n3. **Profile:**'))
         section = self.section('**Git check (item 2)**', '**Models preset (item 3)**', self.new_task)
-        for word in ('every profile', 'rev-parse --is-inside-work-tree', 'skip the whole check', 'status --porcelain', 'branch --show-current', 'detached HEAD',
+        for word in ('every profile', '`git:`', 'skip the whole check', '`uncommitted:`', '`branch:`', 'detached HEAD',
                      '`main` or `master`', 'Fix it first (Recommended)', 'Proceed as is', 'item 1 already asked'):
             self.assertIn(word, section, word)
-        self.assertNotIn('$(', section.replace('no `$(`', ''))
+        self.assertNotIn('$(', section)
+        self.assertNotIn('rev-parse --is-inside-work-tree', self.new_task)
         report = self.section('\n11. **Report:**', '**Git check (item 2)**', self.new_task)
         self.assertIn('Git: <branch>, clean', report)
 
@@ -764,12 +778,12 @@ class SkillMdTest(unittest.TestCase):
         """Criterion 3: Intake item 3 asks the preset only with 2 or more presets; item 7 and 10 carry it."""
         self.assertIn('"Models preset" below item 11', self.intake_item(3))
         item = self.section('**Models preset (item 3)**', None, self.new_task)
-        for word in ('Models preset', 'agent-models.py" presets --profile', '2 or more presets', '`standard` is used',
+        for word in ('Models preset', 'presets <profile>:', '2 or more presets', '`standard` is used',
                      'Use definition values (Recommended)', 'Abort', '(Recommended)', 'item 10'):
             self.assertIn(word, item, word)
         self.assertIn('Models: <preset>', self.intake_item(7))
         ten = self.intake_item(10)
-        self.assertIn('run-log.py" models preset=<name> source=file', ten)
+        self.assertIn('models preset=<name> source=file', ten)
         self.assertIn('only when `Models:` was written', ten)
 
     def test_profile_change_models_preset(self):
