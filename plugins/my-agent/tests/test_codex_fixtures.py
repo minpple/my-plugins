@@ -4,9 +4,10 @@ import re
 import unittest
 from pathlib import Path
 
-# built at run time so the real home prefix is not written into a committed file
-HOME_PREFIX = '/Users/' + Path.home().name
 DIR = Path(__file__).resolve().parent / 'fixtures' / 'codex'
+# A system account name is not personal data, and Codex agent paths start with `/root/` (`/root/helper_one` in the
+# session fixture), so the bare-name check skips it; the `/Users/<name>` checks still apply.
+SYSTEM_ACCOUNTS = {'root'}
 MANIFEST = json.loads((DIR / 'manifest.json').read_text())
 SECRET_NAME = re.compile(r'key|token|secret|auth|pass', re.I)
 # token-count fields hold numbers, not credentials
@@ -18,6 +19,16 @@ def load(name):
     if name.endswith('.jsonl'):
         return [json.loads(line) for line in text.splitlines() if line.strip()]
     return json.loads(text)
+
+
+def real_data_problems(text, home_name):
+    """How `text` shows the home folder name `home_name`: the `/Users/<name>` prefix (built at run time, so the real
+    prefix is not written into a committed file) and the bare name. Empty when it shows neither."""
+    prefix = '/Users/' + home_name
+    found = [prefix + end for end in ('/', '"') if prefix + end in text]
+    if home_name.lower() not in SYSTEM_ACCOUNTS and home_name.lower() in text.lower():
+        found.append(home_name.lower())
+    return found
 
 
 def walk(node):
@@ -72,13 +83,18 @@ class CodexFixtures(unittest.TestCase):
                     for f in spec['usage_fields']:
                         self.assertIn(f, line['payload']['usage'])
 
+    def test_real_data_check_catches_a_personal_home_name(self):
+        self.assertEqual(real_data_problems('{"cwd": "/Users/jdoe/dev"}', 'jdoe'), ['/Users/jdoe/', 'jdoe'])
+        self.assertEqual(real_data_problems('{"user": "/Users/jdoe"}', 'jdoe'), ['/Users/jdoe"', 'jdoe'])
+        self.assertEqual(real_data_problems('owner: JDoe', 'jdoe'), ['jdoe'])
+        self.assertEqual(real_data_problems('{"agent_path": "/root/helper_one"}', 'root'), [])
+        self.assertEqual(real_data_problems('{"cwd": "/Users/root/dev"}', 'root'), ['/Users/root/'])
+
     def test_no_real_data(self):
         for name in MANIFEST['fixtures']:
             with self.subTest(name):
                 text = (DIR / name).read_text()
-                self.assertNotIn(HOME_PREFIX + '/', text)
-                self.assertNotIn(HOME_PREFIX + '"', text)
-                self.assertNotIn(Path.home().name.lower(), text.lower())
+                self.assertEqual(real_data_problems(text, Path.home().name), [])
                 data = load(name)
                 for k, v in walk(data):
                     if SECRET_NAME.search(k) and not COUNT_NAME.search(k):

@@ -10,10 +10,20 @@ import threading
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / 'open-html.py'
+
+
+def without_tasks_dir_env(test):
+    """`ma_data.data_dir` takes $MA_TASKS_DIR before `--data-dir`, so a set variable would make the script read the
+    shell's data folder instead of the test's; drop it for the test and restore it afterwards."""
+    patcher = mock.patch.dict(os.environ)
+    patcher.start()
+    test.addCleanup(patcher.stop)
+    os.environ.pop('MA_TASKS_DIR', None)
 
 
 class FakeRun:
@@ -30,6 +40,7 @@ class FakeRun:
 
 class OpenHtmlTest(unittest.TestCase):
     def setUp(self):
+        without_tasks_dir_env(self)
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name).resolve()
         self.data = self.dir / 'data'
@@ -145,6 +156,7 @@ class ReportModeTest(unittest.TestCase):
 
     def setUp(self):
         from tests.test_report import FULL, PROJECT
+        without_tasks_dir_env(self)
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name).resolve()
         self.data = self.dir / 'data'

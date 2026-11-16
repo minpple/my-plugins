@@ -1,5 +1,4 @@
 import json
-import os
 import shutil
 import tempfile
 import unittest
@@ -156,11 +155,10 @@ class TaskViewTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             shutil.copytree(PROJECTS / 'work-notes', Path(d) / 'work-notes')
             intake = Path(d) / 'work-notes/docs/agent/261022-weekly-report/intake.md'
-            os.chmod(intake, 0)
-            try:
-                t = task('work-notes', '261022-weekly-report', Path(d))
-            finally:
-                os.chmod(intake, 0o644)
+            # a folder in its place cannot be read by any user; `chmod 0` would still be readable as root
+            intake.unlink()
+            intake.mkdir()
+            t = task('work-notes', '261022-weekly-report', Path(d))
             self.assertEqual(set(t), {'id', 'key', 'project', 'folder', 'error'})
 
 

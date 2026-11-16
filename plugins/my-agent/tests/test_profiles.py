@@ -121,7 +121,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('Let the Router pick (Recommended)', flags)
         self.assertIn('`Let the Router pick (Recommended)` / `Abort`', flags)
         self.assertIn('`Type the request in Other (Recommended)` / `Abort`', flags)
-        intake = new_task[new_task.index('## Intake'):new_task.index('## Task worktree')]
+        intake = new_task[new_task.index('## Intake'):]
         self.assertIn('`Proceed as general (Recommended)` / `Abort`', intake)
         self.assertIn('the flag is ignored', intake)
         self.assertIn('keeps `--dev` as its first word', intake)

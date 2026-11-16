@@ -1,6 +1,6 @@
-# Changes: in-flight revision · abort
+# Changes: in-flight revision · abort · task worktree
 
-L1 reads this file on a change request, a profile change at the first gate, or `Abort` (SKILL.md "Procedure files").
+L1 reads this file on a change request, a profile change at the first gate, `Abort`, or `New task in a worktree` (Intake item 1) (SKILL.md "Procedure files").
 
 ## In-flight revision (before G3 acceptance)
 
@@ -42,3 +42,13 @@ When `Abort` was picked in a popup, or Intake decided to abort the previous task
 5. Popup: `Leave as is (Recommended)` / `Clean up worktrees`. Do not revert changes in the main tree.
 
 - To do an aborted task again, create a new task and write `Follows:`.
+
+## Task worktree
+
+When the person picks `New task in a worktree` (Intake item 1):
+
+1. Compute the task ID first (Intake item 4's date and slug).
+2. Make sure `.claude/worktrees/` is excluded (the `git check-ignore` / `info/exclude` step of `build.md` step 5 item 2).
+3. Run `git worktree add -b my-agent-task/<task-id> <task location>/.claude/worktrees/task-<task-id>` as one command (absolute path).
+4. Tell the person to open a new session in that folder and send the request again.
+5. Create nothing else: no `.active`, task folder or run-log line, so the two-question popup (`qn=1`/`qn=2`) is not recorded here.

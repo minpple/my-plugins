@@ -525,7 +525,7 @@ class SkillMdTest(unittest.TestCase):
         return text[i:] if end is None else text[i:text.index(end, i + 1)]
 
     def intake(self):
-        return self.section('## Intake', '## Task worktree', self.new_task)
+        return self.section('## Intake', None, self.new_task)
 
     def intake_item(self, n):
         i = self.new_task.index(f'\n{n}. **') + 1
@@ -533,7 +533,7 @@ class SkillMdTest(unittest.TestCase):
 
     # --- codex review fixes (task 261104-codex-review-fixes, u6) ---
     def test_intake_items_in_order(self):
-        section = self.section('## Intake (step 1, Router)', '\n## Task worktree', self.new_task)
+        section = self.section('## Intake (step 1, Router)', None, self.new_task)
         self.assertEqual(re.findall(r'^(\d+)\. \*\*', section, re.M), [str(n) for n in range(1, 12)])
         self.assertIsNone(re.search(r'\.\d+\. \*\*', section))
 
@@ -600,9 +600,13 @@ class SkillMdTest(unittest.TestCase):
     def test_intake_worktree_and_gitignore_rules(self):
         self.assertIn('`New task in a worktree`', self.intake_item(1))
         self.assertIn('git check-ignore', self.intake_item(5))
-        section = self.section('## Task worktree', None, self.new_task)
+        self.assertIn('("Task worktree" in `changes.md`)', self.intake_item(1))
+        self.assertNotIn('## Task worktree', self.new_task)   # moved to changes.md on 2026-11-16
+        section = self.section('## Task worktree', None, self.changes)
         for word in ('my-agent-task/', 'git worktree add', 'task ID'):
             self.assertIn(word, section, word)
+        self.assertIn('`New task in a worktree` (Intake item 1)', self.changes.split('\n## ')[0])
+        self.assertLessEqual(len(self.new_task), 10500)
         self.assertIn('my-agent-task/', self.section('## continue', None, self.resume))
         self.assertIn('baseline', self.intake_item(10))
 
@@ -739,7 +743,7 @@ class SkillMdTest(unittest.TestCase):
     def test_intake_models_preset(self):
         """Criterion 3: Intake item 3 asks the preset only with 2 or more presets; item 7 and 10 carry it."""
         self.assertIn('"Models preset" below item 11', self.intake_item(3))
-        item = self.section('**Models preset (item 3)**', '## Task worktree', self.new_task)
+        item = self.section('**Models preset (item 3)**', None, self.new_task)
         for word in ('Models preset', 'agent-models.py" presets --profile', '2 or more presets', '`standard` is used',
                      'Use definition values (Recommended)', 'Abort', '(Recommended)', 'item 10'):
             self.assertIn(word, item, word)
