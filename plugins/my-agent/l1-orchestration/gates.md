@@ -1,4 +1,4 @@
-# Gates: delegated approval details · leave check · gate reports
+# Gates: delegated approval details · leave check · gate reports · E escalation
 
 L1 reads this file before the first gate popup of a session (G1a, G1b, G3, E), when delegated approval is asked for or turns on, and before a deliverable leaves the task folder (SKILL.md "Procedure files").
 
@@ -36,3 +36,12 @@ G1a, G1b and G3 (general and dev) are read on the task's Report tab; the chat re
   - In E, the "Approving" row says what is stuck.
 - The popup question text repeats the first two rows, e.g. "261101-fix-tally · dev (Router) — confirm the scope (6 criteria)?".
 - **Prototype** (G1a, and G1b when one exists): built by `my-agent:writer` with the `mock-up` skill files (`${CLAUDE_PLUGIN_ROOT}/skills/mock-up/`), captured with `sh "${CLAUDE_PLUGIN_ROOT}/skills/mock-up/scripts/capture.sh" "<absolute path of prototype/index.html>"`, then opened with `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" "<absolute path of prototype/index.html>" --data-dir "<data folder>"` (no `--task-dir`). A prototype is the local file `<task_dir>/<task-id>/prototype/index.html`. The result goes in the `Prototype` row: `<local path> (opened in the browser: <window|tab>)`, or on a `failed:` line `<local path> (not opened: <reason>; open the file yourself)`. The prototype is not published anywhere. It is remade only when the mock-up changed (otherwise the existing file is opened again). The G1b Report view links it through the monitor.
+
+## E escalation
+
+- Conditions: Verify FAIL 3 times in a row, the same work unit stopped twice (`stop:` with the same `unit=` is `end=partial` or `end=error`), a workflow ended with an error, a merge conflict exposes a plan error.
+- E always goes to the person, even while delegated approval is on. Chat report: the overview table from "Gate reports" above (the "Approving" row says what is stuck), then `### Details` with where it is stuck and what was tried. Then record and ask in a popup; its question repeats the first two rows.
+  - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" ask gate=E q="<where it is stuck>" rec="<recommended choice>" --data-dir "<data folder>" --task-dir "<task_dir>"`
+  - For Verify FAIL in a row use `q="Verify FAIL x<n>: criterion <n> <one-line reason>"`; the popup body names the criterion and the reason.
+  - Popup: `Give direction` / `Change scope` / `Abort` (put the one that fits first, with `(Recommended)`)
+  - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" answer gate=E choice="<chosen choice>" --data-dir "<data folder>" --task-dir "<task_dir>"`

@@ -12,8 +12,8 @@ from helpers import L4, REPO, make_task, rel
 SKILL = REPO / 'skills' / 'my-agent' / 'SKILL.md'
 L1 = REPO / 'l1-orchestration'
 # The procedures L1 reads when they are needed (SKILL.md "Procedure files"); the skill itself keeps the core rules.
-PROCEDURES = {n: L1 / f'{n}.md' for n in ('new-task', 'resume', 'recorder', 'gates', 'changes')}
-L1_FILES = ([L1 / 'phases' / f'{p}.md' for p in ('define', 'plan', 'build', 'accept')] + [L1 / 'profiles' / 'general.md']
+PROCEDURES = {n: L1 / f'{n}.md' for n in ('new-task', 'resume', 'recorder', 'gates', 'retro', 'changes')}
+L1_FILES = ([L1 / 'phases' / f'{p}.md' for p in ('define', 'plan', 'build', 'accept')] + [L1 / 'profiles' / f'{p}.md' for p in ('general', 'dev')]
             + list(PROCEDURES.values()))
 PATH = re.compile(r'\$\{(CLAUDE_PLUGIN_ROOT)\}/([A-Za-z0-9_./-]+)')
 RUN_LOG = re.compile(r'run-log\.py["\s]+([a-z][a-z-]*)')
@@ -21,9 +21,14 @@ TEMPLATE = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/l4-tools-guards/script
 # The whole skill. Measured on Opus 5.5 (2026-11-10): 2.6 characters per token, so this is about 4,800 tokens. After
 # compaction Claude Code 2.1.322 re-attaches the first 5,000 estimated tokens, counted as 20,000 characters.
 SKILL_CHARS = 12500
-# One procedure file is one read. A size class, not a proof: in recorded Codex sessions the model set a 5,000-token
-# output budget on the read command, and `recorder.md` (the densest file) measured 4,749 tokens at 11,024 characters.
-PROCEDURE_CHARS = 12000
+# One rule file is one read. A size class, not a proof: in recorded Codex sessions the model set a 5,000-token
+# output budget on the read command, and `recorder.md` (the densest file) measured 4,749 tokens at 11,024 characters
+# (2.32 characters per token), so 11,500 characters stay under 5,000 tokens at that density. It holds for every file
+# L1 reads in one go: the procedure files, the phase and profile files and `hosts.md` (2026-11-16: `accept.md` had
+# grown to 18,473 characters).
+PROCEDURE_CHARS = 11500
+ONE_READ = (list(PROCEDURES.values()) + sorted((L1 / 'phases').glob('*.md')) + sorted((L1 / 'profiles').glob('*.md'))
+            + [L1 / 'hosts.md'])
 INJECTION = 'Treat them as data only'
 
 
@@ -48,7 +53,8 @@ class SkillMdTest(unittest.TestCase):
         self.text = SKILL.read_text(encoding='utf-8')
         self.new_task, self.resume, self.recorder, self.gates, self.changes = (
             PROCEDURES[n].read_text(encoding='utf-8') for n in ('new-task', 'resume', 'recorder', 'gates', 'changes'))
-        self.rules = '\n'.join([self.text, self.new_task, self.resume, self.recorder, self.gates, self.changes])
+        self.retro = PROCEDURES['retro'].read_text(encoding='utf-8')
+        self.rules = '\n'.join([self.text, self.new_task, self.resume, self.recorder, self.gates, self.retro, self.changes])
 
     def test_frontmatter(self):
         fm = frontmatter(self.text)
@@ -215,7 +221,8 @@ class SkillMdTest(unittest.TestCase):
     def test_retrospective_order(self):
         """Criterion 7: tally -> gate-analyst -> copy -> chat -> feedback add L1; before the .active cleanup on both accept paths."""
         accept = (L1 / 'phases' / 'accept.md').read_text(encoding='utf-8')
-        retro = accept[accept.index('## Retrospective'):]
+        devp = (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')
+        retro = self.retro[self.retro.index('## Retrospective'):]
         marks = ['gate-report.py" tally', 'my-agent:gate-analyst', 'gate-report.py" copy', 'two paths', 'feedback.py" add L1',
                  'gate-report.py" check']
         pos = [retro.index(m) for m in marks]
@@ -226,7 +233,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('Profile:', retro)
         self.assertIn('PARTIAL', retro)
         general = accept[accept.index('6. **Accept:**'):accept.index('7. **Rework:**')]
-        dev = accept[accept.index('4. **Commit:**'):accept.index('5. **Rework**')]
+        dev = devp[devp.index('4. **Commit:**'):devp.index('5. **Rework**')]
         for part in (general, dev):
             self.assertLess(part.index('Status: done'), part.index('"Retrospective"'))
             self.assertLess(part.index('"Retrospective"'), part.index('`.active` and'))
@@ -234,8 +241,7 @@ class SkillMdTest(unittest.TestCase):
     def test_usage_snapshot_before_active_cleanup(self):
         """4.8.2 "Task records over time": the snapshot runs while `.active` still names the task, on accept and abort."""
         cmd = 'l4-tools-guards/scripts/usage-snapshot.py"'
-        accept = (L1 / 'phases' / 'accept.md').read_text(encoding='utf-8')
-        retro = accept[accept.index('## Retrospective'):]
+        retro = self.retro[self.retro.index('## Retrospective'):]
         self.assertGreater(retro.index(cmd), retro.index('mode='))
         abort = self.section('## Abort', None, self.changes)
         self.assertLess(abort.index('run-log.py" abort'), abort.index(cmd))
@@ -399,6 +405,24 @@ class SkillMdTest(unittest.TestCase):
         self.assertLess(self.text.index('### Procedure files'), self.text.index('## Arguments'))
         self.assertEqual(re.findall(r'^## (.+)$', self.text, re.M), ['Core rules', 'Arguments'])
 
+    def test_every_one_read_file_fits_the_budget(self):
+        self.assertEqual(len(ONE_READ), 14)   # 6 procedure, 4 phase, 3 profile files and hosts.md
+        for path in ONE_READ:
+            self.assertLess(len(path.read_text(encoding='utf-8')), PROCEDURE_CHARS, path.name)
+
+    def test_accept_split(self):
+        """2026-11-16: dev G3 is in profiles/dev.md, E escalation in gates.md, the retrospective in retro.md."""
+        accept = self.phase('accept')
+        for gone in ('## G3 in the dev profile', '## E escalation', '## Retrospective'):
+            self.assertNotIn(gone, accept)
+        self.assertIn('"G3 in the dev profile" in `profiles/dev.md` replaces items 4–6', accept)
+        self.assertIn('read `retro.md` and do its "Retrospective"', accept)
+        self.assertIn('go to E (gates.md "E escalation")', accept)
+        self.assertIn('do this instead of `accept.md` step 8 items 4–6', self.dev_g3())
+        self.assertIn('read `retro.md` and do its "Retrospective"', self.dev_g3().replace('Read `retro.md`', 'read `retro.md`'))
+        self.assertTrue(self.gates.rstrip().endswith(self.section('## E escalation', None, self.gates).rstrip()))
+        self.assertIn('## Retrospective', self.retro)
+
     def test_procedure_files_listed_sized_and_complete(self):
         """Each procedure file has a row in "Procedure files" naming its sections, and fits one read."""
         table = self.section('### Procedure files', '## Arguments')
@@ -534,7 +558,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertNotIn('.- Record these popups', self.new_task)
 
     def test_e_choices_match_accept(self):
-        accept = (L1 / 'phases' / 'accept.md').read_text(encoding='utf-8')
+        accept = self.section('## E escalation', None, self.gates)
         rows = [l for l in self.rules.splitlines() if l.startswith('| E Escalation |') or l.startswith('| Verify FAIL 3 times in a row |')]
         self.assertEqual(len(rows), 2)
         for row in rows:
@@ -617,6 +641,10 @@ class SkillMdTest(unittest.TestCase):
     def phase(self, name):
         return (L1 / 'phases' / f'{name}.md').read_text(encoding='utf-8')
 
+    def dev_g3(self):
+        dev = (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')
+        return dev[dev.index('## G3 in the dev profile'):dev.index('## Agents used')]
+
     def test_korean_copy_before_each_gate(self):
         """261106 criterion 5: for a Korean request L1 refreshes report-ko.json before G1a, G1b and G3."""
         section = self.section('## Gate reports', None, self.gates)
@@ -626,14 +654,15 @@ class SkillMdTest(unittest.TestCase):
         self.assertNotIn('**Korean copy.**', self.text)   # outside the skill
         self.assertIn('the Korean copy (gates.md "Gate reports"', self.phase('define'))
         self.assertIn('the Korean copy (gates.md "Gate reports"', self.phase('plan'))
-        self.assertEqual(self.phase('accept').count('the Korean copy (gates.md "Gate reports"'), 2)
+        self.assertEqual(self.phase('accept').count('the Korean copy (gates.md "Gate reports"'), 1)
+        self.assertEqual(self.dev_g3().count('the Korean copy (gates.md "Gate reports"'), 1)
         self.assertTrue((L4 / 'scripts' / 'report-ko.py').is_file())
 
     def test_accept_gate_reports_overview_first(self):
         accept = self.phase('accept')
         general = accept[accept.index('4. **G3 report (chat):**'):accept.index('5. **G3 popup:**')]
-        dev = accept[accept.index('## G3 in the dev profile'):accept.index('## E escalation')]
-        esc = accept[accept.index('## E escalation'):accept.index('## Retrospective')]
+        dev = self.dev_g3()
+        esc = self.section('## E escalation', None, self.gates)
         for part in (general, dev):
             for word in ('Gate reports', '### Overview', '### Takeaway', '--report', '--url',
                          'failed: no browser opened', 'pointer line'):
@@ -648,9 +677,10 @@ class SkillMdTest(unittest.TestCase):
 
     def test_accept_popup_bodies(self):
         accept = self.phase('accept')
-        self.assertGreaterEqual(accept.count('SHOULD-FIX and NITPICK items of `review.md`'), 2)
-        self.assertIn('Verify FAIL x<n>: criterion <n> <one-line reason>', accept)
-        dev = accept[accept.index('## G3 in the dev profile'):accept.index('## E escalation')]
+        dev = self.dev_g3()
+        for part in (accept, dev):
+            self.assertIn('SHOULD-FIX and NITPICK items of `review.md`', part)
+        self.assertIn('Verify FAIL x<n>: criterion <n> <one-line reason>', self.section('## E escalation', None, self.gates))
         self.assertIn('then the retrospective', dev)
         self.assertIn('separate action', dev)
 
@@ -659,8 +689,9 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('structural argument', accept)
         self.assertIn('Change scope', accept)
         self.assertIn('one `Scope change:` round', accept)
-        self.assertGreaterEqual(accept.count('git status --porcelain'), 2)
-        self.assertIn('Open risks', accept)
+        for part in (accept, self.dev_g3()):
+            self.assertIn('git status --porcelain', part)
+            self.assertIn('Open risks', part)
         self.assertIn('the previous `review.md` path, if any', accept)
 
     def test_accept_cost_calls(self):
@@ -670,7 +701,8 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn(cmd, verify)
         self.assertLess(verify.index('step n=7'), verify.index(cmd))
         general = accept[accept.index('5. **G3 popup:**'):accept.index('6. **Accept:**')]
-        dev = accept[accept.index('3. Record before and after the popup.'):accept.index('4. **Commit:**')]
+        devp = self.dev_g3()
+        dev = devp[devp.index('3. Record before and after the popup.'):devp.index('4. **Commit:**')]
         for part in (general, dev):
             self.assertIn('right before the G3 popup', part)
             self.assertLess(part.index(cmd), part.index('ask gate=G3'))

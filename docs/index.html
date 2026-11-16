@@ -770,10 +770,10 @@ claude plugin install my-agent@my-plugins</pre>
       src: 'plugins/my-agent/l1-orchestration/phases/accept.md' },
     { n: 'G3', title: 'G3 Final acceptance', gate: true,
       text: `L1 shows the result summary, the failure list, the deliverable, and the exact path it will be saved to, and the person answers in a popup (accept / rework / stop). This popup always goes to the person, even when delegated approval is on. After acceptance, workers cannot write outside the task folder, so L1 copies the final version to its destination.`,
-      src: 'plugins/my-agent/l1-orchestration/phases/accept.md' },
+      src: 'plugins/my-agent/l1-orchestration/phases/accept.md, plugins/my-agent/l1-orchestration/profiles/dev.md' },
     { n: 'Retro', title: 'Retrospective', gate: false,
       text: `After acceptance, the gate-analyst reads the gate decision tally and writes a report with trends and improvement suggestions.`,
-      src: 'plugins/my-agent/l1-orchestration/phases/accept.md' }
+      src: 'plugins/my-agent/l1-orchestration/retro.md' }
   ];
   var cur = 0;
   var track = document.getElementById('track');
@@ -887,7 +887,7 @@ claude plugin install my-agent@my-plugins</pre>
        ['The conditions are: 3 verification FAILs in a row, the same work unit stopping twice, a workflow ending in error, and a merge conflict that reveals a plan error.',
         'E always goes to the person, even when delegated approval is on. L1 shows in the chat where it got stuck and what it tried, then asks by popup (give direction / change scope / stop).',
         'If a worker stops once, it is retried on opus with the same input and the stop report.'],
-       'plugins/my-agent/l1-orchestration/phases/accept.md, plugins/my-agent/skills/my-agent/SKILL.md'],
+       'plugins/my-agent/l1-orchestration/gates.md, plugins/my-agent/skills/my-agent/SKILL.md'],
       ['If the request changes mid-task, the kind of change is asked first.',
        'A change request after G1b approval is not fixed right away; its kind is settled by popup.',
        ['The choices are "modify this task" / "adjust within the approved scope" / "split into a new task" / "cancel".',
@@ -970,14 +970,14 @@ claude plugin install my-agent@my-plugins</pre>
         'The L2 gate-analyst interprets and writes <code>gate-report.md</code>. The gate-analyst can read only <code>gate-tally.md</code> and <code>gate-report.md</code>, not the run-log or other files.',
         'L1 does not write the report itself; it only copies it to the report folder in the data folder, and shows only the two paths and a 3-line summary in the chat. A secret scan runs before copying.',
         'The retrospective runs after <code>Status: done</code> is written, so G3 is not repeated even if it is cut off midway. An aborted task has no retrospective.'],
-       'plugins/my-agent/l4-tools-guards/scripts/gate-report.py · plugins/my-agent/l1-orchestration/phases/accept.md · plugins/my-agent/l4-tools-guards/hooks/scope-guard.py · plugins/my-agent/docs/build-guide/my-agent-architecture.md'],
+       'plugins/my-agent/l4-tools-guards/scripts/gate-report.py · plugins/my-agent/l1-orchestration/retro.md · plugins/my-agent/l4-tools-guards/hooks/scope-guard.py · plugins/my-agent/docs/build-guide/my-agent-architecture.md'],
       ['A feedback list by level.',
        'Improvements from the retrospective pile up in the data folder\'s <code>feedback.md</code>, marked with their L1 to L4 level.',
        ['Entries go one line each into two sections, open and done, and when one is completed, what fixed it is written with it.',
         'If a level has 4 or more open improvements, L1 tells the person in one line. <code>status</code> also shows the open count per level.',
         'A suggestion that the gate-analyst marked <code>clear</code> is raised by L1 automatically as an L1 entry, and the other improvements from this task are raised too, with a level attached.',
         'The retrospective also raises a missing subagent call as an L4 improvement, and notes in the retrospective any subagent that ended in a permission mode other than auto.'],
-       'plugins/my-agent/l4-tools-guards/scripts/feedback.py · plugins/my-agent/l1-orchestration/phases/accept.md · plugins/my-agent/skills/my-agent/SKILL.md'],
+       'plugins/my-agent/l4-tools-guards/scripts/feedback.py · plugins/my-agent/l1-orchestration/retro.md · plugins/my-agent/skills/my-agent/SKILL.md'],
       ['Session resume notice.',
        'In a session that is newly opened, resumed, cleared, compacted, or forked, if there is an unfinished task, it says to continue that first.',
        ['The notice names the task in progress and its phase, and tells the person to run <code>/my-agent continue</code> first. If the plan has no approval line, it also includes a sentence saying not to delegate or write. A forked session gets a different notice: "the original session is working on this task; to take it over in this session, run continue".',

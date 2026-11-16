@@ -4,7 +4,7 @@ L1 reads this file before the first run-log command or delegation of a session: 
 
 ## Recorder rules
 
-The run-log is `run-log.md` in the task folder, and only `run-log.py` writes its lines. Do not edit it directly. The script adds the time. Hooks record subagent `call:`/`start:`/`stop:` and G2 `ask:`/`answer:` automatically, so L1 does not write them; an inline role's run is L1's `inline` line. Values (`q=`, `choice=`, `why=`, etc.) follow "Tool choice": the shell runs backticks and `$(`, and before approval the G1b hook asks (the G2 dialog) for such commands. Even after approval, for a `git … commit` command with `$(` or backticks the verdict hook cannot tell whether it is a commit, so it asks (the G2 dialog) before Verify·Review. Get values by running a command separately (e.g. run `git rev-parse HEAD` first). If you need the time, run `date` first and write the value. For `--model`, use the exact model ID of the current session given in the system prompt.
+The run-log is `run-log.md` in the task folder; only `run-log.py` writes its lines (it adds the time), never a direct edit. Hooks record subagent `call:`/`start:`/`stop:` and G2 `ask:`/`answer:` automatically, so L1 does not write them; an inline role's run is L1's `inline` line. Values (`q=`, `choice=`, `why=`, etc.) follow "Tool choice": the shell runs backticks and `$(`, and before approval the G1b hook asks (the G2 dialog) for such commands. Even after approval, for a `git … commit` command with `$(` or backticks the verdict hook cannot tell whether it is a commit, so it asks (the G2 dialog) before Verify·Review. Get values by running a command separately (e.g. run `git rev-parse HEAD` first; `date` for the time). For `--model`, use the exact model ID of the current session given in the system prompt.
 
 | When | Command |
 |---|---|
@@ -35,11 +35,11 @@ Step names: 1 `Intake`, 2 `Explore-Scope`, 3 `Plan`, 4 `Plan-Review`, 5 `Execute
 Read the lines the command prints:
 
 - `MISMATCH: …` — the configured model differs from the actual model. Tell the person in one line and continue.
-  - If `MISMATCH: main session …`, L1 is not opus (the skill's `model:` applies only to the first turn). Say in one line: "The main session is <model>. By design L1 is opus, so switch with `/model opus`. Next time, open the session with `claude --model opus`." Continue even if it is not switched. Do not say it again in the same task (the script also prints it only once).
+  - If `MISMATCH: main session …`, L1 is not opus (the skill's `model:` applies only to the first turn). Say in one line: "The main session is <model>. By design L1 is opus, so switch with `/model opus`. Next time, open the session with `claude --model opus`." Continue even if it is not switched; do not say it again in the same task (the script prints it only once).
 - `PARTIAL: <agent> <id> unit=<u…> …` — that worker ended without a final answer (maxTurns, `end=partial`; not the same as the first line `PARTIAL <reason>` a worker writes itself). Handle it as "worker stopped once" (Failure handling below).
 - `run-log: no active my-agent task …` — `.active` is missing or was not found. Fix `.active` first.
 
-**Cost (for reference):** the script reads `cost_usd` from `~/.cache/claude-sessions/statusline/<session ID>.json` and writes the `cost` line itself (`reset=1` if the value fell); L1 never types a cost. If the file is missing it prints `run-log: no cost line (…)`, writes nothing, and L1 continues. In the G3 report, write it only as "about $N (reference, estimated at list price)", and use it for no decision.
+**Cost (for reference):** the script reads `cost_usd` from `~/.cache/claude-sessions/statusline/<session ID>.json` and writes the `cost` line itself (`reset=1` if the value fell); L1 never types a cost. Without the file it prints `run-log: no cost line (…)`, writes nothing, and L1 continues. In the G3 report, write it only as "about $N (reference, estimated at list price)", and use it for no decision.
 
 ## Revision records and archive
 

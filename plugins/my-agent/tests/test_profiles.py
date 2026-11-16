@@ -60,14 +60,12 @@ class ProfilesTest(unittest.TestCase):
                      'Commit (Recommended)', 'Rework', 'completion criterion number', '## Decisions', 'git apply'):
             self.assertIn(word, text, word)
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
-        accept = (REPO / 'l1-orchestration' / 'phases' / 'accept.md').read_text(encoding='utf-8')
         self.assertIn('User cleans up first (Recommended)', build)
-        self.assertIn('Commit (Recommended)', accept)
-        self.assertIn('deliver path=commit:', accept)
+        self.assertIn('Popup: `Commit (Recommended)` / `Rework` / `Abort`', text)
+        self.assertIn('deliver path=commit:', text)
 
     def test_retrospective_files_judge_miss_item(self):
-        accept = (REPO / 'l1-orchestration' / 'phases' / 'accept.md').read_text(encoding='utf-8')
-        retro = accept.split('## Retrospective', 1)[1]
+        retro = (REPO / 'l1-orchestration' / 'retro.md').read_text(encoding='utf-8').split('## Retrospective', 1)[1]
         for text in ('Judge misses', 'add L2', 'not named'):
             self.assertIn(text, retro)
 
@@ -179,8 +177,9 @@ class ProfilesTest(unittest.TestCase):
         verify = accept[accept.index('## 7. Verify'):accept.index('## Back to Execute')]
         self.assertIn('Scope change: criterion <n> checked by the person', verify)
         self.assertIn('checked by the user later', verify)
-        review = accept[accept.index('## 8. Review'):accept.index('## G3 in the dev profile')]
-        dev = accept[accept.index('## G3 in the dev profile'):accept.index('## E escalation')]
+        review = accept[accept.index('## 8. Review'):]
+        devp = (REPO / 'l1-orchestration' / 'profiles' / 'dev.md').read_text(encoding='utf-8')
+        dev = devp[devp.index('## G3 in the dev profile'):devp.index('## Agents used')]
         for sec in (review, dev):
             self.assertIn('checked by the user later', sec)
 
@@ -320,7 +319,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('(on a rerun, a carried criterion is `- <n>. PASS (carried from Run <m>) <evidence>`, read as PASS)', verify)   # item 4 names the carried form
         back = accept.split('## Back to Execute')[1].split('\n## ')[0]
         self.assertIn('`changed-files.md`', back)
-        review = accept[accept.index('## 8. Review'):accept.index('## G3 in the dev profile')]
+        review = accept[accept.index('## 8. Review'):]
         self.assertIn('the `verify.md` and `changed-files.md` paths', review)
         self.assertIn('instead of running the suites again', review)
         self.assertIn('the list of files L1 fixed', review)

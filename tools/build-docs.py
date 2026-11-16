@@ -82,9 +82,9 @@ STEP_RULES = {
     '6': [('l1-orchestration/phases/build.md', '6. Merge')],
     '7': [('l1-orchestration/phases/accept.md', '7. Verify'), ('l1-orchestration/phases/accept.md', 'Back to Execute')],
     '8': [('l1-orchestration/phases/accept.md', '8. Review → Deliver'),
-          ('l1-orchestration/phases/accept.md', 'G3 in the dev profile'),
-          ('l1-orchestration/phases/accept.md', 'E escalation')],
-    'R': [('l1-orchestration/phases/accept.md', 'Retrospective')],
+          ('l1-orchestration/profiles/dev.md', 'G3 in the dev profile'),
+          ('l1-orchestration/gates.md', 'E escalation')],
+    'R': [('l1-orchestration/retro.md', 'Retrospective')],
 }
 
 # Where each L1 component's rules are written (besides the steps it leads in the 4.3 table).
