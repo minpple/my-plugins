@@ -916,7 +916,7 @@ claude plugin install my-agent@my-plugins</pre>
        'plugins/my-agent/l4-tools-guards/hooks/verdict-fresh-check.py · plugins/my-agent/l4-tools-guards/hooks/hooks.json · plugins/my-agent/l1-orchestration/phases/accept.md'],
       ['에이전트마다 읽기·쓰기 범위를 hook이 제한합니다 (scope-guard).',
        '모든 도구 호출에서 <code>my-agent:</code> 에이전트의 읽기·쓰기 경로를 역할별로 검사하고, 범위 밖이면 거부합니다.',
-       ['L2 에이전트는 작업 위치를 읽고 자기 결과 파일 하나만 씁니다. L3 에이전트는 작업 위치를 읽되 쓰지 않는 것이 기본값이고, 역할이 이를 넓히거나 좁힙니다. gate-analyst를 뺀 모든 에이전트는 데이터 폴더, 플러그인 폴더, 세션 스크래치패드, 계획서의 참고 파일도 읽습니다. researcher와 writer는 작업 위치 전체를 읽고 <code>work/</code>에 씁니다(writer는 <code>prototype/</code>과 계획서의 참고 파일도 해당). coder는 작업 위치나 자기 worktree에 쓰지만 작업 폴더(기본값 <code>.my-agent/</code>, 설정 <code>task_dir</code>), <code>.git/</code>, <code>.claude/</code>는 쓰지 못합니다. gate-analyst는 <code>gate-tally.md</code>와 <code>gate-report.md</code>만 읽습니다.',
+       ['L2 에이전트는 작업 위치를 읽고 자기 결과 파일 하나만 씁니다. L3 에이전트는 작업 위치를 읽되 쓰지 않는 것이 기본값이고, 역할이 이를 넓히거나 좁힙니다. gate-analyst를 뺀 모든 에이전트는 데이터 폴더, 플러그인 폴더, 세션 스크래치패드, 계획서의 참고 파일도 읽습니다. researcher와 writer는 작업 위치 전체를 읽고 <code>work/</code>에 씁니다(writer는 <code>prototype/</code>, 계획서의 참고 파일, 프로젝트 blueprint인 <code>docs/blueprint/</code>도 해당). coder는 작업 위치나 자기 worktree에 쓰지만 작업 폴더(기본값 <code>.my-agent/</code>, 설정 <code>task_dir</code>), <code>.git/</code>, <code>.claude/</code>는 쓰지 못합니다. gate-analyst는 <code>gate-tally.md</code>와 <code>gate-report.md</code>만 읽습니다.',
         '웹은 verifier와 researcher만 씁니다. verifier의 curl·wget은 데이터를 보내는 옵션이면 거부됩니다(가져오기만 허용). 어떤 명령이 무엇을 읽거나 쓰는지 판단할 수 없으면 거부하고, 오류가 나도 호출이 막힙니다.',
         'architect는 L1이 쓰는 <code>Approved</code> 줄과 <code>Prototype: requested</code> 줄을 <code>plan.md</code>에 넣을 수 없고, <code>## Revisions</code> 줄도 지우거나 바꿀 수 없습니다.'],
        'plugins/my-agent/l4-tools-guards/hooks/scope-guard.py · plugins/my-agent/l4-tools-guards/hooks/hooks.json'],
@@ -985,6 +985,15 @@ claude plugin install my-agent@my-plugins</pre>
         '이 알림은 안내일 뿐 강제가 아닙니다. 따르지 않으면 막는 장치는 없다고 설계 문서에 남은 위험으로 적혀 있습니다.',
         '<code>continue</code>는 이어받기 전에 세션 확인, 규칙 변경 확인, 위임 중이던 작업 단위의 상태 정리를 하고 <code>resume</code> 기록을 남깁니다.'],
        'plugins/my-agent/l4-tools-guards/hooks/session-notice.py · plugins/my-agent/l4-tools-guards/hooks/hooks.json · plugins/my-agent/docs/build-guide/my-agent-architecture.md · plugins/my-agent/skills/my-agent/SKILL.md']
+ ,
+      ['프로젝트 blueprint가 작업의 결과를 다음 작업으로 넘깁니다.',
+       '<code>docs/blueprint/</code>의 커밋되는 파일 세 개가 프로젝트의 현재 상태를 담습니다. 모든 작업이 시작할 때 읽고, 최종 인수 뒤에 갱신합니다.',
+       ['<code>features.md</code>에는 지금 있는 기능과 완료 기준, 그 기준을 확인하는 방법이 있습니다. <code>decisions.md</code>에는 이후 작업이 지켜야 하는 제약, 비목표, 결정이 있습니다. <code>backlog.md</code>에는 아직 남은 일이 있습니다: G3에서 남겨둔 리뷰 지적, 사람이 나중에 확인하기로 한 기준, 후속 작업.',
+        '이 파일들은 이력이 아니라 현재 상태입니다. 작업은 자기가 바꾼 항목을 고쳐 쓰고, 이전 내용은 git에 남습니다. 작업 기록(기본값 <code>.my-agent/</code>)은 그대로 작업마다 따로 있고 커밋되지 않습니다.',
+        '작업을 시작할 때 explorer가 요청과 관련된 항목을 보고합니다. 요청이 기록된 제약, 비목표, 결정과 어긋나면 팝업으로 묻고, 그것을 어기는 계획은 계획 리뷰가 막습니다.',
+        'G3 뒤에 writer가 판정이 끝난 작업 파일을 근거로 세 파일을 갱신하고, 스크립트가 형식을 검사합니다. dev 프로필에서는 작업의 커밋에 함께 들어갑니다. 이 폴더는 writer만 쓸 수 있고 coder는 쓸 수 없습니다.',
+        '세 프로필 모두 같은 방식으로 동작합니다. 프로젝트 밖(데이터 폴더)에서 실행한 작업은 blueprint를 두지 않습니다.'],
+       'plugins/my-agent/l3-workers/blueprint-format.md · plugins/my-agent/l1-orchestration/phases/accept.md · plugins/my-agent/l1-orchestration/phases/define.md · plugins/my-agent/l4-tools-guards/scripts/blueprint.py · plugins/my-agent/docs/build-guide/my-agent-architecture.md']
     ]},
     { name: '프로필', feats: [
       ['프로필 3가지가 같은 단계 뼈대를 일의 종류에 맞게 바꿉니다.',

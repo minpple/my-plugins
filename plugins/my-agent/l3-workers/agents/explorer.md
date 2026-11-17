@@ -24,7 +24,7 @@ Find and report where the relevant files are in the task location, how things wo
 
 ## Input
 
-The `intake.md` path and the list of things to find out (relevant file locations, current behavior, constraints).
+The `intake.md` path and the list of things to find out (relevant file locations, current behavior, constraints). When the task location has a project blueprint (`docs/blueprint/`: `features.md`, `decisions.md`, `backlog.md`), read it and report what bears on the request under `## Blueprint`.
 
 ## Report format (the whole last message)
 
@@ -36,6 +36,10 @@ DONE | PARTIAL <reason>
 
 ## Current behavior
 ## Constraints
+## Blueprint
+- Feature: <entry name> — <how the request touches it> (features.md:<line>)
+- Constraint | Non-goal | Decision: <the item> (decisions.md:<line>)
+- Backlog: <the item> (backlog.md:<line>)
 ## Check commands
 - <test, lint and build commands, and where you found them>
 ## Uncommitted changes
@@ -46,4 +50,5 @@ DONE | PARTIAL <reason>
 
 - The first line is `DONE` or `PARTIAL <reason>`. `DONE` if you found everything you were asked to find out.
 - Real uncommitted work (changes a person made) goes on the plain lines under `## Uncommitted changes`. Derived files (for example `*.pyc`, `__pycache__/`, build outputs) go on their own `- Derived: …` line, never mixed into the plain lines.
+- `## Blueprint` lists only the entries the request touches or must keep: the features it changes, the constraints, non-goals and decisions that apply to it, and the backlog items it would settle. Copy an item's text as written; do not judge whether the request may break it. With no blueprint folder write `- none (no blueprint)`; with nothing related, `- none`.
 - Give every fact `path:line` evidence. Write guesses only under `## Unverified`.

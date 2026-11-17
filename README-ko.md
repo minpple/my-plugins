@@ -6,7 +6,7 @@ minpple의 Claude Code 플러그인 마켓플레이스입니다.
 
 | 플러그인 | 버전 | 설명 |
 |---|---|---|
-| `my-agent` | 0.15.0 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
+| `my-agent` | 0.16.0 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
 | `my-agent-tray` | 0.1.4 | my-agent 모니터용 macOS 메뉴바 앱 (선택; my-agent 0.5.0 이상 필요) |
 
 ## 요구 사항
@@ -82,6 +82,8 @@ python3 ~/dev/my-plugins/plugins/my-agent/l4-tools-guards/scripts/archive-tasks.
 ```
 
 셸에서 직접 실행하면 스크립트는 설정을 알지 못합니다. 데이터 폴더가 기본값 `~/dev/log/my-agent`가 아니면 `--data-dir <폴더>`로 알려 주어야 프로젝트 목록을 찾습니다. `task_dir`을 바꿨다면 `--task-dir <폴더>`도 같이 알려 주세요.
+
+프로젝트의 현재 상태는 프로젝트 blueprint인 `<task location>/docs/blueprint/`에 남습니다: `features.md`(지금 있는 기능과 완료 기준, 그 기준을 확인하는 방법), `decisions.md`(이후 작업이 지켜야 하는 제약, 비목표, 결정), `backlog.md`(아직 남은 일). 세 프로필 모두에서 작업이 시작할 때 이 폴더를 읽고 최종 인수 뒤에 갱신합니다. 작업 기록과 달리 커밋하는 파일입니다: dev 프로필에서는 작업의 커밋에 함께 들어가고, 다른 프로필에서는 바뀐 파일을 직접 커밋하도록 남겨 둡니다. 프로젝트 밖에서 실행한 작업은 blueprint를 두지 않습니다.
 
 ## 업데이트와 제거
 
