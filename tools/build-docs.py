@@ -61,6 +61,7 @@ ARTIFACTS = [
     ('prototype/', ['G1b'], 'my-agent:writer', [('l3-workers/agents/writer.md', 'h', 'Rules per job')]),
     ('work/', ['5', '6'], 'my-agent:researcher · my-agent:writer',
      [('l3-workers/agents/researcher.md', 'h', 'Note format'), ('l3-workers/agents/writer.md', 'h', 'Rules per job')]),
+    ('coder-notes.md', ['5', '6'], 'L1 (from coder final reports)', [(ARCH, 'h', '4.7.6 Coder notes')]),
     ('verify.md', ['7'], 'my-agent:verifier', [('l2-design-judge/agents/verifier.md', 'h', '`verify.md` format')]),
     ('review.md', ['8'], 'my-agent:reviewer', [('l2-design-judge/agents/reviewer.md', 'h', '`review.md` format')]),
     ('deliverable/', ['8'], 'L1', [(ARCH, 'b', 'Storing the deliverable after G3')]),

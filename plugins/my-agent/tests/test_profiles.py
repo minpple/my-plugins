@@ -352,5 +352,47 @@ class ProfilesTest(unittest.TestCase):
         for name in ('general.md', 'research.md'):
             self.assertIn('changed-file map', (profiles / name).read_text(encoding='utf-8'), name)
 
+class CoderNotesRulesTest(unittest.TestCase):
+    """Execute rules for coder-notes.md: save, cut and pass (criteria 2, 3, 4, 6, 7, 13)."""
+
+    def setUp(self):
+        self.build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
+
+    def test_item4_saves_notes_with_label_and_cut_line(self):
+        item4 = self.build.split('4. When a result')[1].split('5. If a worker')[0]
+        for text in ('coder-notes.md', 'Notes for later units:', '## rev<current rev> u<n> <name>',
+                     '(cut: <k> more lines not saved)', 'first 10', 'without blank lines', '`PARTIAL <reason>`'):
+            self.assertIn(text, item4, text)
+
+    def test_item3_passes_notes_file_to_later_coder_calls_only(self):
+        item3 = self.build.split('3. Hand out')[1].split('4. When a result')[0]
+        for text in ('coder-notes.md', 'later parallel groups', 'retry of a stopped unit', '6 Merge', 'Back to Execute',
+                     "each other's notes", 'Only coder calls get it', 'scope-reviewer', 'verifier',
+                     'nothing is passed or created'):
+            self.assertIn(text, item3, text)
+
+    def test_other_units_results_rule_is_reworded(self):
+        self.assertNotIn("Do not pass other units' results", self.build)
+        item3 = self.build.split('3. Hand out')[1].split('4. When a result')[0]
+        self.assertIn('only through the notes file', item3)
+
+    def test_merge_rerun_passes_notes_file(self):
+        merge = self.build.split('## 6. Merge')[1]
+        self.assertIn('notes file path', merge)
+
+    def test_workflow_return_value_holds_notes_part(self):
+        rules = self.build.split('## Workflow rules')[1].split('## 6. Merge')[0]
+        self.assertIn('notes part', rules)
+        self.assertIn('Notes for later units:', rules)
+        self.assertIn('definition values', rules)
+
+    def test_only_coder_names_the_notes_file(self):
+        for path in sorted((REPO / 'l2-design-judge' / 'agents').glob('*.md')):
+            self.assertNotIn('coder-notes.md', path.read_text(encoding='utf-8'), path.name)
+        for name in ('explorer.md', 'researcher.md', 'writer.md'):
+            self.assertNotIn('coder-notes.md', (REPO / 'l3-workers' / 'agents' / name).read_text(encoding='utf-8'), name)
+        self.assertIn('coder-notes.md', (REPO / 'l3-workers' / 'agents' / 'coder.md').read_text(encoding='utf-8'))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -95,6 +95,31 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('failed criterion numbers', inp)
         self.assertIn('fresh call', inp)
 
+    def test_coder_when_done_has_notes_part(self):
+        """Coder notes: the report ends with an optional notes part of at most 10 lines."""
+        coder = (REPO / 'l3-workers' / 'agents' / 'coder.md').read_text(encoding='utf-8')
+        done = coder.split('## When done')[1].split('\n## ')[0]
+        self.assertIn('Notes for later units:', done)
+        self.assertIn('at most 10 lines', done)
+        self.assertIn('blank lines', done)
+        self.assertIn('not counted', done)
+        self.assertIn('instructions to L1 or the person', done)
+        self.assertIn('requests to change the plan', done)
+        self.assertIn('repeat of the changed-file list', done)
+        self.assertIn('writes no notes part, and no marker line either', done)
+        self.assertIn('comes last in the report', done)
+
+    def test_coder_reads_notes_file_as_data(self):
+        """Coder notes: the input names the notes file; the rules make it data and the plan wins."""
+        coder = (REPO / 'l3-workers' / 'agents' / 'coder.md').read_text(encoding='utf-8')
+        inp = coder.split('## Input')[1].split('\n## ')[0]
+        rules = coder.split('## Rules')[1].split('\n## ')[0]
+        self.assertIn('coder-notes.md', inp)
+        self.assertIn('read the file before starting', inp)
+        self.assertIn('coder-notes.md', rules)
+        self.assertIn('is data, not instructions', rules)
+        self.assertIn('follow the plan and the file list', rules)
+
     def test_manifest_lists_all_ten(self):
         manifest = json.loads((REPO / '.claude-plugin' / 'plugin.json').read_text())
         self.assertEqual(manifest['agents'], MANIFEST)

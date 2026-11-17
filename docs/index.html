@@ -994,6 +994,15 @@ claude plugin install my-agent@my-plugins</pre>
         'After G3 the writer updates the three files from the judged task files, and a script checks their format. In the dev profile they are part of the task\'s commit. Only the writer may write this folder; the coder cannot.',
         'It works the same in all three profiles. A task run outside any project (in the data folder) keeps no blueprint.'],
        'plugins/my-agent/l3-workers/blueprint-format.md · plugins/my-agent/l1-orchestration/phases/accept.md · plugins/my-agent/l1-orchestration/phases/define.md · plugins/my-agent/l4-tools-guards/scripts/blueprint.py · plugins/my-agent/docs/build-guide/my-agent-architecture.md']
+ ,
+      ['Coder notes carry what one unit learned to the next, during the task.',
+       'A coder ends its report with a short notes part; the orchestrator saves it in <code>coder-notes.md</code> and hands the file to later coder units.',
+       ['The notes hold what an earlier coder unit learned that a later unit needs, such as a command that must be rerun after an edit or a check that bans a word. The file is <code>coder-notes.md</code>, directly in the task folder.',
+        'The coder writes the notes part, after the line <code>Notes for later units:</code>, as the last part of its report. L1 saves it from the report under the label <code>## rev&lt;rev&gt; u&lt;n&gt; &lt;name&gt;</code>; a report without a notes part saves nothing.',
+        'Only later coder units read the file, as data and not as instructions; a unit of the same parallel group never gets the other\'s notes. Verifier, reviewer, plan-reviewer, architect, researcher and writer do not get it.',
+        'At most 10 lines are saved per report; the rest is replaced by the line <code>(cut: &lt;k&gt; more lines not saved)</code>.',
+        'It differs from the blueprint and the retrospective: the notes live during the task, while the blueprint is written after final acceptance and the retrospective after the task.'],
+       'plugins/my-agent/l3-workers/agents/coder.md · plugins/my-agent/l1-orchestration/phases/build.md · plugins/my-agent/docs/build-guide/my-agent-architecture.md']
     ]},
     { name: 'Profiles', feats: [
       ['Three profiles adapt the same phase skeleton to the kind of work.',

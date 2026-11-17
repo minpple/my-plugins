@@ -137,5 +137,18 @@ class PairedFeaturePages(unittest.TestCase):
         self.assertEqual(len(badge(self.en)), 1)
 
 
+class CoderNotesCard(unittest.TestCase):
+    """Each feature page holds a card for the coder notes file."""
+
+    def test_card_names_notes_file_and_source(self):
+        for name in ('index.html', 'index-ko.html'):
+            page = read(name)
+            self.assertIn('coder-notes.md', page, name)
+            m = re.search(r"\['[^\n]*\n[^\n]*\n\s*\[(?:(?!\n    \]\},).)*?coder-notes\.md.*?"
+                          r"'(plugins/[^'\n]*)'\]", page, re.S)
+            self.assertIsNotNone(m, '%s: no card with coder-notes.md' % name)
+            self.assertIn('plugins/my-agent/l1-orchestration/phases/build.md', m.group(1), name)
+
+
 if __name__ == '__main__':
     unittest.main()

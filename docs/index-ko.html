@@ -994,6 +994,15 @@ claude plugin install my-agent@my-plugins</pre>
         'G3 뒤에 writer가 판정이 끝난 작업 파일을 근거로 세 파일을 갱신하고, 스크립트가 형식을 검사합니다. dev 프로필에서는 작업의 커밋에 함께 들어갑니다. 이 폴더는 writer만 쓸 수 있고 coder는 쓸 수 없습니다.',
         '세 프로필 모두 같은 방식으로 동작합니다. 프로젝트 밖(데이터 폴더)에서 실행한 작업은 blueprint를 두지 않습니다.'],
        'plugins/my-agent/l3-workers/blueprint-format.md · plugins/my-agent/l1-orchestration/phases/accept.md · plugins/my-agent/l1-orchestration/phases/define.md · plugins/my-agent/l4-tools-guards/scripts/blueprint.py · plugins/my-agent/docs/build-guide/my-agent-architecture.md']
+ ,
+      ['coder 노트가 한 작업 단위에서 배운 것을 작업 중에 다음 단위로 넘깁니다.',
+       'coder는 최종 보고 끝에 짧은 노트 부분을 쓰고, 오케스트레이터가 이를 <code>coder-notes.md</code>에 저장해 이후 coder 단위에 넘깁니다.',
+       ['노트에는 앞선 coder 단위가 배운 것 가운데 이후 단위에 필요한 것이 담깁니다. 예를 들어 편집한 뒤 다시 실행해야 하는 명령이나 특정 단어를 막는 검사입니다. 파일은 작업 폴더 바로 아래의 <code>coder-notes.md</code>입니다.',
+        'coder가 <code>Notes for later units:</code> 줄 아래에 노트 부분을 보고의 마지막 부분으로 씁니다. L1이 보고에서 <code>## rev&lt;rev&gt; u&lt;n&gt; &lt;name&gt;</code> 라벨로 저장하고, 노트 부분이 없는 보고는 아무것도 저장하지 않습니다.',
+        '이후 coder 단위만 이 파일을 지시가 아닌 자료로 읽습니다. 같은 병렬 그룹의 단위는 서로의 노트를 받지 않습니다. verifier, reviewer, plan-reviewer, architect, researcher, writer는 받지 않습니다.',
+        '보고 하나에서 최대 10줄까지 저장하고, 나머지는 <code>(cut: &lt;k&gt; more lines not saved)</code> 줄로 대신합니다.',
+        'blueprint, 회고와 다릅니다. 노트는 작업 중에 쓰이고, blueprint는 최종 인수 뒤에, 회고는 작업이 끝난 뒤에 쓰입니다.'],
+       'plugins/my-agent/l3-workers/agents/coder.md · plugins/my-agent/l1-orchestration/phases/build.md · plugins/my-agent/docs/build-guide/my-agent-architecture.md']
     ]},
     { name: '프로필', feats: [
       ['프로필 3가지가 같은 단계 뼈대를 일의 종류에 맞게 바꿉니다.',
