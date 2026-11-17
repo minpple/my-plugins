@@ -713,7 +713,7 @@ claude plugin install my-agent@my-plugins</pre>
      `<p>일을 4개 레벨로 나눕니다.</p>` +
      `<div class="mini-box"><table class="mini"><thead><tr><th>레벨</th><th>누가</th><th>하는 일</th><th>하지 않는 일</th></tr></thead><tbody>` +
      `<tr><td><span class="chip lv1">L1</span></td><td>메인 세션(my-agent 스킬 자신)</td><td>단계를 진행하고, 위임하고, 결과를 합치고, 사람에게 묻고, 기록합니다</td><td>결과물(코드·노트·초안·계획)을 직접 만들지 않습니다. 예외는 판정이 짚은 작은 수정(파일 2개 이하, 약 10줄)과 G1b 전의 작은 <code>plan.md</code> 수정뿐입니다</td></tr>` +
-     `<tr><td><span class="chip lv2">L2</span></td><td>architect · plan-reviewer · verifier · reviewer · gate-analyst</td><td>계획을 세우고, 판정하고, 결정을 해석합니다</td><td>결과물을 바꾸거나 더 아래로 위임하지 않습니다</td></tr>` +
+     `<tr><td><span class="chip lv2">L2</span></td><td>scope-reviewer · architect · plan-reviewer · verifier · reviewer · gate-analyst</td><td>계획을 세우고, 판정하고, 결정을 해석합니다</td><td>결과물을 바꾸거나 더 아래로 위임하지 않습니다</td></tr>` +
      `<tr><td><span class="chip lv3">L3</span></td><td>explorer · researcher · writer · coder</td><td>맡은 작업 단위 하나를 합니다</td><td>범위 밖 파일을 건드리거나 더 아래로 위임하지 않습니다</td></tr>` +
      `<tr><td><span class="chip lv4">L4</span></td><td>도구·MCP · hook · 권한 규칙 · 스크립트</td><td>실행하고, 기록하고, 막습니다</td><td>판단하지 않습니다</td></tr>` +
      `</tbody></table></div>` +
@@ -813,8 +813,8 @@ claude plugin install my-agent@my-plugins</pre>
     { name: '구조와 레벨', feats: [
       ['4개 레벨로 나누고 역할을 갈랐습니다.',
        '조율(L1), 설계·판정(L2), 작업(L3), 도구·방어(L4)가 각각 다른 일을 맡습니다.',
-       ['L1은 메인 세션이고 L2에는 5개, L3에는 4개 에이전트가 있습니다. 설계 문서는 구성 요소를 레벨당 4개로 맞추되, gate-analyst는 회고에서만 부르는 보조라 L2의 5번째로 따로 센다고 설명합니다.',
-        '플러그인은 에이전트 9개를 <code>plugin.json</code>에 등록해 불러 씁니다.',
+       ['L1은 메인 세션이고 L2에는 6개, L3에는 4개 에이전트가 있습니다. 설계 문서는 구성 요소를 레벨당 4개로 맞추되, L2의 예외 두 가지를 설명합니다. gate-analyst는 회고에서만 부르는 보조라 5번째로 따로 세고, scope-reviewer는 L1이 쓴 범위에도 별도 판정자를 두려고 6번째로 더했습니다.',
+        '플러그인은 에이전트 10개를 <code>plugin.json</code>에 등록해 불러 씁니다.',
         'L4(도구·MCP, hook, 권한 규칙, 스크립트)는 판단하지 않습니다. 모니터와 Claude Code 권한 대화상자(G2)는 레벨 밖에 있습니다.'],
        'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/.claude-plugin/plugin.json, plugins/my-agent/docs/build-guide/my-agent-architecture.md'],
       ['메인 세션이 L2·L3에 직접 위임합니다.',
@@ -834,13 +834,13 @@ claude plugin install my-agent@my-plugins</pre>
         '사람이 팝업 대신 글로 되물으면 답한 뒤 같은 결정을 다시 팝업으로 묻습니다.',
         '하위 에이전트 정의 파일들은 "사람에게 묻지 않는다"고 적고, 풀지 못한 것은 <code>To confirm:</code>으로 남기거나 <code>PARTIAL</code>로 보고하게 합니다.'],
        'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/l3-workers/agents/coder.md, plugins/my-agent/l3-workers/agents/writer.md'],
-      ['에이전트 9개의 역할이 정의 파일에 나뉘어 있습니다.',
+      ['에이전트 10개의 역할이 정의 파일에 나뉘어 있습니다.',
        '에이전트마다 하는 일 하나와 쓸 수 있는 도구가 고정됩니다.',
        ['L2 architect(opus)는 범위 문서와 탐색 결과로 <code>plan.md</code>를 쓰고 결과물은 만들지 않습니다. plan-reviewer(sonnet)는 <code>plan.md</code>가 범위를 충분히 덮고 실행 가능한지 판정해 <code>plan-review.md</code>를 씁니다.',
         'L2 verifier(opus)는 결과물이 완료 기준을 만족하는지 근거와 함께 판정해 <code>verify.md</code>를, reviewer(sonnet)는 결과물의 품질을 판정해 <code>review.md</code>를 씁니다. gate-analyst(sonnet)는 게이트 결정 집계를 읽고 <code>gate-report.md</code>를 씁니다.',
         'L3 explorer(sonnet)는 관련 파일 위치와 현재 동작, 제약을 찾아 보고하며 읽기 전용입니다. researcher(sonnet)는 하위 질문 하나를 웹에서 조사해 출처가 달린 노트 하나를 씁니다.',
         'L3 writer(sonnet)는 작업 단위 하나의 문서(초안, 조사 노트 종합, 프로토타입 페이지)를 씁니다. coder(sonnet)는 작업 단위 하나를 테스트를 먼저 쓰고 구현하며 커밋하지 않습니다.'],
-       'plugins/my-agent/l2-design-judge/agents/architect.md, plugins/my-agent/l2-design-judge/agents/plan-reviewer.md, plugins/my-agent/l2-design-judge/agents/verifier.md, plugins/my-agent/l2-design-judge/agents/reviewer.md, plugins/my-agent/l2-design-judge/agents/gate-analyst.md, plugins/my-agent/l3-workers/agents/explorer.md, plugins/my-agent/l3-workers/agents/researcher.md, plugins/my-agent/l3-workers/agents/writer.md, plugins/my-agent/l3-workers/agents/coder.md'],
+       'plugins/my-agent/l2-design-judge/agents/scope-reviewer.md, plugins/my-agent/l2-design-judge/agents/architect.md, plugins/my-agent/l2-design-judge/agents/plan-reviewer.md, plugins/my-agent/l2-design-judge/agents/verifier.md, plugins/my-agent/l2-design-judge/agents/reviewer.md, plugins/my-agent/l2-design-judge/agents/gate-analyst.md, plugins/my-agent/l3-workers/agents/explorer.md, plugins/my-agent/l3-workers/agents/researcher.md, plugins/my-agent/l3-workers/agents/writer.md, plugins/my-agent/l3-workers/agents/coder.md'],
       ['L2·L3는 더 아래로 위임하지 못합니다.',
        '에이전트가 에이전트를 부르는 사슬이 생기지 않습니다.',
        ['각 에이전트 정의 파일은 "다른 에이전트를 부르지 않는다"고 적어 둡니다.',
@@ -1010,15 +1010,15 @@ claude plugin install my-agent@my-plugins</pre>
        'plugins/my-agent/l1-orchestration/profiles/general.md'],
       ['research: 웹 조사를 출처 달린 노트로.',
        '정상 경로에서 사람은 G1a·G1b·G3 세 번 답하고, 모든 주장에 출처 URL과 원문 인용이 붙습니다.',
-       ['범위 인터뷰에서 질문·범위·출처 기준(공식 문서와 1차 자료 우선)·결과물 형식 네 가지를 <code>scope.md</code>에 정합니다.',
+       ['범위 인터뷰에서 질문·범위·출처 기준(공식 문서와 1차 자료 우선)·결과물 형식 네 가지를 <code>scope.md</code>에 정합니다. G1a 전에 scope-reviewer가 <code>scope.md</code>를 요청과 대조해 판정하고, 지적 사항은 L1이 고칩니다.',
         '질문마다 researcher 하나가 노트 하나를 쓰고(<code>주장 · 출처 URL · "인용"</code> 형식), 마지막 단위에서 writer가 노트를 종합 구조에 배치합니다. 웹 조사는 G1b 승인 뒤에만 시작합니다.',
         '조사 단위가 4개 이하면 한 메시지로 함께 부르고, 5개 이상이면 계획의 <code>## Estimate</code>에 있을 때만 워크플로를 씁니다.',
         '검증 때 verifier가 출처를 직접 열어 인용을 확인하고, 형식에 맞지 않는 문장이나 지시처럼 보이는 내용은 FAIL로 봅니다.'],
        'plugins/my-agent/l1-orchestration/profiles/research.md'],
       ['dev: git 저장소의 코드 변경, 결과물은 커밋 하나.',
        '정상 경로에서 사람은 G1a·G1b·G3 세 번(작은 작업은 G1b·G3 두 번) 답하고, G3는 커밋 승인입니다.',
-       ['항상 explorer가 먼저 관련 파일·호출하는 곳·검사 명령·커밋 안 된 변경을 살피고, 범위 인터뷰로 목적·완료 기준·제약·예외·데이터·하지 않을 일·UX 선호 일곱 가지를 정합니다.',
-        '바꿀 파일이 3개 미만이고 요청이 목적·완료 기준·하지 않을 일을 이미 답했으면 범위 인터뷰와 G1a, 계획 검토를 건너뛰는 작은 작업 예외가 있습니다.',
+       ['항상 explorer가 먼저 관련 파일·호출하는 곳·검사 명령·커밋 안 된 변경을 살피고, 범위 인터뷰로 목적·완료 기준·제약·예외·데이터·하지 않을 일·UX 선호 일곱 가지를 정합니다. G1a 전에 scope-reviewer가 <code>scope.md</code>를 요청과 대조해 판정하고, 지적 사항은 L1이 고칩니다.',
+        '바꿀 파일이 3개 미만이고 요청이 목적·완료 기준·하지 않을 일을 이미 답했으면 범위 인터뷰와 범위 검토, G1a, 계획 검토를 건너뛰는 작은 작업 예외가 있습니다.',
         '작업 단위 하나가 코드 한 조각(coder)입니다. 병렬 coder는 첫 병렬 그룹에서만 worktree에서 일하고, 이후 그룹은 메인 트리에서 차례로 합니다. 병합 뒤 검사 명령을 돌립니다.',
         'G3에서는 작업의 Report 탭을 열고, 한 줄 diff 통계와 제안 커밋 메시지를 표 행으로 보여 준 뒤 커밋 / 재작업 / 중단을 묻습니다. 커밋 메시지에는 완료 기준 번호가 들어갑니다.'],
        'plugins/my-agent/l1-orchestration/profiles/dev.md'],

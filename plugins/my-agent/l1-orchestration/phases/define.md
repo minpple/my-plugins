@@ -22,9 +22,9 @@ Step 1 Intake is the "Intake" procedure in new-task.md. This file starts at step
    - General profile: do not ask G1a separately. Pass the scope summary you settled (purpose, numbered completion criteria, non-goals, deliverable location) to architect in ② Plan; it goes at the top of `plan.md` and is approved together at G1b.
      - Check tags: every criterion in the scope summary ends with one check tag (`[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`): how the verifier will check it.
      - Before the scope summary goes to architect, do the "Person-check popup" below for each `[check: person]` criterion.
-   - Profiles with G1a: write `scope.md` (`## Completion criteria` as a numbered list `1.`, `2.`; every criterion ends with one check tag: `[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`), and record before and after the popup.
+   - Profiles with G1a: write `scope.md` (`## Completion criteria` as a numbered list `1.`, `2.`; every criterion ends with one check tag: `[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`), do "Scope Review" below, and record before and after the popup.
      - Order: the Korean copy (gates.md "Gate reports"; Korean requests only), the `ask` line, the Report tab, the chat report, the popup, the `answer` line.
-     - Chat report (shown at that point; gates.md "Gate reports"): `### Overview`, `### Takeaway` (the scope summary: purpose, criteria count and non-goals), the overview table (with the `Prototype` row when a prototype exists) and the pointer line; no Details section. The popup question repeats the first two rows.
+     - Chat report (shown at that point; gates.md "Gate reports"): `### Overview`, `### Takeaway` (the scope summary: purpose, criteria count and non-goals; the findings applied after Scope Review, as at G1b), the overview table (with the `Prototype` row when a prototype exists) and the pointer line; no Details section. The popup question repeats the first two rows.
      - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" ask gate=G1a q="Scope confirmation: <task-id>" rec="Confirm" --data-dir "<data folder>" --task-dir "<task_dir>"`
      - Open the Report tab: `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" --report "<absolute task folder>" --pointer --data-dir "<data folder>"` (gates.md "Gate reports"). Then show the chat report, ending with the pointer line it printed.
      - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" answer gate=G1a choice="<Confirm/Revise/Abort>" --data-dir "<data folder>" --task-dir "<task_dir>"`
@@ -36,3 +36,13 @@ Step 1 Intake is the "Intake" procedure in new-task.md. This file starts at step
      - Write the answer into that criterion's text, before its tag.
      - There is no "decide at G3" choice. A person who cannot check before G3 uses changes.md "Adjust within approved scope" (`Scope change: criterion <n> is checked by the user later`); the verifier cites that line as the evidence, and the G3 report lists such criteria.
 5. Change `phase:` in `.active` to `2` and read `plan.md` (the phase file).
+
+## Scope Review
+
+In profiles with G1a, after `scope.md` is written and before the Person-check popups and the G1a popup. Not when the profile skips the interview and G1a (the dev small task), and not after a G1a `Revise` (the person made that change).
+
+1. Hand it to `my-agent:scope-reviewer`. Pass: the paths of `intake.md`, `explore.md`, `scope.md`, and the result path `<task_dir>/<task-id>/scope-review.md`. Do not pass the interview or your explanation.
+2. Handle the judgment like Plan Review findings (`plan.md` step 4), with `scope.md` in place of `plan.md`. L1 wrote `scope.md`, so L1 makes every fix with Edit and records `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" fix what="Scope Review <severity> <path>:<line>" files=scope.md --data-dir "<data folder>" --task-dir "<task_dir>"`. A fix that needs the person's answer (a missing criterion, a measure, an exception case, a term) is asked in a popup first, with `ask gate=Q … rec="<recommended choice>"`/`answer gate=Q` lines.
+   - `REVISE` (any BLOCKER): fix, then judge again. If the third `REVISE` comes, show that judgment in the G1a popup and leave it to the person, even while delegated approval is on (the popup is unchanged).
+   - `READY FOR CONFIRMATION`: never another round. NITPICK only: apply them without a popup. Any SHOULD-FIX: one popup over the whole list (NITPICKs included), recorded with `ask gate=Q … rec="Apply all"` and `answer gate=Q`: `Apply all (Recommended)` / `Confirm without applying` / `Pick myself`. Apply the chosen items, then go on.
+   - L1 writes the `## Decisions` lines in `scope-review.md`: `- <severity> <path>:<line> <summary> → applied by L1 | declined`.

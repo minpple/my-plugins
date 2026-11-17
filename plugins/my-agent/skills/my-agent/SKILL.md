@@ -34,14 +34,14 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 | G3 Final acceptance | Verify ALL PASS, Review BLOCKER 0 | Accept / Rework / Abort (dev profile: Commit / Rework / Abort) |
 | E Escalation | Verify FAIL 3 times in a row, the same work unit stopped twice, a workflow error, a merge conflict exposes a plan error | Give direction / Change scope / Abort |
 
-- Before G1b approval, delegate only to `my-agent:explorer`, `my-agent:architect`, `my-agent:plan-reviewer`, and write nothing outside the task folder. Until `plan.md` has an approval line, the hook `plan-approved-check.py` blocks other delegation in the `.active` session and asks (the G2 dialog) for a write outside the task folder, which the person allows only for their own request. If blocked, do not work around it; go to G1b.
+- Before G1b approval, delegate only to `my-agent:` explorer, scope-reviewer, architect, plan-reviewer, and write nothing outside the task folder. Until `plan.md` has an approval line, the hook `plan-approved-check.py` blocks other delegation in the `.active` session and asks (the G2 dialog) for a write outside the task folder, which the person allows only for their own request. If blocked, do not work around it; go to G1b.
 - At G2, never recommend "Allow for the session". Allow risky actions one at a time.
 
 ### Delegated approval
 
 - Start: the `--auto` flag, or a message like "go ahead without asking me", confirmed once with the popup `Turn on (Recommended)` / `Keep asking me`. The state is the last `delegate` line in the run-log (also after compaction or `continue`).
 - While on, L1 answers G1a, G1b, findings popups and other non-gate popups with the recommended choice: write the `ask` line, then `answer … by=L1`, and show one chat line `<question> → <choice> (answered by L1)`.
-- Never answered by L1: G2, G3, E, the G1b popup after the third `REVISE`, a popup without a recommended choice, the Intake item 1–5 popups and the flag popups. They go to the person.
+- Never answered by L1: G2, G3, E, the G1a/G1b popup after the third `REVISE`, a popup without a recommended choice, the Intake item 1–5 popups and the flag popups. They go to the person.
 - A message that takes it back ("stop deciding for me") → `delegate state=off how=person`. G3 acceptance or Abort → `delegate state=off how=end`.
 - When delegation is asked for or turns on, read `gates.md` "Delegated approval details" (a message while a popup is pending, the loop cap).
 ### Levels
@@ -49,7 +49,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 | Level | Who | Does | Does not |
 |---|---|---|---|
 | L1 | main session (this skill) | runs phases, delegates, merges, asks all questions, records | make deliverables (code, notes, drafts, plans) itself. Only exception: small fixes a judgment pointed out (2 files or fewer, about 10 lines), and small `plan.md` edits before G1b (Plan Review findings, G1b `Request changes`), and the work of an inline role (below). A small fix that changes a decision the person made is asked in a popup first; after an L1 edit in an HTML file, run a syntax check. |
-| L2 | architect · plan-reviewer · verifier · reviewer · gate-analyst | plans, judges, interprets decisions | change deliverables, delegate further |
+| L2 | scope-reviewer · architect · plan-reviewer · verifier · reviewer · gate-analyst | plans, judges, interprets decisions | change deliverables, delegate further |
 | L3 | explorer · researcher · writer · coder | the one work unit assigned | touch files outside the scope, delegate further |
 | L4 | tools·MCP · hooks · permission rules · scripts; the monitor and the G2 dialog are outside the levels | run, record, block | judge |
 
@@ -84,7 +84,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/build.md` (③ Build: 5 Execute, 6 Merge)
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/accept.md` (④ Accept: 7 Verify, 8 Review → G3)
   - Profile (`Profile:` in `intake.md`): `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/profiles/general.md`, `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/profiles/research.md`, `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/profiles/dev.md`
-- Read does not expand the plugin path variables in these files or the procedure files. When you run a command, replace the variable with this plugin's folder.
+- Read does not expand the plugin path variables in these or the procedure files; in a command, replace the variable with this plugin's folder.
 - Data folder: whenever you (re)read a phase file (also `continue`, compaction, a direct `define|plan|build|accept`) and at the start of status, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/data-dir.py" --data-dir '${user_config.data_dir}' --task-dir '${user_config.task_dir}'`; at the start of Intake run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/intake.py" facts --data-dir '${user_config.data_dir}' --task-dir '${user_config.task_dir}'` in its place. Its two output lines (the `data:` and `task_dir:` lines of the facts call) are `<data folder>` and `<task_dir>`. Use it for the popup, `projects.txt`, `<data folder>/active-index.json`, and as `--data-dir "<data folder>"` at the end of every run-log, usage-snapshot, gate-report, feedback and monitor-up call (all but feedback then take `--task-dir "<task_dir>"`); `agent-models.py` and `open-html.py` take `--data-dir` only.
 
 ### Procedure files

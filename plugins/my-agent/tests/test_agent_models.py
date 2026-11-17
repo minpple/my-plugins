@@ -12,8 +12,8 @@ import ma_models  # noqa: E402
 
 SCRIPT = L4 / 'scripts' / 'agent-models.py'
 EXAMPLE = REPO / 'docs' / 'agent-models.example.json'
-AGENTS = ('architect', 'plan-reviewer', 'verifier', 'reviewer', 'gate-analyst', 'explorer', 'researcher', 'writer', 'coder')
-DEFINITION = {'architect': ('opus', 'high'), 'plan-reviewer': ('sonnet', 'high'), 'verifier': ('opus', 'high'),
+AGENTS = ('scope-reviewer', 'architect', 'plan-reviewer', 'verifier', 'reviewer', 'gate-analyst', 'explorer', 'researcher', 'writer', 'coder')
+DEFINITION = {'scope-reviewer': ('sonnet', 'high'), 'architect': ('opus', 'high'), 'plan-reviewer': ('sonnet', 'high'), 'verifier': ('opus', 'high'),
               'reviewer': ('sonnet', 'high'), 'gate-analyst': ('sonnet', 'high'), 'explorer': ('sonnet', 'low'),
               'researcher': ('sonnet', 'medium'), 'writer': ('sonnet', 'medium'), 'coder': ('sonnet', 'medium')}
 
@@ -74,8 +74,9 @@ class AgentModelsTest(unittest.TestCase):
 
     def test_exact_line_format(self):
         r = self.run_cli('show', '--profile', 'dev', '--preset', 'standard')
-        self.assertEqual(r.stdout.splitlines()[1], 'architect      model=opus   effort=high    pass=-')
-        self.assertEqual(r.stdout.splitlines()[2], 'plan-reviewer  model=sonnet effort=high    pass=-')
+        self.assertEqual(r.stdout.splitlines()[1], 'scope-reviewer  model=sonnet effort=high    pass=-')
+        self.assertEqual(r.stdout.splitlines()[2], 'architect       model=opus   effort=high    pass=-')
+        self.assertEqual(r.stdout.splitlines()[3], 'plan-reviewer   model=sonnet effort=high    pass=-')
 
     def test_empty_and_braces_files_mean_no_file(self):
         for text in ('', '  \n', '{}'):
@@ -112,13 +113,13 @@ class AgentModelsTest(unittest.TestCase):
         header, got = self.show('dev', 'economy')
         self.assertEqual(header, f'preset: dev/economy (file {self.file})')
         self.assertEqual(got, {
-            'architect': ('sonnet', 'medium', 'model,effort'), 'plan-reviewer': ('sonnet', 'medium', 'effort'),
+            'scope-reviewer': ('sonnet', 'medium', 'effort'), 'architect': ('sonnet', 'medium', 'model,effort'), 'plan-reviewer': ('sonnet', 'medium', 'effort'),
             'verifier': ('sonnet', 'medium', 'model,effort'), 'reviewer': ('sonnet', 'medium', 'effort'),
             'gate-analyst': ('sonnet', 'medium', 'effort'), 'explorer': ('sonnet', 'low', '-'),
             'researcher': ('sonnet', 'medium', '-'), 'writer': ('sonnet', 'medium', '-'),
             'coder': ('sonnet', 'low', 'effort')})
         _, got = self.show('dev', 'max')
-        for a in ('architect', 'plan-reviewer', 'verifier', 'reviewer', 'gate-analyst'):
+        for a in ('scope-reviewer', 'architect', 'plan-reviewer', 'verifier', 'reviewer', 'gate-analyst'):
             self.assertEqual(got[a][:2], ('opus', 'xhigh'), a)
         self.assertEqual(got['plan-reviewer'][2], 'model,effort')
         self.assertEqual(got['architect'][2], 'effort')
@@ -326,7 +327,7 @@ class AgentModelsTest(unittest.TestCase):
         sections = [data[k] for k in ('general', 'research', 'dev')]
         for section in sections:
             self.assertEqual(section['inline'], {a: {'model': 'inline'} for a in AGENTS})
-        subagents = {'reviewer', 'plan-reviewer', 'explorer'}
+        subagents = {'reviewer', 'plan-reviewer', 'scope-reviewer', 'explorer'}
         for section in data['codex'].values():
             self.assertEqual(section['inline'], {
                 agent: section['standard'][agent] if agent in subagents else {'model': 'inline'}
@@ -343,14 +344,14 @@ class AgentModelsTest(unittest.TestCase):
                 where = f'file {self.file}' + (', codex section' if host == 'codex' else '')
                 header, got = rows(r.stdout)
                 self.assertEqual(header, f'preset: dev/inline ({where})')
-                subagents = {'reviewer', 'plan-reviewer', 'explorer'} if host == 'codex' else set()
+                subagents = {'reviewer', 'plan-reviewer', 'scope-reviewer', 'explorer'} if host == 'codex' else set()
                 self.assertEqual({agent for agent, values in got.items() if values[2] != 'inline'}, subagents)
                 self.assertEqual(list(got), list(AGENTS))
 
     def test_show_inline_preset_exact_claude_text(self):
         self.use_example(inline=True)
         r = self.run_cli('show', '--profile', 'dev', '--preset', 'inline')
-        self.assertEqual(r.stdout.splitlines()[1], 'architect      model=inline effort=-       pass=inline')
+        self.assertEqual(r.stdout.splitlines()[2], 'architect       model=inline effort=-       pass=inline')
 
     def test_mixed_preset_and_presets_lines(self):
         for host, width, other in (('claude', 6, ('sonnet', 'sonnet')), ('codex', 10, ('gpt-6-luna', '-'))):
@@ -361,10 +362,10 @@ class AgentModelsTest(unittest.TestCase):
                 r = self.run_cli('show', '--profile', 'dev', '--preset', 'mixed', host=host)
                 self.assertEqual(r.returncode, 0, r.stderr)
                 lines = r.stdout.splitlines()
-                self.assertEqual(lines[1], f'{"architect":<13}  model={"inline":<{width}} effort=-       pass=inline')
-                self.assertEqual(lines[3], f'{"verifier":<13}  model={"inline":<{width}} effort=-       pass=inline')
-                self.assertNotIn('inline', lines[2] + ''.join(lines[4:9]))
-                self.assertEqual(lines[9].split()[1], f'model={other[0]}')
+                self.assertEqual(lines[2], f'{"architect":<14}  model={"inline":<{width}} effort=-       pass=inline')
+                self.assertEqual(lines[4], f'{"verifier":<14}  model={"inline":<{width}} effort=-       pass=inline')
+                self.assertNotIn('inline', lines[1] + lines[3] + ''.join(lines[5:10]))
+                self.assertEqual(lines[10].split()[1], f'model={other[0]}')
                 out = self.run_cli('presets', '--profile', 'dev', host=host).stdout
                 self.assertTrue(out.startswith('mixed: inline architect, verifier'), out)
 
@@ -380,9 +381,9 @@ class AgentModelsTest(unittest.TestCase):
                 ), out[-1])
         self.write({'dev': {'p': {'architect': {'model': 'inline'}, 'coder': {'effort': 'low'}}}})
         self.assertEqual(self.run_cli('presets', '--profile', 'dev').stdout, 'p: inline architect, coder sonnet/low\n')
-        self.write({'dev': {'p': {a: {'model': 'inline'} for a in AGENTS[:5]}}})
-        self.assertEqual(self.run_cli('presets', '--profile', 'dev').stdout, 'p: inline architect, plan-reviewer, '
-                         'verifier, reviewer, gate-analyst\n')
+        self.write({'dev': {'p': {a: {'model': 'inline'} for a in AGENTS[:6]}}})
+        self.assertEqual(self.run_cli('presets', '--profile', 'dev').stdout, 'p: inline scope-reviewer, architect, '
+                         'plan-reviewer, verifier, reviewer, gate-analyst\n')
 
     def test_inline_rejections(self):
         cases = [
@@ -419,7 +420,8 @@ class AgentModelsTest(unittest.TestCase):
                                              host=host), 'an inline role takes no effort')
 
     def test_output_without_inline_equals_0_10_0(self):
-        """A file without an inline value prints the 0.10.0 text (fixture captured from the 0.10.0 code)."""
+        """A file without an inline value prints the 0.10.0 text (fixture captured from the 0.10.0 code; regenerated in
+        0.17.0, when the scope-reviewer row was added and the name column widened to the longest role name)."""
         self.use_example()
         data = json.loads(self.file.read_text(encoding='utf-8'))
         for profile, presets in data['codex'].items():

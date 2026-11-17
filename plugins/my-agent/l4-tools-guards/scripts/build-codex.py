@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Codex forms of the nine agents and the Codex manifest from the Claude sources.
+"""Generate the Codex forms of the ten agents and the Codex manifest from the Claude sources.
 
 usage: build-codex.py --write | --check | --install-agents | --check-agents | --check-question-tool
                       [--root DIR] [--codex-home DIR] [--timeout SECONDS]
@@ -18,12 +18,12 @@ The manifest copies name, version, description, author and hooks (the shared `ho
 `--check` exits 1 and prints each file that differs or is missing, and each `codex/agents/*.toml` the build does not
 produce; `--write` rewrites the files and removes those extra agent files (the folder holds generated files only). Exit 2 for bad arguments.
 
-`--install-agents` copies the nine `codex/agents/*.toml` into `<codex home>/agents/` (`--codex-home`, else `$CODEX_HOME`, else
+`--install-agents` copies the ten `codex/agents/*.toml` into `<codex home>/agents/` (`--codex-home`, else `$CODEX_HOME`, else
 `~/.codex`), because Codex loads agents only from there. Line 1 of an installed file is `# my-agent <version>
-(build-codex.py --install-agents)`, added at copy time; the repository files stay comment-free. It writes only the nine
+(build-codex.py --install-agents)`, added at copy time; the repository files stay comment-free. It writes only the ten
 named files, never deletes or renames, and leaves any same-named file without that comment (or a link or folder) as it is
 (`skipped:`). `--check-agents` prints the same states without writing. Both end with the line `Codex agents: <form>`; exit 0
-only when nothing was skipped (install) or all nine are up to date (check).
+only when nothing was skipped (install) or all ten are up to date (check).
 
 `--check-question-tool` runs `codex features list` (nothing else, so it never changes a Codex setting) and reads the
 feature `default_mode_request_user_input`, which lets `request_user_input` (the question popup) run outside Plan mode.
@@ -114,11 +114,11 @@ def file_state(target: Path, text: str, version: str) -> str:
 
 
 def summary(states: list, version: str) -> str:
-    """The `Codex agents:` form for the states of the nine files, by the first rule that applies."""
+    """The `Codex agents:` form for the states of the ten files, by the first rule that applies."""
     ok = states.count('ok')
     skipped = states.count('skipped')
     if skipped:
-        return f'{ok} of 9 installed ({version}); {skipped} skipped'
+        return f'{ok} of {len(states)} installed ({version}); {skipped} skipped'
     stale = []
     for s in states:
         if s.startswith('stale:') and s[6:] not in stale:
@@ -126,10 +126,10 @@ def summary(states: list, version: str) -> str:
     if stale:
         return f'stale ({", ".join(stale)})'
     if ok == len(states):
-        return f'installed 9 ({version})'
+        return f'installed {len(states)} ({version})'
     if ok == 0:
         return 'not installed'
-    return f'{ok} of 9 installed ({version})'
+    return f'{ok} of {len(states)} installed ({version})'
 
 
 def agents_mode(root: Path, home: Path, install: bool) -> int:

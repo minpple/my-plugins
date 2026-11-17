@@ -301,6 +301,14 @@ class GateReportTest(unittest.TestCase):
         out = self.tally('2026-10-30 10:00:00 step: n=4 name=Plan-Review model=- session=s1')
         self.assertIn('| Plan Review runs | 0 |', out)
 
+    def test_scope_review_runs_from_start_and_inline_lines(self):
+        out = self.tally('2026-11-17 10:00:00 start: agent=my-agent:scope-reviewer id=s1 configured=sonnet',
+                         '2026-11-17 10:00:05 inline: agent=my-agent:scope-reviewer unit=- file=/t/scope-review.md '
+                         'result="REVISE" model=claude-opus-5-5',
+                         '2026-11-17 10:00:09 start: agent=my-agent:plan-reviewer id=p1 configured=sonnet')
+        self.assertIn('| Scope Review runs | 2 |', out)
+        self.assertIn('| Plan Review runs | 1 |', out)
+
     def test_old_run_log_has_no_new_rows(self):
         out = self.tally('2026-10-26 23:00:09 fix: what=x', '2026-10-26 23:00:10 ask: gate=G1a q=Q rec=A',
                          '2026-10-26 23:00:11 answer: gate=G1a choice=A')

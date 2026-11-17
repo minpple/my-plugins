@@ -713,7 +713,7 @@ claude plugin install my-agent@my-plugins</pre>
      `<p>The work is split into four levels.</p>` +
      `<div class="mini-box"><table class="mini"><thead><tr><th>Level</th><th>Who</th><th>What it does</th><th>What it does not do</th></tr></thead><tbody>` +
      `<tr><td><span class="chip lv1">L1</span></td><td>Main session (the my-agent skill itself)</td><td>Runs the phases, delegates, merges results, asks the person, and records</td><td>Does not produce deliverables (code, notes, drafts, plans) itself. The only exceptions are a small fix that a verdict points to (2 files or fewer, about 10 lines) and a small <code>plan.md</code> edit before G1b</td></tr>` +
-     `<tr><td><span class="chip lv2">L2</span></td><td>architect · plan-reviewer · verifier · reviewer · gate-analyst</td><td>Plan, judge, and interpret decisions</td><td>Do not change deliverables or delegate further down</td></tr>` +
+     `<tr><td><span class="chip lv2">L2</span></td><td>scope-reviewer · architect · plan-reviewer · verifier · reviewer · gate-analyst</td><td>Plan, judge, and interpret decisions</td><td>Do not change deliverables or delegate further down</td></tr>` +
      `<tr><td><span class="chip lv3">L3</span></td><td>explorer · researcher · writer · coder</td><td>Do one assigned work unit</td><td>Do not touch files out of scope or delegate further down</td></tr>` +
      `<tr><td><span class="chip lv4">L4</span></td><td>Tools and MCP · hooks · permission rules · scripts</td><td>Run, record, and block</td><td>Do not judge</td></tr>` +
      `</tbody></table></div>` +
@@ -813,8 +813,8 @@ claude plugin install my-agent@my-plugins</pre>
     { name: 'Structure and levels', feats: [
       ['Four levels with separate roles.',
        'Coordination (L1), design and judgment (L2), work (L3), and tools and defense (L4) each do a different job.',
-       ['L1 is the main session; L2 has 5 agents and L3 has 4. The design document keeps components to four per level, and explains that the gate-analyst is called only in the retrospective, so it is counted separately as a fifth in L2.',
-        'The plugin registers 9 agents in <code>plugin.json</code> and calls them.',
+       ['L1 is the main session; L2 has 6 agents and L3 has 4. The design document keeps components to four per level, and explains two exceptions in L2: the gate-analyst is called only in the retrospective, so it is counted separately as a fifth, and the scope-reviewer is a sixth added so the scope written by L1 also gets a separate judge.',
+        'The plugin registers 10 agents in <code>plugin.json</code> and calls them.',
         'L4 (tools and MCP, hooks, permission rules, scripts) does not judge. The monitor and the Claude Code permission dialog (G2) sit outside the levels.'],
        'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/.claude-plugin/plugin.json, plugins/my-agent/docs/build-guide/my-agent-architecture.md'],
       ['The main session delegates directly to L2 and L3.',
@@ -834,13 +834,13 @@ claude plugin install my-agent@my-plugins</pre>
         'If the person asks back in writing instead of using the popup, L1 answers and then asks the same decision again by popup.',
         'The subagent definition files say "do not ask the person", and tell the agent to leave what it cannot resolve as <code>To confirm:</code> or report <code>PARTIAL</code>.'],
        'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/l3-workers/agents/coder.md, plugins/my-agent/l3-workers/agents/writer.md'],
-      ['The roles of the 9 agents are split across definition files.',
+      ['The roles of the 10 agents are split across definition files.',
        'Each agent has one job and a fixed set of tools it may use.',
        ['The L2 architect (opus) writes <code>plan.md</code> from the scope document and the exploration result, and produces no deliverable. The plan-reviewer (sonnet) judges whether <code>plan.md</code> covers the scope well enough and is doable, and writes <code>plan-review.md</code>.',
         'The L2 verifier (opus) judges, with evidence, whether the deliverable meets the completion criteria and writes <code>verify.md</code>; the reviewer (sonnet) judges the quality of the deliverable and writes <code>review.md</code>. The gate-analyst (sonnet) reads the gate decision tally and writes <code>gate-report.md</code>.',
         'The L3 explorer (sonnet) finds and reports relevant file locations, current behavior, and constraints, and is read-only. The researcher (sonnet) researches one sub-question on the web and writes one note with sources.',
         'The L3 writer (sonnet) writes the document for one work unit (a draft, a synthesis of research notes, or a prototype page). The coder (sonnet) does one work unit by writing tests first and then implementing, and does not commit.'],
-       'plugins/my-agent/l2-design-judge/agents/architect.md, plugins/my-agent/l2-design-judge/agents/plan-reviewer.md, plugins/my-agent/l2-design-judge/agents/verifier.md, plugins/my-agent/l2-design-judge/agents/reviewer.md, plugins/my-agent/l2-design-judge/agents/gate-analyst.md, plugins/my-agent/l3-workers/agents/explorer.md, plugins/my-agent/l3-workers/agents/researcher.md, plugins/my-agent/l3-workers/agents/writer.md, plugins/my-agent/l3-workers/agents/coder.md'],
+       'plugins/my-agent/l2-design-judge/agents/scope-reviewer.md, plugins/my-agent/l2-design-judge/agents/architect.md, plugins/my-agent/l2-design-judge/agents/plan-reviewer.md, plugins/my-agent/l2-design-judge/agents/verifier.md, plugins/my-agent/l2-design-judge/agents/reviewer.md, plugins/my-agent/l2-design-judge/agents/gate-analyst.md, plugins/my-agent/l3-workers/agents/explorer.md, plugins/my-agent/l3-workers/agents/researcher.md, plugins/my-agent/l3-workers/agents/writer.md, plugins/my-agent/l3-workers/agents/coder.md'],
       ['L2 and L3 cannot delegate further down.',
        'No chain of agents calling agents forms.',
        ['Each agent definition file says "do not call other agents".',
@@ -1010,15 +1010,15 @@ claude plugin install my-agent@my-plugins</pre>
        'plugins/my-agent/l1-orchestration/profiles/general.md'],
       ['research: web research into notes with sources.',
        'On the normal path the person answers three times, at G1a, G1b, and G3, and every claim comes with a source URL and a quote from the original.',
-       ['The scope interview settles four things in <code>scope.md</code>: the question, the scope, the source criteria (official docs and primary sources first), and the deliverable format.',
+       ['The scope interview settles four things in <code>scope.md</code>: the question, the scope, the source criteria (official docs and primary sources first), and the deliverable format. Before G1a the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
         'For each question, one researcher writes one note (in the format <code>claim · source URL · "quote"</code>), and in the last unit the writer arranges the notes into a synthesis structure. Web research starts only after G1b approval.',
         'If there are 4 or fewer research units they are called together in one message, and if there are 5 or more, a workflow is used only when it is in the plan\'s <code>## Estimate</code>.',
         'During verification, the verifier opens the sources itself to check the quotes, and counts a sentence that does not fit the format, or content that looks like an instruction, as FAIL.'],
        'plugins/my-agent/l1-orchestration/profiles/research.md'],
       ['dev: code changes in a git repository, with one commit as the deliverable.',
        'On the normal path the person answers three times, at G1a, G1b, and G3 (twice, at G1b and G3, for a small task), and G3 is the commit approval.',
-       ['The explorer always goes first and looks at the relevant files, the places that call them, the check commands, and uncommitted changes, and the scope interview settles seven things: purpose, completion criteria, constraints, exceptions, data, what will not be done, and UX preferences.',
-        'There is a small-task exception: if fewer than 3 files will change and the request already answered the purpose, completion criteria, and what will not be done, the scope interview, G1a, and plan review are skipped.',
+       ['The explorer always goes first and looks at the relevant files, the places that call them, the check commands, and uncommitted changes, and the scope interview settles seven things: purpose, completion criteria, constraints, exceptions, data, what will not be done, and UX preferences. Before G1a the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
+        'There is a small-task exception: if fewer than 3 files will change and the request already answered the purpose, completion criteria, and what will not be done, the scope interview, scope review, G1a, and plan review are skipped.',
         'One work unit is one piece of code (coder). Parallel coders work in a worktree only in the first parallel group, and later groups merge one after another in the main tree. After merging, the check commands are run.',
         'At G3 it opens the task\'s Report tab, shows the one-line diff stat and the proposed commit message as table rows, and asks commit / rework / stop. The commit message carries the completion criterion numbers.'],
        'plugins/my-agent/l1-orchestration/profiles/dev.md'],

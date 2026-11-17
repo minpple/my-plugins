@@ -1,6 +1,7 @@
 {
   "general": {
     "standard": {
+      "scope-reviewer": {"model": "sonnet", "effort": "high"},
       "architect": {"model": "opus", "effort": "high"},
       "plan-reviewer": {"model": "sonnet", "effort": "high"},
       "verifier": {"model": "opus", "effort": "high"},
@@ -12,6 +13,7 @@
       "coder": {"model": "sonnet", "effort": "medium"}
     },
     "economy": {
+      "scope-reviewer": {"model": "sonnet", "effort": "medium"},
       "architect": {"model": "sonnet", "effort": "medium"},
       "plan-reviewer": {"model": "sonnet", "effort": "medium"},
       "verifier": {"model": "sonnet", "effort": "medium"},
@@ -20,6 +22,7 @@
       "coder": {"model": "sonnet", "effort": "low"}
     },
     "max": {
+      "scope-reviewer": {"model": "opus", "effort": "xhigh"},
       "architect": {"model": "opus", "effort": "xhigh"},
       "plan-reviewer": {"model": "opus", "effort": "xhigh"},
       "verifier": {"model": "opus", "effort": "xhigh"},
@@ -27,6 +30,7 @@
       "gate-analyst": {"model": "opus", "effort": "xhigh"}
     },
     "inline": {
+      "scope-reviewer": {"model": "inline"},
       "architect": {"model": "inline"},
       "plan-reviewer": {"model": "inline"},
       "verifier": {"model": "inline"},
@@ -40,6 +44,7 @@
   },
   "research": {
     "standard": {
+      "scope-reviewer": {"model": "sonnet", "effort": "high"},
       "architect": {"model": "opus", "effort": "high"},
       "plan-reviewer": {"model": "sonnet", "effort": "high"},
       "verifier": {"model": "opus", "effort": "high"},
@@ -51,6 +56,7 @@
       "coder": {"model": "sonnet", "effort": "medium"}
     },
     "economy": {
+      "scope-reviewer": {"model": "sonnet", "effort": "medium"},
       "architect": {"model": "sonnet", "effort": "medium"},
       "plan-reviewer": {"model": "sonnet", "effort": "medium"},
       "verifier": {"model": "sonnet", "effort": "medium"},
@@ -59,6 +65,7 @@
       "coder": {"model": "sonnet", "effort": "low"}
     },
     "max": {
+      "scope-reviewer": {"model": "opus", "effort": "xhigh"},
       "architect": {"model": "opus", "effort": "xhigh"},
       "plan-reviewer": {"model": "opus", "effort": "xhigh"},
       "verifier": {"model": "opus", "effort": "xhigh"},
@@ -66,6 +73,7 @@
       "gate-analyst": {"model": "opus", "effort": "xhigh"}
     },
     "inline": {
+      "scope-reviewer": {"model": "inline"},
       "architect": {"model": "inline"},
       "plan-reviewer": {"model": "inline"},
       "verifier": {"model": "inline"},
@@ -79,6 +87,7 @@
   },
   "dev": {
     "standard": {
+      "scope-reviewer": {"model": "sonnet", "effort": "high"},
       "architect": {"model": "opus", "effort": "high"},
       "plan-reviewer": {"model": "sonnet", "effort": "high"},
       "verifier": {"model": "opus", "effort": "high"},
@@ -90,6 +99,7 @@
       "coder": {"model": "sonnet", "effort": "medium"}
     },
     "economy": {
+      "scope-reviewer": {"model": "sonnet", "effort": "medium"},
       "architect": {"model": "sonnet", "effort": "medium"},
       "plan-reviewer": {"model": "sonnet", "effort": "medium"},
       "verifier": {"model": "sonnet", "effort": "medium"},
@@ -98,6 +108,7 @@
       "coder": {"model": "sonnet", "effort": "low"}
     },
     "max": {
+      "scope-reviewer": {"model": "opus", "effort": "xhigh"},
       "architect": {"model": "opus", "effort": "xhigh"},
       "plan-reviewer": {"model": "opus", "effort": "xhigh"},
       "verifier": {"model": "opus", "effort": "xhigh"},
@@ -105,6 +116,7 @@
       "gate-analyst": {"model": "opus", "effort": "xhigh"}
     },
     "inline": {
+      "scope-reviewer": {"model": "inline"},
       "architect": {"model": "inline"},
       "plan-reviewer": {"model": "inline"},
       "verifier": {"model": "inline"},
@@ -119,6 +131,7 @@
   "codex": {
     "general": {
       "standard": {
+        "scope-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "architect": {"model": "gpt-6.1-sol", "effort": "high"},
         "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "gpt-6.1-sol", "effort": "high"},
@@ -130,6 +143,7 @@
         "coder": {"model": "gpt-6.1-sol", "effort": "medium"}
       },
       "economy": {
+        "scope-reviewer": {"model": "gpt-6-luna", "effort": "medium"},
         "architect": {"model": "gpt-6-luna", "effort": "medium"},
         "plan-reviewer": {"model": "gpt-6-luna", "effort": "medium"},
         "verifier": {"model": "gpt-6-luna", "effort": "medium"},
@@ -141,6 +155,7 @@
         "coder": {"model": "gpt-6-luna", "effort": "low"}
       },
       "max": {
+        "scope-reviewer": {"effort": "xhigh"},
         "architect": {"effort": "xhigh"},
         "plan-reviewer": {"effort": "xhigh"},
         "verifier": {"effort": "xhigh"},
@@ -152,6 +167,7 @@
         "coder": {"model": "gpt-6-luna", "effort": "medium"}
       },
       "inline": {
+        "scope-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "architect": {"model": "inline"},
         "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "inline"},
@@ -165,6 +181,7 @@
     },
     "research": {
       "standard": {
+        "scope-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "architect": {"model": "gpt-6.1-sol", "effort": "high"},
         "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "gpt-6.1-sol", "effort": "high"},
@@ -176,6 +193,7 @@
         "coder": {"model": "gpt-6.1-sol", "effort": "medium"}
       },
       "economy": {
+        "scope-reviewer": {"model": "gpt-6-luna", "effort": "medium"},
         "architect": {"model": "gpt-6-luna", "effort": "medium"},
         "plan-reviewer": {"model": "gpt-6-luna", "effort": "medium"},
         "verifier": {"model": "gpt-6-luna", "effort": "medium"},
@@ -187,6 +205,7 @@
         "coder": {"model": "gpt-6-luna", "effort": "low"}
       },
       "max": {
+        "scope-reviewer": {"effort": "xhigh"},
         "architect": {"effort": "xhigh"},
         "plan-reviewer": {"effort": "xhigh"},
         "verifier": {"effort": "xhigh"},
@@ -198,6 +217,7 @@
         "coder": {"model": "gpt-6-luna", "effort": "medium"}
       },
       "inline": {
+        "scope-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "architect": {"model": "inline"},
         "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "inline"},
@@ -211,6 +231,7 @@
     },
     "dev": {
       "standard": {
+        "scope-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "architect": {"model": "gpt-6.1-sol", "effort": "high"},
         "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "gpt-6.1-sol", "effort": "high"},
@@ -222,6 +243,7 @@
         "coder": {"model": "gpt-6.1-sol", "effort": "medium"}
       },
       "economy": {
+        "scope-reviewer": {"model": "gpt-6-luna", "effort": "medium"},
         "architect": {"model": "gpt-6-luna", "effort": "medium"},
         "plan-reviewer": {"model": "gpt-6-luna", "effort": "medium"},
         "verifier": {"model": "gpt-6-luna", "effort": "medium"},
@@ -233,6 +255,7 @@
         "coder": {"model": "gpt-6-luna", "effort": "low"}
       },
       "max": {
+        "scope-reviewer": {"effort": "xhigh"},
         "architect": {"effort": "xhigh"},
         "plan-reviewer": {"effort": "xhigh"},
         "verifier": {"effort": "xhigh"},
@@ -244,6 +267,7 @@
         "coder": {"model": "gpt-6-luna", "effort": "medium"}
       },
       "inline": {
+        "scope-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "architect": {"model": "inline"},
         "plan-reviewer": {"model": "gpt-6.1-sol", "effort": "medium"},
         "verifier": {"model": "inline"},

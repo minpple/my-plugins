@@ -152,6 +152,9 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertFalse(self.denied('my-agent:architect', 'Write', {'file_path': str(self.T / 'plan.md')}))
         self.assertTrue(self.denied('my-agent:architect', 'Write', {'file_path': str(self.L / 'src/a.py')}))
         self.assertFalse(self.denied('my-agent:plan-reviewer', 'Write', {'file_path': str(self.T / 'plan-review.md')}))
+        self.assertFalse(self.denied('my-agent:scope-reviewer', 'Write', {'file_path': str(self.T / 'scope-review.md')}))
+        self.assertTrue(self.denied('my-agent:scope-reviewer', 'Write', {'file_path': str(self.T / 'scope.md')}))
+        self.assertTrue(self.denied('my-agent:scope-reviewer', 'Edit', {'file_path': str(self.T / 'plan.md')}))
         self.assertTrue(self.denied('my-agent:explorer', 'Write', {'file_path': str(self.T / 'explore.md')}))
 
     def test_gate_analyst_scope(self):
