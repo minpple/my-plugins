@@ -5,8 +5,8 @@ L1 reads this file before the first gate popup of a session (G1a, G1b, G3, E), w
 ## Delegated approval details
 
 - **Message while a popup is pending:** a message that asks for delegation ("go ahead without asking me"), typed in the Other field or sent apart, is recorded as the answer first (`prose=1` if sent apart, `other=1` if typed in the Other field), then the confirm popup `Turn on (Recommended)` / `Keep asking me` is shown to the person (`delegate state=on how=message`), and the pending decision is asked again (answered by L1 if on). A take-back message writes `delegate state=off how=person`, and the next popup goes to the person. Delegation stays on after an E answer and after `continue`.
-- **Loop cap:** a round is one judgment that sends work back for a fix: Plan Review `REVISE`, Verify FAIL → Execute, Review BLOCKER → fix, NITPICK fix rounds. Count rounds of the same loop since the latest `delegate state=on` line or E answer. Before a 6th round of the same loop, go to E (`ask gate=E q="Delegated approval: 5 <loop> rounds reached" rec="Give direction"`, to the person). After an E answer the count restarts.
-- The lower caps still apply: the third `REVISE` goes to the G1b popup for the person (the popup is unchanged), and 3 Verify FAILs in a row go to E.
+- **Loop cap:** a round is one judgment that sends work back for a fix: Scope Review `REVISE`, Plan Review `REVISE`, Verify FAIL → Execute, Review BLOCKER → fix, NITPICK fix rounds. Count rounds of the same loop since the latest `delegate state=on` line or E answer. Before a 6th round of the same loop, go to E (`ask gate=E q="Delegated approval: 5 <loop> rounds reached" rec="Give direction"`, to the person). After an E answer the count restarts.
+- The lower caps still apply: the third `REVISE` of Scope Review goes to the G1a popup and of Plan Review to the G1b popup for the person (the popup is unchanged), and 3 Verify FAILs in a row go to E.
 
 ## Check before anything leaves
 

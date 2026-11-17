@@ -45,6 +45,7 @@ class SchemaTest(unittest.TestCase):
         """A1: what each judge is told to write first is what the hooks, scripts and monitor compare against."""
         self.assertIn(f'{ma_schema.VERIFY_PASS} | {ma_schema.VERIFY_FAIL}', definition('verifier'))
         self.assertIn(f'{ma_schema.PLAN_READY} | {ma_schema.PLAN_REVISE}', definition('plan-reviewer'))
+        self.assertIn(f'{ma_schema.SCOPE_READY} | {ma_schema.PLAN_REVISE}', definition('scope-reviewer'))
         self.assertIn(f'{ma_schema.REVIEW_PREFIX}<n>', definition('reviewer'))
         self.assertIn(f'`{ma_schema.REVIEW_PASS}`', definition('reviewer'))
         self.assertIn(f'## {ma_schema.APPLIED_AFTER_REVIEW}', definition('reviewer'))

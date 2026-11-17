@@ -9,15 +9,15 @@ import json
 import re
 import shlex
 
-# --- agents (plugin.json lists the same nine; frontmatter `level:` and the folder say the same level) ---
+# --- agents (plugin.json lists the same ten; frontmatter `level:` and the folder say the same level) ---
 
 AGENTS = {
-    'architect': 'L2', 'plan-reviewer': 'L2', 'verifier': 'L2', 'reviewer': 'L2', 'gate-analyst': 'L2',
+    'scope-reviewer': 'L2', 'architect': 'L2', 'plan-reviewer': 'L2', 'verifier': 'L2', 'reviewer': 'L2', 'gate-analyst': 'L2',
     'explorer': 'L3', 'researcher': 'L3', 'writer': 'L3', 'coder': 'L3',
 }
 LEVEL_FOLDER = {'L2': 'l2-design-judge', 'L3': 'l3-workers'}
 UNIT_AGENTS = ('researcher', 'writer', 'coder')           # agents that run a plan.md work unit (E: unit stops)
-BEFORE_APPROVAL = ('explorer', 'architect', 'plan-reviewer')   # G1b allow list (4.4, Q6)
+BEFORE_APPROVAL = ('explorer', 'scope-reviewer', 'architect', 'plan-reviewer')   # G1b allow list (4.4, Q6)
 
 # --- verdicts: the first line of each judge's file and last message ---
 
@@ -25,6 +25,7 @@ VERIFY_PASS = 'Verdict: ALL PASS'
 VERIFY_FAIL = 'Verdict: FAIL'
 PLAN_READY = 'READY FOR APPROVAL'
 PLAN_REVISE = 'REVISE'
+SCOPE_READY = 'READY FOR CONFIRMATION'   # scope-review.md; its other verdict is PLAN_REVISE
 PLAN_SKIPPED = 'SKIPPED'          # L1 writes `SKIPPED <reason>` when the profile skips Plan Review
 REVIEW_PASS = 'BLOCKER 0'
 REVIEW_PREFIX = 'BLOCKER '
@@ -241,7 +242,7 @@ def verify_rows(text: str) -> list:
 
 
 def run_number(text: str):
-    """The `Run: <n>` of a verify.md or plan-review.md, or None."""
+    """The `Run: <n>` of a verify.md, plan-review.md or scope-review.md, or None."""
     m = RUN_LINE.search(text or '')
     return int(m.group(1)) if m else None
 
@@ -286,7 +287,7 @@ def finding_applied(where: str, applied_lines) -> bool:
 
 
 def plan_review(text: str):
-    """{verdict, run, blockers, should_fix, nitpicks} of a plan-review.md, or None when the text is empty."""
+    """{verdict, run, blockers, should_fix, nitpicks} of a plan-review.md or scope-review.md, or None when the text is empty."""
     lines = [l for l in (text or '').splitlines() if l.strip()]
     if not lines:
         return None

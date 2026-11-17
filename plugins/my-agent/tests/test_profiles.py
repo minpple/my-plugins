@@ -140,6 +140,25 @@ class ProfilesTest(unittest.TestCase):
                 self.assertIn('`plan.md` step 4', row)
 
 
+    def test_scope_review_before_g1a(self):
+        """scope-reviewer judges scope.md in the profiles with G1a, before the Person-check and G1a popups."""
+        define = (REPO / 'l1-orchestration' / 'phases' / 'define.md').read_text(encoding='utf-8')
+        section = define.split('## Scope Review')[1]
+        self.assertIn('`my-agent:scope-reviewer`', section)
+        self.assertIn('before the Person-check popups and the G1a popup', section)
+        self.assertIn('Not when the profile skips the interview and G1a', section)
+        self.assertIn('`Apply all (Recommended)` / `Confirm without applying` / `Pick myself`', section)
+        self.assertIn('third `REVISE`', section)
+        self.assertIn('do "Scope Review" below', define.split('4. **Confirm the scope:**')[1])
+        for name in ('dev', 'research'):
+            text = (PROFILES / f'{name}.md').read_text(encoding='utf-8')
+            self.assertIn('`define.md` "Scope Review"', text, name)
+            self.assertIn('| `my-agent:scope-reviewer` | 2 (before G1a', text, name)
+        self.assertIn('skip the Scope interview, Scope Review and G1a', (PROFILES / 'dev.md').read_text(encoding='utf-8'))
+        general = (PROFILES / 'general.md').read_text(encoding='utf-8')
+        self.assertIn('no Scope Review', general)
+        self.assertNotIn('`my-agent:scope-reviewer`', general)
+
     def test_merge_copies_new_files_before_apply(self):
         """Criterion 15: new files are copied before `git apply`, then the worktree is removed."""
         dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')

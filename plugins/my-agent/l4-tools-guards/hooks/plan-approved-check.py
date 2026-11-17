@@ -9,7 +9,7 @@ whose `session:` differs from the input `session_id` (both set) passes. Only the
 While a task is active and its `plan.md` has no `Approved` line under `## Approval`, deny delegation and ask (the G2
 dialog) for writes, whatever the phase: a write outside the active task folder (a sibling task's folder too), or a
 Bash command whose write target cannot be told, is the person's call, allowed only for their own request. Allowed
-before approval: my-agent:explorer / architect / plan-reviewer (and writer once `Prototype: requested` is under
+before approval: my-agent:explorer / scope-reviewer / architect / plan-reviewer (and writer once `Prototype: requested` is under
 plan.md's or scope.md's `## Prototype`: the G1a prototype), and writes under the active task folder (`<location>/<task_dir>/<task>/`), to the records
 folder's `.active`, or to the data folder's `active-index.json` / `projects.txt` (and `mkdir -p` of the data folder
 itself). A `.active` without `task:` → pass with a warning (C9). A task folder that is gone → pass with
@@ -102,7 +102,7 @@ def decide(inp: dict, active, tasks_dir: Path):
         if agent in BEFORE_APPROVAL or (agent == 'my-agent:writer' and (
                 ma_plan.prototype_requested(plan_md) or ma_plan.scope_prototype_requested(active.task_dir / 'scope.md'))):
             return None, None
-        return reason(f'Before approval only explorer, architect and plan-reviewer get work (requested: {agent or "-"}).')
+        return reason(f'Before approval only explorer, scope-reviewer, architect and plan-reviewer get work (requested: {agent or "-"}).')
     if tool == 'Workflow':
         return reason('No workflow runs before approval.')
     if tool in ('Edit', 'Write', 'NotebookEdit'):

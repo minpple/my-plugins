@@ -36,9 +36,10 @@ import ma_models  # noqa: E402
 def render(header, defs, values, width=6) -> str:
     fields = ma_models.diff(defs, values)
     lines = [header]
+    name = max(len(a) for a in defs) if defs else 0   # the longest role name sets the first column
     for agent in defs:
         model, effort = values[agent]
-        lines.append(f"{agent:<13}  model={model:<{width}} effort={effort:<6}  pass={','.join(fields[agent]) or '-'}")
+        lines.append(f"{agent:<{name}}  model={model:<{width}} effort={effort:<6}  pass={','.join(fields[agent]) or '-'}")
     return '\n'.join(lines)
 
 

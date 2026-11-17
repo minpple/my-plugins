@@ -5,7 +5,7 @@ optional; a missing key (or a missing agent) keeps the definition value. A missi
 The main session (L1) has no entry: it stays opus.
 
 The model value `inline` marks a role that L1 runs itself in the main session (SKILL.md "Inline role"), for any of the
-nine roles on both hosts. An inline entry takes no `effort`; its value is `('inline', '-')` and its `pass=` list is
+ten roles on both hosts. An inline entry takes no `effort`; its value is `('inline', '-')` and its `pass=` list is
 `inline` (no Agent call).
 
 An optional top-level key `"codex"` holds the presets of the Codex host with the same nesting:
@@ -190,7 +190,7 @@ def resolve(data, profile, preset, defs):
 
 def summary(defs, values) -> str:
     """The popup line for one preset: the agents whose values differ from the definition ('' when none). When
-    the five L2 agents end up equal (and differ from the definition) they are named `judges`."""
+    all the L2 agents end up equal (and differ from the definition) they are named `judges`."""
     changed = {a for a, f in diff(defs, values).items() if f}
     inline = [a for a in defs if values[a][0] == INLINE]
     changed -= set(inline)
@@ -200,7 +200,7 @@ def summary(defs, values) -> str:
         return 'all roles inline'
     if inline:
         parts.append('inline ' + ', '.join(inline))
-    if len(judges) == 5 and len({values[a] for a in judges}) == 1 and changed >= set(judges):
+    if judges and len({values[a] for a in judges}) == 1 and changed >= set(judges):
         parts.append('judges %s/%s' % values[judges[0]])
         changed -= set(judges)
     parts += ['%s %s/%s' % ((a,) + values[a]) for a in defs if a in changed]

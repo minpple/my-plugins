@@ -650,7 +650,7 @@ const PHASES = [
 ];
 const STEP_NAME = {1:'Intake',2:'Explore → Scope',3:'Plan',4:'Plan Review → G1b',5:'Execute',6:'Merge · Self-check',7:'Verify',8:'Review → Deliver'};
 /* effort fixed in each agent definition (design v0.18, 4.5) */
-const EFFORT = { architect:'high', 'plan-reviewer':'high', verifier:'high', reviewer:'high', explorer:'low', researcher:'medium', writer:'medium', coder:'medium' };
+const EFFORT = { 'scope-reviewer':'high', architect:'high', 'plan-reviewer':'high', verifier:'high', reviewer:'high', explorer:'low', researcher:'medium', writer:'medium', coder:'medium' };
 const etag = (a, eff) => (eff || EFFORT[a]) ? ` <span class="etag" title="effort">${eff || EFFORT[a]}</span>` : '';
 const PROF = { dev: ['dev', '개발'], research: ['research · docs', '조사·문서'], general: ['general', '일반'] };
 const prof = t => PROF[t.profile] ? L(...PROF[t.profile]) : '–';
@@ -659,7 +659,7 @@ const LEVELS = [
   { id:'L1', cls:'lv1', name:'Orchestration', where:['main session · opus','메인 세션 · opus'], comps:[
     ['router','router','profile · task ID'],['orchestrator','orchestrator','delegate · merge'],['gatekeeper','gatekeeper','popup questions'],['recorder','recorder','run-log · retro']]},
   { id:'L2', cls:'lv2', name:'Design · Judge', where:['subagents','서브에이전트'], comps:[
-    ['architect','architect','plan · opus · high'],['plan-reviewer','plan-reviewer','plan verdict · sonnet · high'],['verifier','verifier','criteria verdict · opus · high'],['reviewer','reviewer','quality verdict · sonnet · high']]},
+    ['scope-reviewer','scope-reviewer','scope verdict · sonnet · high'],['architect','architect','plan · opus · high'],['plan-reviewer','plan-reviewer','plan verdict · sonnet · high'],['verifier','verifier','criteria verdict · opus · high'],['reviewer','reviewer','quality verdict · sonnet · high']]},
   { id:'L3', cls:'lv3', name:'Workers', where:['subagents','서브에이전트'], comps:[
     ['explorer','explorer','fact finding · sonnet · low'],['researcher','researcher','web research · sonnet · medium'],['writer','writer','drafts · sonnet · medium'],['coder','coder','slice build · sonnet · medium']]},
   { id:'L4', cls:'lv4', name:'Tools · Guards', where:['no LLM judgment','LLM 판단 없음'], comps:[
@@ -671,6 +671,7 @@ const COMP_DESC = {
   gatekeeper:['Shows the G1a, G1b, G3 and E popups.','G1a·G1b·G3·E 팝업을 띄웁니다.'],
   recorder:['Writes phase entries, popup answers and the cost (reference) to run-log.','phase 진입, 팝업 결과, 금액(참고)을 run-log에 남깁니다.'],
   architect:['Writes the HOW, the slices, the parallel groups and the mock-up.','HOW, 작업 분할, 병렬 그룹, mock-up을 씁니다.'],
+  'scope-reviewer':['Judges the scope against the request before G1a.','G1a 전에 범위를 요청과 대조해 판정합니다.'],
   'plan-reviewer':['Judges the plan independently.','계획을 독립적으로 판정합니다.'],
   verifier:['Gives PASS or FAIL for each completion criterion.','완료 기준마다 PASS/FAIL을 판정합니다.'],
   reviewer:['Judges quality. G3 needs BLOCKER 0.','품질을 판정합니다. BLOCKER 0이어야 G3로 갑니다.'],

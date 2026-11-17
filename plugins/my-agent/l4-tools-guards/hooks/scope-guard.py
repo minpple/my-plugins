@@ -44,7 +44,7 @@ HOME = Path.home()
 PLUGIN = Path(__file__).resolve().parents[2]   # the plugin folder (CLAUDE_PLUGIN_ROOT)
 SECRET_DIRS = [HOME / '.ssh', HOME / '.aws', HOME / '.config' / 'gh']
 SECRET_FILES = [HOME / '.netrc']
-OWN_FILE = {'architect': 'plan.md', 'plan-reviewer': 'plan-review.md', 'verifier': 'verify.md',
+OWN_FILE = {'scope-reviewer': 'scope-review.md', 'architect': 'plan.md', 'plan-reviewer': 'plan-review.md', 'verifier': 'verify.md',
             'reviewer': 'review.md', 'gate-analyst': 'gate-report.md'}   # the one file each L2 agent writes
 WRITE_TOOLS = {'Edit', 'Write', 'NotebookEdit'}
 GLOB_CHARS = re.compile(r'[*?\[]')

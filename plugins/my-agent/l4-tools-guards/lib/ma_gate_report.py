@@ -19,6 +19,7 @@ NO_REC = '(not recorded)'
 SCOPE_CHANGE = 'Scope change:'   # a `fix` line that records an in-scope adjustment (B3), not a fix
 NOTE_BY_L1 = 'answered by L1'
 VERIFIER = 'my-agent:verifier'   # the `agent=` value of the verifier's `start:` line
+SCOPE_REVIEWER = 'my-agent:scope-reviewer'   # Scope Review runs (same counting as Plan Review)
 PLAN_REVIEWER = 'my-agent:plan-reviewer'   # the `agent=` value subagent-log.py writes on `start:` lines
 INLINE = 'inline'   # L1 line kind of a role that ran in the main session (run-log.py inline): one run of its role
 BASELINE = 'baseline'   # `cost:` field (value 1): the cost before the task's first step, not a cut
@@ -205,6 +206,7 @@ def tally_text(lines) -> str:
     out += ['', '## Metrics', '| Item | Value |', '|---|---|',
             f"| Verify runs | {count('start', agent=VERIFIER) + count(INLINE, agent=VERIFIER)} |",
             f'| Judge misses | {judge_misses(lines)} |',
+            f"| Scope Review runs | {count('start', agent=SCOPE_REVIEWER) + count(INLINE, agent=SCOPE_REVIEWER)} |",
             f"| Plan Review runs | {count('start', agent=PLAN_REVIEWER) + count(INLINE, agent=PLAN_REVIEWER)} |",
             f"| Subagents | {count('start') + inline}{f' (inline {inline})' if inline else ''} |",
             f'| Model mismatches | {main + sub} (main session {main} · per session and model, subagents {sub}) |',

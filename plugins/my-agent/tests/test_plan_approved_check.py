@@ -122,7 +122,7 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.assertAsked(self.hook('Bash', {'command': f'mkdir -p {self.tasks_dir}/x'}), f'{self.tasks_dir}/x')
 
     def test_allowlist(self):
-        for agent in ('my-agent:explorer', 'my-agent:architect', 'my-agent:plan-reviewer'):
+        for agent in ('my-agent:explorer', 'my-agent:scope-reviewer', 'my-agent:architect', 'my-agent:plan-reviewer'):
             self.assertPassed(self.hook('Agent', {'subagent_type': agent, 'prompt': 'x'}))
         self.assertDenied(self.hook('Agent', {'subagent_type': 'my-agent:coder', 'prompt': 'x'}))
         self.assertDenied(self.hook('Agent', {'subagent_type': 'general-purpose', 'prompt': 'x'}))

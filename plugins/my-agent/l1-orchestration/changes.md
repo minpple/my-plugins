@@ -24,7 +24,7 @@ When a message that looks like a revision arrives after G1b approval, first ask 
   2. Decide the phase to go back to. If WHAT/WHY changed, ① Define (② Plan in the general profile); if only HOW changed, ② Plan. Tell the person in one line.
   3. Archive to `archive/<time>-rev<new rev>/`.
   4. Write the `revision rev=<new rev> … state=pending` line, and add `- rev<new rev> <YYYY-MM-DD HH:MM> <what changed>; archive <path>; back to <phase>` to `## Revisions` at the very end of `plan.md` (create it if missing).
-  5. Delete `plan-review.md`, `verify.md`, `review.md` and clear `## Approval` (and `Scope change:`). If going back to ①, also clear `## Confirmation` in `scope.md`. Update `phase:` in `.active`. When done, write the `revision rev=<new rev> state=done` line.
+  5. Delete `plan-review.md`, `verify.md`, `review.md` and clear `## Approval` (and `Scope change:`). If going back to ①, also delete `scope-review.md` and clear `## Confirmation` in `scope.md`. Update `phase:` in `.active`. When done, write the `revision rev=<new rev> state=done` line.
   - For items 4 and 5, find each section by headings that start at the beginning of a line (`## Revisions`, `## Approval`) and edit only that section with the Edit tool. Never cut by string position, and do not overwrite the whole file with Write.
   6. Go through every gate again from that phase. For deliverables already made, architect decides keep / revise / discard in the `## Existing work` table. Before approval, delete or revert nothing.
   7. If this is the 4th revision of the same task, popup before starting it: `Keep revising (Recommended)` / `Restart as a new task` / `Abort`.

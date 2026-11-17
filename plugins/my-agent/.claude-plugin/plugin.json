@@ -1,11 +1,12 @@
 {
   "name": "my-agent",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "HITL multi-agent orchestration skill with level-based agents and guard hooks",
   "author": {
     "name": "minpple"
   },
   "agents": [
+    "./l2-design-judge/agents/scope-reviewer.md",
     "./l2-design-judge/agents/architect.md",
     "./l2-design-judge/agents/plan-reviewer.md",
     "./l2-design-judge/agents/verifier.md",

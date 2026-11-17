@@ -14,7 +14,7 @@ session= is refused): it reads `cost_usd` from the statusline file `<session>.js
 ~/.cache/claude-sessions/statusline), session from .active first, else $CLAUDE_CODE_SESSION_ID. A missing or
 unreadable file prints `run-log: no cost line (<reason>)` and writes nothing (exit 0); a value below the previous
 `cost:` line of that session gets reset=1. `cost` also refuses baseline=.
-`inline` records a role that ran in the main session (the inline pass of agent-models.py): agent=my-agent:<role> of the nine
+`inline` records a role that ran in the main session (the inline pass of agent-models.py): agent=my-agent:<role> of the ten
 roles and file= (the result file, or `-` for my-agent:coder) are needed, unit= is optional (`-`). result= is the first non-empty line of
 the file (cut to 200 characters); for `file=-` (coder only) it is given as result=, and for every other role it is refused. A missing
 result file prints `run-log: inline needs the result file <path> (missing)`, exit 1, nothing written. Fields: agent unit file
@@ -102,7 +102,7 @@ def inline_fields(fields, given, cwd):
     """The ordered fields of an `inline` line, or the exit code (message printed) when the arguments are refused."""
     role = (given.get('agent') or '').partition(':')[2]
     if not given.get('agent', '').startswith('my-agent:') or role not in ma_schema.AGENTS or 'file' not in given:
-        print('run-log: inline needs agent=my-agent:<role> (one of the nine roles) and file=', file=sys.stderr)
+        print('run-log: inline needs agent=my-agent:<role> (one of the ten roles) and file=', file=sys.stderr)
         return 2
     extra = {k for k, _ in fields} - {'agent', 'unit', 'file', 'result'}
     if extra:
