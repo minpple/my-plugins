@@ -39,9 +39,11 @@ Complete Intake (the create call, including `.active` and the preset record wher
 
 ## Waiting for Codex popup responses
 
-A question sent to the person through `request_user_input` needs a valid answer for its question ID. Wait for the tool to return. On an empty `answers` object, a missing question ID or a missing or invalid answer, reopen the same question (same ID and choices) in the current turn and wait again, until the person submits a valid answer or explicitly cancels the task. If the tool is unavailable, follow the tool-unavailable rule in the table above.
+A question sent to the person through `request_user_input` needs a valid answer for its question ID. Wait for the tool to return. A timeout, an empty `answers` object, a missing question ID or a missing or invalid answer leaves the decision pending. Immediately call `request_user_input` again with the same question ID and choices in the current turn, then wait for its result.
 
-- Keep the task at the pending decision and reuse its existing `ask`. Write the `answer` and any approval marker, and take any dependent action, only after the valid response.
+Repeat this wait after every unanswered call. There is no retry limit or elapsed-time cutoff, and an unanswered call must not end the turn with a progress report or final answer. Keep waiting until the person submits a valid popup answer or explicitly cancels the task. If the tool reports that it is unavailable, follow the tool-unavailable rule in the table above.
+
+- Keep the task at the pending decision and reuse its existing `ask` across retries. Write the `answer` and any approval marker, and take any dependent action, only after the valid response.
 - On `continue` or a chat reply about the decision, check the current phase and run-log for the outstanding `ask` before advancing. Reopen that gate with the same choices and use the original `ask` for the answer record. If the person requests a scope or plan change, follow the in-flight revision procedure and ask for approval of the revised material.
 - Resolve only the gate named in the popup. A chat reply, an earlier decision, or an answer to a later gate cannot close it. In particular, G1b approval cannot confirm a pending G1a, and a pending G3 blocks commit or delivery until its popup returns a valid decision.
 - For G2, reopen the popup for the exact blocked call using the hook reason and match key. If those details cannot be recovered, report the pending G2 and stop before the gated action.
