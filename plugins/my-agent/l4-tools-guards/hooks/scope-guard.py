@@ -11,9 +11,10 @@ exits 0 before the JSON is even parsed; an input that holds only `my-agent-` is 
 my-agent agent. For a my-agent agent: secrets are denied for everyone, reads must stay in the agent's read
 roots, writes in its write roots. The rules start from the agent's level (ma_schema.AGENTS): an L2 agent writes only
 its own file and its Bash only reads; an L3 agent writes nothing. Roles then widen or narrow that: the verifier and
-researcher may use the web, the researcher and writer write `work/` (writer also `prototype/`), the coder writes the
-location or its worktree (also one inside a linked-worktree location) but not `<task_dir>/`, `.git/` or `.claude/`
-(hooks and settings run in L1's context), and the gate-analyst reads only gate-tally.md and gate-report.md. The
+researcher may use the web, the researcher and writer write `work/` (writer also `prototype/` and the project
+blueprint folder, 4.7.5), the coder writes the location or its worktree (also one inside a linked-worktree location)
+but not `<task_dir>/`, `.git/`, `.claude/` (hooks and settings run in L1's context) or the blueprint folder (only the
+writer writes it), and the gate-analyst reads only gate-tally.md and gate-report.md. The
 architect may not add the `Approved` or
 `Prototype: requested` line L1 writes into plan.md (4.4 G1b) nor drop a `## Revisions` line (4.8.1).
 On a deny with an active task it appends one `guard:` line to the task's run-log (fields ma_schema.GUARD_FIELDS, `why` is
@@ -31,6 +32,7 @@ from typing import List, NamedTuple, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
 import ma_active  # noqa: E402
 import ma_bash  # noqa: E402
+import ma_blueprint  # noqa: E402
 import ma_data  # noqa: E402
 import ma_host  # noqa: E402
 import ma_logline  # noqa: E402
@@ -135,15 +137,17 @@ def rules(role: str, active, cwd: Path) -> Optional[Rules]:
         return r._replace(web=True)
     if role == 'researcher':
         return r._replace(write=[T / 'work'], web=True)
+    blueprint = ma_blueprint.root(L)   # None: the location is the data folder, which keeps no blueprint
     if role == 'writer':
-        return r._replace(write=[T / 'work', T / 'prototype'])
+        return r._replace(write=[T / 'work', T / 'prototype'] + ([blueprint] if blueprint else []))
     if role == 'coder':
         W = worktree(cwd, L)
         own = W or L
         records = T.parent   # the records folder, resolved by the reader
         return r._replace(read=r.read + ([W] if W else []), write=[own], bash_writes=True,
-                          deny_write=[records, L / '.git', L / '.claude'] if W is None
-                          else [W / ma_data.task_dir(), W / '.git'])
+                          deny_write=([records, L / '.git', L / '.claude'] if W is None
+                                      else [W / ma_data.task_dir(), W / '.git'])
+                          + ([(W or L) / ma_blueprint.DIR] if blueprint else []))
     return r
 
 

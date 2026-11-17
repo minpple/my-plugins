@@ -6,7 +6,7 @@ A Claude Code plugin marketplace by minpple.
 
 | Plugin | Version | Description |
 |---|---|---|
-| `my-agent` | 0.15.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
+| `my-agent` | 0.16.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
 | `my-agent-tray` | 0.1.4 | macOS menu bar app for the my-agent monitor (optional; needs my-agent 0.5.0 or later) |
 
 ## Requirements
@@ -82,6 +82,8 @@ python3 ~/dev/my-plugins/plugins/my-agent/l4-tools-guards/scripts/archive-tasks.
 ```
 
 Run by hand in a shell, the script does not know the setting. Unless your data folder is the default `~/dev/log/my-agent`, pass it with `--data-dir <folder>` so the script finds the project list; likewise pass `--task-dir <folder>` if you changed `task_dir`.
+
+What a project is now is kept in the project blueprint, `<task location>/docs/blueprint/`: `features.md` (what exists, with each completion criterion and what checks it), `decisions.md` (constraints, non-goals and decisions later tasks must keep) and `backlog.md` (what is still open). Every task reads it at the start and updates it after the final acceptance, in all three profiles. Unlike the task records it is meant to be committed: in the dev profile it is part of the task's commit, in the other profiles the changed files are left for you to commit. A task run outside any project keeps no blueprint.
 
 ## Update and remove
 

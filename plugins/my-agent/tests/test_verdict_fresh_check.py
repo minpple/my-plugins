@@ -105,6 +105,15 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.verdicts(verify_at=10, review_at=30)
         self.assertAsked(self.bash('git commit -m x'), self.PREFIX + 'verify.md is older than src/a.py' + self.TAIL)
 
+    def test_blueprint_changes_do_not_count(self):
+        """4.7.5: the writer updates `docs/blueprint/` after G3, so those files never make the verdicts stale."""
+        self.file(self.L / 'src/a.py', 'x', 0)
+        self.verdicts()
+        self.file(self.L / 'docs/blueprint/features.md', '# Features\n', 30)
+        self.assertPassed(self.bash('git commit -m x'))
+        self.file(self.L / 'docs/other.md', 'x', 30)
+        self.assertAsked(self.bash('git commit -m x'), self.PREFIX + 'review.md is older than docs/other.md' + self.TAIL)
+
     def test_task_folder_changes_do_not_count_for_commit(self):
         self.file(self.L / 'src/a.py', 'x', 0)
         self.verdicts()

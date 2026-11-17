@@ -44,8 +44,18 @@ In the dev profile, "G3 in the dev profile" in `profiles/dev.md` replaces items 
    - Do gates.md "Check before anything leaves" on the final version.
    - Copy the final version from the task folder to the save location. Workers do not write outside the task folder, so L1 makes this copy. If the judgments are not fresh, the hook (`verdict-fresh-check.py`) blocks it. If blocked, redo from Verify.
    - Add `Delivered: <path>` to `intake.md` and run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" deliver path=<path> --data-dir "<data folder>" --task-dir "<task_dir>"`.
+   - Do "Blueprint update" below. In a git location its files stay uncommitted; say so in one line.
    - Change `intake.md` to `Status: done`.
    - If delegated approval is on, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" delegate state=off how=end --data-dir "<data folder>" --task-dir "<task_dir>"` before the retrospective.
    - Retrospective: read `retro.md` and do its "Retrospective". After the retrospective ends, last of all delete `.active` and this task's line in `<data folder>/active-index.json` (the retrospective needs `.active`).
 7. **Rework:** If the criteria stay the same, do "Back to Execute" and go to ③ Build with the shortfalls as failed criteria. Small scope adjustments the person asks for after the G3 report are collected into one `Scope change:` round and re-judged once (one Execute, one Verify, one Review). If the request changes the criteria, take changes.md "In-flight revision".
 8. **Abort:** the "Abort" procedure in changes.md.
+
+## Blueprint update
+
+The project blueprint is `docs/blueprint/` in the task location (`features.md`, `decisions.md`, `backlog.md`): the committed record of what the project is now, which the next task's Explore reads. Update it once per task, in every profile, after the G3 `Accept` (dev: `Commit`) answer, at the point item 6 (dev: "G3 in the dev profile" item 4) gives.
+
+1. Run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/blueprint.py" check --loc "<task location>" --data-dir "<data folder>"`. If the first line is `blueprint: off …` (the task location is the data folder), skip this section. `problem:` lines here are older than this task; pass them on in item 2.
+2. Hand it to `my-agent:writer`, with no `Work unit:` line. Pass: the job name `Blueprint update`, the path `${CLAUDE_PLUGIN_ROOT}/l3-workers/blueprint-format.md`, the folder of the `blueprint:` line, the task ID, the date of the G3 `answer` line, the task folder files (`intake.md`, `explore.md`, `scope.md` if any, `plan.md`, `plan-review.md`, `verify.md`, `review.md`, `changed-files.md`) and where the deliverable is (the save path; dev: the changed files). Do not pass explanations. Model and effort: recorder.md "Model and effort per call".
+3. Run the item 1 command again. On `problem:` lines or a `PARTIAL` report, hand them to a new writer call once. If they remain, show them in the chat and go on: a blueprint problem never undoes the Accept or Commit.
+4. Show in the chat the `ok:` line and the per-file lines of the writer's report.

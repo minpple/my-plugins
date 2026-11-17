@@ -195,6 +195,27 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertFalse(self.denied('my-agent:writer', 'Write', {'file_path': str(self.T / 'prototype/index.html')}))
         self.assertTrue(self.denied('my-agent:writer', 'Write', {'file_path': str(ref)}))
 
+    def test_blueprint_folder_is_the_writers(self):
+        """4.7.5: only the writer writes `docs/blueprint/`; the coder, whose scope is the location, does not."""
+        page = self.L / 'docs' / 'blueprint' / 'features.md'
+        self.assertFalse(self.denied('my-agent:writer', 'Write', {'file_path': str(page)}))
+        self.assertFalse(self.denied('my-agent:writer', 'Edit', {'file_path': str(page), 'old_string': 'a',
+                                                                 'new_string': 'b'}))
+        self.assertTrue(self.denied('my-agent:writer', 'Write', {'file_path': str(self.L / 'docs' / 'other.md')}))
+        self.assertTrue(self.denied('my-agent:coder', 'Write', {'file_path': str(page)}))
+        self.assertFalse(self.denied('my-agent:coder', 'Write', {'file_path': str(self.L / 'docs' / 'other.md')}))
+        for agent in ('researcher', 'explorer', 'verifier', 'reviewer'):
+            self.assertTrue(self.denied(f'my-agent:{agent}', 'Write', {'file_path': str(page)}), agent)
+            self.assertFalse(self.denied(f'my-agent:{agent}', 'Read', {'file_path': str(page)}), agent)
+
+    def test_no_blueprint_when_the_location_is_the_data_folder(self):
+        """A task outside any project (location = data folder) keeps no blueprint: the writer gets no extra root."""
+        data = self.root / 'agent-tasks'
+        T = make_task(data, task=TASK, git=False)
+        page = data / 'docs' / 'blueprint' / 'features.md'
+        self.assertTrue(self.denied('my-agent:writer', 'Write', {'file_path': str(page)}, cwd=data))
+        self.assertFalse(self.denied('my-agent:writer', 'Write', {'file_path': str(T / 'work' / 'n.md')}, cwd=data))
+
     def scratch(self, sid='sess-1', slug='x-slug'):
         return Path('/tmp').resolve() / f'claude-{os.getuid()}' / slug / sid / 'scratchpad' / 'n.txt'
 
@@ -447,7 +468,7 @@ class ScopeGuardTest(unittest.TestCase):
         with clean_task_env():
             make_task(loc, task=TASK, sub='notes/agent')
         r = self.rules_of({'CLAUDE_PLUGIN_OPTION_TASK_DIR': 'notes/agent'}, loc)
-        self.assertEqual(r.deny_write, [loc / 'notes/agent', loc / '.git', loc / '.claude'])
+        self.assertEqual(r.deny_write, [loc / 'notes/agent', loc / '.git', loc / '.claude', loc / 'docs/blueprint'])
         loc2 = self.root / 'third'
         with clean_task_env():
             make_task(loc2, task=TASK, sub='.my-agent')

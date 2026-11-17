@@ -21,7 +21,8 @@ Applies while a task is active, to a `git commit` and to the G3 deliver: any wri
 `Verdict: ALL PASS` and `review.md` starting
 `BLOCKER 0`, both no older than the newest changed file: git changes outside `<task_dir>/`, plus the task folder's
 `work/` (and `deliverable/` when the deliver leaves the task folder; a copy into `deliverable/` does not count the
-copies made just before it). A `verify.md` older than a change is accepted when `review.md` is newer than every change
+copies made just before it). The project blueprint folder (`docs/blueprint/`, 4.7.5) does not count: the writer updates
+it after G3 from the judged files. A `verify.md` older than a change is accepted when `review.md` is newer than every change
 and has `## Applied after review`. No `.active`, or another command → exit 0 at once (a `.active` without `task:`
 prints a warning, C9). Any error → exit 2 (blocked).
 """
@@ -35,6 +36,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
 import ma_active  # noqa: E402
 import ma_bash  # noqa: E402
+import ma_blueprint  # noqa: E402
 import ma_host  # noqa: E402
 import ma_schema  # noqa: E402
 from ma_path import under  # noqa: E402
@@ -61,6 +63,7 @@ def files_in(d: Path):
 def changed_files(active, with_deliverable: bool = True) -> list:
     """Files the verdicts must be newer than (see module docstring)."""
     L, agent = active.location, active.task_dir.parent   # agent: the records folder, resolved by the reader
+    blueprint = ma_blueprint.root(L)
     out = files_in(active.task_dir / 'work') + (files_in(active.task_dir / 'deliverable') if with_deliverable else [])
     if (L / '.git').exists():
         r = subprocess.run(['git', '-C', str(L), 'status', '--porcelain', '-uall', '-z'],
@@ -77,7 +80,7 @@ def changed_files(active, with_deliverable: bool = True) -> list:
             if e[0] in 'RC':
                 i += 1          # -z: the rename source follows as its own entry
             p = (L / e[3:]).resolve()
-            if not under(p, agent) and p.is_file():
+            if not under(p, agent) and not (blueprint and under(p, blueprint.resolve())) and p.is_file():
                 out.append(p)
     return out
 
