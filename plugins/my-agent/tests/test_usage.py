@@ -68,6 +68,29 @@ class UsageTest(Base):
         self.assertEqual(list(usage[(0, 2)]), ['claude-sonnet-5-5'])
         self.assertEqual(len(usage), 2)
 
+    def test_measure_reads_every_project_folder_of_a_session(self):
+        d = self.task()
+        self.transcript(entry('2026-10-01 10:01:00', 'a'))
+        other = self.claude / '-x-proj-sub' / 's-1.jsonl'   # the session's working folder changed: a second file
+        other.parent.mkdir(parents=True)
+        other.write_text(entry('2026-10-01 10:02:00', 'a2') + '\n' + entry('2026-10-01 10:11:00', 'b') + '\n')
+        usage = ma_usage.measure(d, self.claude)[2]
+        self.assertEqual(usage[(0, 1)]['claude-opus-5-5']['input_tokens'], 20)
+        self.assertEqual(usage[(0, 2)]['claude-opus-5-5']['input_tokens'], 10)
+
+    def test_claude_cost_sums_main_and_subagent_transcripts(self):
+        self.assertEqual(ma_usage.claude_cost('s-1', self.claude, TP)[0], None)
+        self.transcript(entry('2026-10-01 10:01:00', 'a', inp=1_000_000, out=0),
+                        entry('2026-10-01 10:02:00', 'z', model='<synthetic>', inp=0, out=0))   # no tokens: skipped
+        sub = self.claude / '-x-proj' / 's-1' / 'subagents' / 'agent-a1.jsonl'
+        sub.parent.mkdir(parents=True)
+        sub.write_text(entry('2026-10-01 10:03:00', 'b', inp=0, out=1_000_000) + '\n')
+        self.assertEqual(ma_usage.claude_cost('s-1', self.claude, TP), (24.0, None))
+        sub.write_text(entry('2026-10-01 10:03:00', 'b', model='other-model') + '\n')
+        usd, why = ma_usage.claude_cost('s-1', self.claude, TP)
+        self.assertIsNone(usd)
+        self.assertIn('other-model not in prices.json', why)
+
     def test_snapshot_round_trip(self):
         d = self.task()
         self.transcript(entry('2026-10-01 10:01:00', 'a'), entry('2026-10-01 10:11:00', 'b'))

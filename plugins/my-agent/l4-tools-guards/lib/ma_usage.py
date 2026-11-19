@@ -128,21 +128,56 @@ def sum_windows(msgs, wins) -> dict:
     return out
 
 
+def claude_cost(session, root: Path, prices):
+    """(usd, None) of a Claude session at list prices, from its transcript and its subagent transcripts
+    (`<root>/*/<session>.jsonl`, `<root>/*/<session>/subagents/agent-*.jsonl`), else (None, reason). For a session
+    without a statusline file (a cloud session has none). A response with no tokens is skipped; a model with tokens
+    and no row in `prices.json` gives no cost."""
+    mains = find_transcripts(root, session)
+    if not mains:
+        return None, f'no transcript for session {session}'
+    total, seen = 0.0, False
+    for paths in (mains, *([p] for p in sorted(Path(root).glob(f'*/{session}/subagents/agent-*.jsonl')))):
+        try:
+            msgs = read_transcripts(paths)
+        except OSError:
+            continue
+        for _, model, usage in msgs:
+            if not any(usage.values()):
+                continue
+            usd = ma_prices.cost(prices, model, usage)
+            if usd is None:
+                return None, f'{model or "unknown model"} not in prices.json'
+            total, seen = total + usd, True
+    return (total, None) if seen else (None, 'no token usage in the transcript')
+
+
+def find_transcripts(root: Path, session) -> list:
+    """Every `<root>/*/<session>.jsonl`: a session whose working folder changed has one file per project folder."""
+    return sorted(Path(root).glob(f'*/{session}.jsonl')) if session else []
+
+
 def find_transcript(root: Path, session):
-    hits = sorted(Path(root).glob(f'*/{session}.jsonl')) if session else []
+    hits = find_transcripts(root, session)
     return hits[0] if hits else None
 
 
-def read_transcript(path: Path) -> list:
-    """(ts, model, usage) per response of a whole transcript, the last line of a response ID winning."""
+def read_transcripts(paths) -> list:
+    """(ts, model, usage) per response of the transcripts together, the last line of a response ID winning."""
     msgs = {}
-    with open(path, 'rb') as fh:
-        for i, raw in enumerate(fh):
-            got = parse_entry(raw)
-            if got:
-                mid, ts, model, usage = got
-                msgs[mid or f'@{i}'] = (ts, model, usage)
+    for path in paths:
+        with open(path, 'rb') as fh:
+            for i, raw in enumerate(fh):
+                got = parse_entry(raw)
+                if got:
+                    mid, ts, model, usage = got
+                    msgs[mid or f'{path}@{i}'] = (ts, model, usage)
     return list(msgs.values())
+
+
+def read_transcript(path: Path) -> list:
+    """`read_transcripts` of one file."""
+    return read_transcripts([path])
 
 
 def read_log(log: Path) -> list:
@@ -170,12 +205,12 @@ def measure(task_dir: Path, root: Path):
     sessions = sorted({w[0] for w in wins if w[0]})
     missing, out = [], {}
     for sess in sessions:
-        path = find_transcript(root, sess)
-        codex = None if path else ma_host.codex_record(sess)
-        if path is None and codex is None:
+        paths = find_transcripts(root, sess)
+        codex = None if paths else ma_host.codex_record(sess)
+        if not paths and codex is None:
             missing.append(sess)
             continue
-        msgs = read_transcript(path) if path else read_codex(codex, sess)
+        msgs = read_transcripts(paths) if paths else read_codex(codex, sess)
         got = sum_windows(msgs, [(s, e, k) for ss, s, e, k in wins if ss == sess])
         for key, models in got.items():
             for model, usage in models.items():

@@ -8,6 +8,8 @@ from pathlib import Path
 
 from helpers import L4, make_task, parse, records, rel, run_script
 
+import ma_gate_report
+
 SCRIPT = L4 / 'scripts' / 'gate-report.py'
 TASK = '261025-probe-task'
 DEFAULT_COPY = Path.home() / 'dev' / 'log' / 'my-agent'
@@ -423,6 +425,17 @@ class GateReportTest(unittest.TestCase):
         self.assertIn('stop: id=c1 mode=acceptEdits', bad[0])
         self.assertTrue(out.rstrip().splitlines()[-1].startswith('summary: transcripts 2 (other 0, untyped 0, earlier 0), '
                                                                  'start lines 1, missing 1, non-auto stops 1'))
+
+    def test_rework_on_open_items_is_not_a_judge_miss(self):
+        lines = [('', 'start', {'agent': 'my-agent:verifier', 'id': 'v1'}),
+                 ('', 'stop', {'id': 'v1', 'result': 'Verdict: ALL PASS'}),
+                 ('', 'answer', {'gate': 'G3', 'choice': 'Rework: fix all open items (Recommended)'}),
+                 ('', 'answer', {'gate': 'G3', 'choice': 'Rework'})]
+        self.assertEqual(ma_gate_report.open_item_reworks(lines), 1)
+        self.assertEqual(ma_gate_report.judge_misses(lines), 1)   # the plain Rework, with the ALL PASS still standing
+        self.assertEqual(ma_gate_report.judge_misses(lines[:3]), 0)
+        self.assertIn('| Reworks on open review items | 1 |', ma_gate_report.tally_text(lines))
+        self.assertNotIn('Reworks on open review items', ma_gate_report.tally_text(lines[:2]))
 
     def test_check_leaves_out_transcripts_of_an_earlier_task(self):
         self.agent_files('s-test', 'c1')

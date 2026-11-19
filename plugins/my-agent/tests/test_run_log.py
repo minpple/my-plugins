@@ -125,6 +125,17 @@ class RunLogTest(unittest.TestCase):
             self.assertIn('run-log: no cost line (', r.stdout, text)
         self.assertEqual(log_lines(self.task), [])
 
+    def test_cost_from_transcript_without_statusline_file(self):
+        folder = self.root / 'projects' / '-proj'
+        folder.mkdir(parents=True)
+        (folder / 's-active.jsonl').write_text(json.dumps({
+            'type': 'assistant', 'timestamp': '2026-11-01T05:00:00Z',
+            'message': {'id': 'm1', 'model': 'claude-opus-5-5', 'usage': {'output_tokens': 1_000_000}}}) + '\n')
+        r = self.run_log('cost', env={'MA_STATUSLINE_DIR': str(self.root / 'nodir')})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        f = parse(log_lines(self.task)[-1])
+        self.assertEqual((f['session'], float(f['usd'])), ('s-active', 20.0))
+
     def test_cost_rejects_typed_values(self):
         env = self.statusline('s-active', '{"cost_usd": 1}')
         for arg in ('usd=5', 'session=s-x'):

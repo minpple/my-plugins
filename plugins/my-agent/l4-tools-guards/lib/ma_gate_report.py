@@ -159,8 +159,17 @@ def segments(lines) -> list:
     return segs
 
 
+REWORK_OPEN = 'Rework: fix all open items'   # the G3 choice that reworks the open review items (gates.md)
+
+
+def open_item_reworks(lines) -> int:
+    """Times G3 was answered `Rework: fix all open items`: a rework of review items, not a verifier miss."""
+    return sum(1 for _, k, f in lines if k == 'answer' and f.get('gate') == 'G3' and _bare(f.get('choice')) == REWORK_OPEN)
+
+
 def judge_misses(lines) -> int:
-    """Times a verifier `Verdict: ALL PASS` was followed, with no later Verify in between, by a G3 `Rework`."""
+    """Times a verifier `Verdict: ALL PASS` was followed, with no later Verify in between, by a G3 `Rework` (the
+    person names the shortfalls). `Rework: fix all open items` is not counted: see `open_item_reworks`."""
     verifiers, pending, misses = set(), False, 0
     for _, kind, f in lines:
         if kind == 'start' and f.get('agent') == VERIFIER:
@@ -216,6 +225,7 @@ def tally_text(lines) -> str:
             f'| Plan rewrites before approval | {drafts} |',
             f'| In-flight revisions | {revs} |',
             f'| Calls raised to opus | {opus} (retries and explicit calls are not told apart) |',
+            *([f'| Reworks on open review items | {open_item_reworks(lines)} |'] if open_item_reworks(lines) else []),
             *([f'| Plan edits by L1 before approval | {plan_edits} |'] if plan_edits else []),
             *([f'| Delegated answers | {delegated} |'] if delegated else []),
             *([f"| Delegated approval | {', '.join(switches)} |"] if switches else []),
