@@ -68,9 +68,10 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('`permissionDecision: ask`', sec)
         self.assertIn('`permissionDecision: deny`', sec)
 
-    def test_status_line_starts_with_v057(self):
+    def test_status_line_starts_with_v058(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.57 (2026-11-18, plugin 0.18.0: coder notes'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.58 (2026-11-19, plugin 0.18.0, version not raised: fixes from'), line[:90])
+        self.assertIn('v0.57 (2026-11-18, plugin 0.18.0: coder notes', line)
         self.assertIn('v0.56 (2026-11-17, plugin 0.17.0: Scope Review', line)
         self.assertIn('v0.55 (2026-11-17, plugin 0.16.0: project blueprint', line)
         self.assertIn('v0.54 (2026-11-16, plugin 0.15.0: Intake script', line)

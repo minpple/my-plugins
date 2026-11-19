@@ -37,8 +37,8 @@ In the dev profile, "G3 in the dev profile" in `profiles/dev.md` replaces items 
 5. **G3 popup:** always to the person, even while delegated approval is on (SKILL.md "Delegated approval").
    - Run, right before the G3 popup, `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" cost --data-dir "<data folder>" --task-dir "<task_dir>"` (the order is in item 4).
    - The popup body lists the open SHOULD-FIX and NITPICK items of `review.md`.
-   - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" ask gate=G3 q="Final acceptance: <task-id> → <save path>" rec="Accept" --data-dir "<data folder>" --task-dir "<task_dir>"`
-   - Popup: `Accept (Recommended)` / `Rework` / `Abort`
+   - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" ask gate=G3 q="Final acceptance: <task-id> → <save path>" rec="<recommended choice>" --data-dir "<data folder>" --task-dir "<task_dir>"`
+   - Popup: `Accept (Recommended)` / `Rework` / `Abort`; with open items, gates.md "Gate reports", "G3 with open review items".
    - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" answer gate=G3 choice="<chosen choice>" --data-dir "<data folder>" --task-dir "<task_dir>"`
 6. **Accept:**
    - Do gates.md "Check before anything leaves" on the final version.

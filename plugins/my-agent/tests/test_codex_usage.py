@@ -273,13 +273,13 @@ class GateReportTest(Base):
                  f'2026-01-01 05:01:00 stop: id={SUB} mode=auto')
         r = self.gate('check')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('summary: transcripts 1 (other 0, untyped 0), start lines 1, missing 0, non-auto stops 0', r.stdout)
+        self.assertIn('summary: transcripts 1 (other 0, untyped 0, earlier 0), start lines 1, missing 0, non-auto stops 0', r.stdout)
 
     def test_check_missing_start(self):
         self.records(role='my-agent-coder')
         r = self.gate('check')
         self.assertRegex(r.stdout, rf'missing start: id={SUB} agent=my-agent:coder transcript=.*rollout-2-sub\.jsonl')
-        self.assertIn('summary: transcripts 1 (other 0, untyped 0), start lines 0, missing 1, non-auto stops 0', r.stdout)
+        self.assertIn('summary: transcripts 1 (other 0, untyped 0, earlier 0), start lines 0, missing 1, non-auto stops 0', r.stdout)
 
     def test_check_untyped_subagent(self):
         self.records()
@@ -289,7 +289,7 @@ class GateReportTest(Base):
 
     def test_check_other_agent_is_counted(self):
         self.records(role='explorer')
-        self.assertIn('transcripts 1 (other 1, untyped 0)', self.gate('check').stdout)
+        self.assertIn('transcripts 1 (other 1, untyped 0, earlier 0)', self.gate('check').stdout)
 
 
 if __name__ == '__main__':

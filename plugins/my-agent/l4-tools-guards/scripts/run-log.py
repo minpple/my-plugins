@@ -11,8 +11,10 @@ turn), else --model; it is checked against the configured main model (opus, P9; 
 and a main-session MISMATCH is printed once per task and model.
 `ask` and `answer` lines get session= the same way. `cost` takes no value from the command line (usd= or
 session= is refused): it reads `cost_usd` from the statusline file `<session>.json` in $MA_STATUSLINE_DIR (default
-~/.cache/claude-sessions/statusline), session from .active first, else $CLAUDE_CODE_SESSION_ID. A missing or
-unreadable file prints `run-log: no cost line (<reason>)` and writes nothing (exit 0); a value below the previous
+~/.cache/claude-sessions/statusline), session from .active first, else $CLAUDE_CODE_SESSION_ID. Without a value
+there (a cloud session has no statusline file) the cost is tokens times list prices, from the session's transcripts
+and its subagent transcripts (`ma_usage.claude_cost`). With neither it prints `run-log: no cost line (<reason>)`
+and writes nothing (exit 0); a value below the previous
 `cost:` line of that session gets reset=1. `cost` also refuses baseline=.
 `inline` records a role that ran in the main session (the inline pass of agent-models.py): agent=my-agent:<role> of the ten
 roles and file= (the result file, or `-` for my-agent:coder) are needed, unit= is optional (`-`). result= is the first non-empty line of
@@ -78,12 +80,17 @@ def statusline_cost(session):
 
 
 def session_cost(session, data_dir):
-    """(cost_usd, None) or (None, reason): a Claude session's statusline value; for a session with a Codex
-    record (and no statusline file) tokens times list prices."""
+    """(cost_usd, None) or (None, reason): a Claude session's statusline value; without a statusline file, tokens
+    times list prices: a Codex record's, else the Claude transcript's with its subagent transcripts (a cloud
+    session has no statusline file). When neither gives a value the reason is the statusline one."""
     usd, why = statusline_cost(session)
-    if why and ma_host.codex_record(session):
-        return ma_usage.codex_cost(session, ma_prices.load_prices(ma_prices.prices_file(data_dir)))
-    return usd, why
+    if not why:
+        return usd, None
+    prices = ma_prices.load_prices(ma_prices.prices_file(data_dir))
+    if ma_host.codex_record(session):
+        return ma_usage.codex_cost(session, prices)
+    est, _ = ma_usage.claude_cost(session, ma_subagent.claude_projects(), prices)
+    return (est, None) if est is not None else (None, why)
 
 
 def subagent_mismatches(lines) -> list:

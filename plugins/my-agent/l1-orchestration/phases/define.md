@@ -31,10 +31,11 @@ Step 1 Intake is the "Intake" procedure in new-task.md. This file starts at step
      - On `Revise` with a profile change, follow changes.md "Profile change at the first gate".
      - On Confirm, write `Confirmed <YYYY-MM-DD HH:MM>` in `## Confirmation` of `scope.md`, with the date and minute the `answer` line printed.
    - **Person-check popup:** before the G1a popup (before the scope summary goes to architect in the general profile), ask one popup per `[check: person]` criterion.
-     - The question names the criterion number and text. Choices: `I check it before G3 and tell you (Recommended)` / `Other` (the person writes how and when they check it).
+     - The question names the criterion number and text. Choices: `I check it before G3 and tell you (Recommended)` / `I check it after G3`; the Other field takes how and when the person checks it.
      - Record before the popup: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" ask gate=Q q="How criterion <n> is checked" rec="I check it before G3 and tell you" --data-dir "<data folder>" --task-dir "<task_dir>"`, and after it: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" answer gate=Q choice="<chosen choice>" --data-dir "<data folder>" --task-dir "<task_dir>"`.
      - Write the answer into that criterion's text, before its tag.
-     - There is no "decide at G3" choice. A person who cannot check before G3 uses changes.md "Adjust within approved scope" (`Scope change: criterion <n> is checked by the user later`); the verifier cites that line as the evidence, and the G3 report lists such criteria.
+     - On `I check it after G3`, right after the G1b approval add the `Scope change: criterion <n> is checked by the user later` line (changes.md "Adjust within approved scope").
+     - There is no "decide at G3" choice. A person who later finds they cannot check before G3 uses changes.md "Adjust within approved scope" (`Scope change: criterion <n> is checked by the user later`); the verifier cites that line as the evidence, and the G3 report lists such criteria.
 5. Change `phase:` in `.active` to `2` and read `plan.md` (the phase file).
 
 ## Scope Review

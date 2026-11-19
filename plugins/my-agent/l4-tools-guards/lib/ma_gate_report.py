@@ -8,6 +8,7 @@ only gives its session the value the next cost line is measured against, so the 
 `check_lines` compares the run-log with the subagent transcripts of the task's sessions (`gate-report.py check`).
 """
 import re
+from datetime import datetime
 from pathlib import Path
 
 import ma_data
@@ -158,8 +159,17 @@ def segments(lines) -> list:
     return segs
 
 
+REWORK_OPEN = 'Rework: fix all open items'   # the G3 choice that reworks the open review items (gates.md)
+
+
+def open_item_reworks(lines) -> int:
+    """Times G3 was answered `Rework: fix all open items`: a rework of review items, not a verifier miss."""
+    return sum(1 for _, k, f in lines if k == 'answer' and f.get('gate') == 'G3' and _bare(f.get('choice')) == REWORK_OPEN)
+
+
 def judge_misses(lines) -> int:
-    """Times a verifier `Verdict: ALL PASS` was followed, with no later Verify in between, by a G3 `Rework`."""
+    """Times a verifier `Verdict: ALL PASS` was followed, with no later Verify in between, by a G3 `Rework` (the
+    person names the shortfalls). `Rework: fix all open items` is not counted: see `open_item_reworks`."""
     verifiers, pending, misses = set(), False, 0
     for _, kind, f in lines:
         if kind == 'start' and f.get('agent') == VERIFIER:
@@ -215,6 +225,7 @@ def tally_text(lines) -> str:
             f'| Plan rewrites before approval | {drafts} |',
             f'| In-flight revisions | {revs} |',
             f'| Calls raised to opus | {opus} (retries and explicit calls are not told apart) |',
+            *([f'| Reworks on open review items | {open_item_reworks(lines)} |'] if open_item_reworks(lines) else []),
             *([f'| Plan edits by L1 before approval | {plan_edits} |'] if plan_edits else []),
             *([f'| Delegated answers | {delegated} |'] if delegated else []),
             *([f"| Delegated approval | {', '.join(switches)} |"] if switches else []),
@@ -249,9 +260,20 @@ def session_ids(active_session, raw) -> list:
     return ids
 
 
-def check_lines(raw, transcripts) -> list:
+def task_began(raw):
+    """The time of the first run-log line (local, as the log writes it), or None without a readable stamp."""
+    for text, _, _ in raw:
+        try:
+            return datetime.strptime(text[:19], '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            continue
+    return None
+
+
+def check_lines(raw, transcripts, earlier=0) -> list:
     """Output lines of `gate-report.py check`: raw is `read_raw` of the run-log, transcripts a list of
-    (id, path, agent type or None) for the task's sessions.
+    (id, path, agent type or None) for the task's sessions, earlier the number of transcripts left out because they
+    were last written before the task began (an earlier task of the same session).
 
     A transcript of another agent type (`agentType` without the plugin prefix) is counted, not compared; one without
     an agent type is compared as `agent=unknown`. `missing start:` is a compared transcript with no `start:` line;
@@ -268,7 +290,7 @@ def check_lines(raw, transcripts) -> list:
             out.append(f'missing start: id={agent_id} agent={agent or "unknown"} transcript={path}')
     bad = [text for text, k, f in raw if k == 'stop' and f.get('mode') not in (None, 'auto')]
     out += [f'mode not auto: {text}' for text in bad]
-    out.append(f'summary: transcripts {len(transcripts)} (other {other}, untyped {untyped}), '
+    out.append(f'summary: transcripts {len(transcripts)} (other {other}, untyped {untyped}, earlier {earlier}), '
                f'start lines {sum(1 for _, k, _ in raw if k == "start")}, missing {missing}, non-auto stops {len(bad)}')
     return out
 
