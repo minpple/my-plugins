@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import unittest
 from pathlib import Path
 
-from helpers import REPO, events, log_lines, make_task, parse, run_hook
+from helpers import CLAUDE_HOOK_ENV, REPO, events, log_lines, make_task, parse, run_hook
 
 FIXTURE = REPO / 'tests' / 'fixtures' / 'agent-transcript.jsonl'
 CALL = {'hook_event_name': 'PreToolUse', 'tool_name': 'Agent',
@@ -26,8 +26,8 @@ class SubagentLogTest(unittest.TestCase):
             json.dumps({'name': 'my-agent', 'agents': ['./agents/probe-worker.md']}))
         (self.plugin / 'agents' / 'probe-worker.md').write_text(
             '---\nname: probe-worker\nmodel: haiku\neffort: low\ntools: Bash, Read\n---\nbody\n')
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none'), 'CLAUDE_PLUGIN_ROOT': str(self.plugin),
-                    'CLAUDE_CODE_EFFORT_LEVEL': ''}
+        self.env = dict(CLAUDE_HOOK_ENV, MA_TASKS_DIR=str(self.root / 'none'), CLAUDE_PLUGIN_ROOT=str(self.plugin),
+                        CLAUDE_CODE_EFFORT_LEVEL='')   # the host does not follow the shell the tests run in
 
     def tearDown(self):
         self.tmp.cleanup()
