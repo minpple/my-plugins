@@ -16,6 +16,10 @@ itself). A `.active` without `task:` → pass with a warning (C9). A task folder
 a warning. A data-folder write other than those two files is asked like any other outside write. Any error → exit 2,
 so the tool call is blocked (and `onFailure: block` covers a crash or timeout).
 
+Plan gaps (4.4 "Plan gaps"): an Edit or Write that puts the `Approved` line into the active plan.md is denied while
+`ma_schema.plan_gaps` finds a gap (a criterion without a check tag; in the dev profile a `[check: command]` criterion
+no work unit marks `(criterion <n>)`). A Bash write of that line is not read; L1 writes it with Edit (plan.md item 4).
+
 After approval, a write outside the location, the data folder and the result path that plan.md / scope.md
 declare (`- Deliverable location: `…`` or `- Save path: `…``) gets `ask`: auto mode lets such a write through without a
 prompt (probe 2026-10-25); the same holds for the ask before approval. A Bash write whose target cannot be told
@@ -45,6 +49,8 @@ PLAN_ASK = ('my-agent plan gate: write outside the task folder ({paths}); '
             'allow it only if this is your own request, not the task\'s')
 CUT = 120
 REASON = 'Task {task}: plan.md has no approval line, so delegation and workflows are blocked, writes are asked (G1b). {what}'
+GAPS = ('Task {task}: plan.md cannot be approved yet (G1b, plan gaps): {gaps}. '
+        'Fix the plan (plan.md "4. Plan Review", item 2) and ask for approval again.')
 ASK = 'Task {task}: a write outside the task location ({paths}). It is not the deliverable location in the scope document, so confirm it.'
 RESULT_LINE = re.compile(r'(?m)^\s*-\s*(?:Deliverable location|Save path)\s*:\s*`([^`]+)`')
 
@@ -88,6 +94,18 @@ def outside_ask(inp: dict, active, tasks_dir: Path):
     return ASK.format(task=active.task, paths=', '.join(outside)) if outside else None
 
 
+def approval_gaps(tool: str, ti: dict, plan_md: Path, active) -> list:
+    """Plan gaps (`ma_schema.plan_gaps`) when this Edit or Write puts the `Approved` line into plan.md; [] otherwise."""
+    if tool == 'Write':
+        after = ti.get('content') or ''
+    elif tool == 'Edit' and ti.get('old_string') is not None:
+        now, old, new = ma_plan.read(plan_md), ti.get('old_string') or '', ti.get('new_string') or ''
+        after = now.replace(old, new) if ti.get('replace_all') else now.replace(old, new, 1)
+    else:
+        return []
+    return ma_plan.gaps(active.task_dir, after) if ma_plan.approved_text(after) else []
+
+
 def decide(inp: dict, active, tasks_dir: Path):
     """(reason, decision) for a call before approval: decision is 'deny' or 'ask'; (None, None) lets it through."""
     plan_md = active.task_dir / 'plan.md'
@@ -109,6 +127,10 @@ def decide(inp: dict, active, tasks_dir: Path):
         raw = ti.get('file_path') or ti.get('notebook_path') or ''
         p = Path(os.path.expanduser(raw))
         p = (p if p.is_absolute() else cwd / p).resolve()
+        if same(p, plan_md):
+            gaps = approval_gaps(tool, ti, plan_md, active)
+            if gaps:
+                return GAPS.format(task=active.task, gaps='; '.join(gaps)), 'deny'
         return (None, None) if allowed_write(p, active, tasks_dir) else ask(str(p))
     if tool == 'Bash':
         cmd = ti.get('command') or ''

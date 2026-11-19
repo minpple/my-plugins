@@ -353,6 +353,55 @@ def unit_details(text: str) -> list:
     return units
 
 
+# --- plan gaps (the approval check of plan-lint.py and the G1b hook; architecture 4.4 "Plan gaps") ---
+
+CHECK_TAGS = ('command', 'file', 'URL', 'person')
+COVERS = re.compile(r'\(criteri(?:on|a)\s+(\d+(?:\s*(?:,|and)\s*\d+)*)\)')   # `(criterion 2)`, `(criteria 2, 3)`
+PROFILE_LINE = re.compile(r'(?m)^Profile:\s*([a-z]+)')
+
+
+def profile_of(intake_text):
+    """`dev` from the `Profile: dev` line of intake.md, or None."""
+    m = PROFILE_LINE.search(intake_text or '')
+    return m.group(1) if m else None
+
+
+def unit_covers(plan_text: str) -> dict:
+    """{unit id: criterion numbers named in `(criterion <n>)` marks on the unit's lines} under ## Work units."""
+    out, current = {}, None
+    for line in section_lines(plan_text, 'Work units') or []:
+        head = UNIT_HEAD.match(line)
+        if head:
+            current = out.setdefault(head.group(1), set())
+        elif current is not None:
+            for group in COVERS.findall(line):
+                current.update(int(n) for n in re.findall(r'\d+', group))
+    return out
+
+
+def plan_gaps(scope_text, plan_text, profile) -> list:
+    """What keeps a plan from approval, one line each ([] for none). Formats only; plan-reviewer judges the content.
+    Every completion criterion (scope.md, or plan.md without one) ends with one of the four check tags; in the dev
+    profile every `[check: command]` criterion has a `(criterion <n>)` mark in a work unit that lists it."""
+    rows = criteria(scope_text) or criteria(plan_text)
+    if not rows:
+        return ['no numbered completion criteria']
+    gaps = []
+    for n, _text, tag in rows:
+        if tag is None:
+            gaps.append(f'criterion {n}: no check tag')
+        elif tag not in CHECK_TAGS:
+            gaps.append(f'criterion {n}: check tag `{tag}` is not one of {", ".join(CHECK_TAGS)}')
+    if profile == 'dev':
+        covers = unit_covers(plan_text)
+        listed = {u['id']: set(u['criteria']) for u in unit_details(plan_text)}
+        shown = set().union(*(covers[u] & listed.get(u, set()) for u in covers)) if covers else set()
+        for n, _text, tag in rows:
+            if tag == 'command' and n not in shown:
+                gaps.append(f'criterion {n}: no test to add or check command marked `(criterion {n})` in a work unit that lists it')
+    return gaps
+
+
 # --- gate view parsers (monitor Report tab; same rule: None or [] for a missing text, never raise) ---
 
 LABEL_LINE = re.compile(r'^(?:-\s*)?(Background|Purpose):\s*(.*)$')
