@@ -17,7 +17,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 
 - Speak to the person in the language of their request (popups, reports). Write `scope.md`, the `## Decisions` lines and the scope summary in English; L1 translates a working file when it shows it. Popup labels in the phase and profile files are English; show them in that language with the same meaning, order and `(Recommended)` position, and record `rec=`/`choice=` as shown. File-format headings and marker lines (`## Completion criteria`, `Work unit: u1`, `Status:` …) stay in English.
 - Ask the person **everything** through an `AskUserQuestion` popup, never in prose. If the person asks back in prose, answer, then ask the same decision again in a popup.
-- On Codex, follow `hosts.md` “Waiting for Codex popup responses” after every unanswered popup. Keep the current decision pending and retry in the same turn until a valid answer or explicit cancellation.
+- No Codex popup answer: `hosts.md` “Waiting for Codex popup responses”.
 - 2–4 choices; put the recommended one first with `(Recommended)`.
 - Ask one popup per topic. For a technical matter, start the question with a one-line plain explanation of what is being decided. A scope question whose single recommended answer is likely to be replaced may use multi-select (recommended first) or the Other field.
 - Popup bodies: G3 lists the open SHOULD-FIX and NITPICK items; E for repeated Verify FAIL names the criterion and a one-line reason; commit popups say what happens next.
