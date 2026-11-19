@@ -8,6 +8,7 @@ only gives its session the value the next cost line is measured against, so the 
 `check_lines` compares the run-log with the subagent transcripts of the task's sessions (`gate-report.py check`).
 """
 import re
+from datetime import datetime
 from pathlib import Path
 
 import ma_data
@@ -249,9 +250,20 @@ def session_ids(active_session, raw) -> list:
     return ids
 
 
-def check_lines(raw, transcripts) -> list:
+def task_began(raw):
+    """The time of the first run-log line (local, as the log writes it), or None without a readable stamp."""
+    for text, _, _ in raw:
+        try:
+            return datetime.strptime(text[:19], '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            continue
+    return None
+
+
+def check_lines(raw, transcripts, earlier=0) -> list:
     """Output lines of `gate-report.py check`: raw is `read_raw` of the run-log, transcripts a list of
-    (id, path, agent type or None) for the task's sessions.
+    (id, path, agent type or None) for the task's sessions, earlier the number of transcripts left out because they
+    were last written before the task began (an earlier task of the same session).
 
     A transcript of another agent type (`agentType` without the plugin prefix) is counted, not compared; one without
     an agent type is compared as `agent=unknown`. `missing start:` is a compared transcript with no `start:` line;
@@ -268,7 +280,7 @@ def check_lines(raw, transcripts) -> list:
             out.append(f'missing start: id={agent_id} agent={agent or "unknown"} transcript={path}')
     bad = [text for text, k, f in raw if k == 'stop' and f.get('mode') not in (None, 'auto')]
     out += [f'mode not auto: {text}' for text in bad]
-    out.append(f'summary: transcripts {len(transcripts)} (other {other}, untyped {untyped}), '
+    out.append(f'summary: transcripts {len(transcripts)} (other {other}, untyped {untyped}, earlier {earlier}), '
                f'start lines {sum(1 for _, k, _ in raw if k == "start")}, missing {missing}, non-auto stops {len(bad)}')
     return out
 

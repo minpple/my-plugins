@@ -19,12 +19,14 @@ check: the task's session ids are the `.active` `session:` and every `session=` 
        sibling agent-<id>.meta.json. One starting `my-agent:` is compared; another type is counted as `other`; a missing,
        unreadable or typeless meta is compared as `agent=unknown` and counted as `untyped`. Prints a `missing start:` line per
        compared transcript with no `start:` line, a `mode not auto:` line per `stop:` line whose `mode=` is present and not
-       `auto`, then a `summary:` line.
+       `auto`, then a `summary:` line. A transcript last written before the first run-log line of the task belongs to
+       an earlier task of the same session: it is counted as `earlier` and not compared.
 check exit: 0 printed (also with findings; no transcripts folder gives a summary of zeros, and transcripts without any
             `start:` line are each a `missing start:` finding), 1 no active task,
             2 bad arguments.
 """
 import argparse
+from datetime import datetime
 import json
 import os
 import re
@@ -90,10 +92,21 @@ def transcripts(sessions) -> list:
     return out
 
 
+def before_task(path, began) -> bool:
+    """True when the transcript was last written before the task's first run-log line (an earlier task's subagent)."""
+    try:
+        return began is not None and datetime.fromtimestamp(Path(path).stat().st_mtime) < began
+    except OSError:
+        return False
+
+
 def check(active) -> int:
     raw = ma_gate_report.read_raw(active.log)
+    began = ma_gate_report.task_began(raw)
     found = transcripts(ma_gate_report.session_ids(active.session, raw))
-    print('\n'.join([f'gate-report check: {active.task}'] + ma_gate_report.check_lines(raw, found)))
+    mine = [t for t in found if not before_task(t[1], began)]
+    lines = ma_gate_report.check_lines(raw, mine, earlier=len(found) - len(mine))
+    print('\n'.join([f'gate-report check: {active.task}'] + lines))
     return 0
 
 

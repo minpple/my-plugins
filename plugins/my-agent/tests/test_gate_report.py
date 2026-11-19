@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from helpers import L4, make_task, parse, records, rel, run_script
@@ -406,7 +407,7 @@ class GateReportTest(unittest.TestCase):
                          '2026-11-01 05:01:00 stop: id=c1 mode=auto',
                          '2026-11-01 05:02:00 stop: id=c0')   # an old line without mode= is skipped
         self.assertIn(f'gate-report check: {TASK}', out)
-        self.assertIn('summary: transcripts 1 (other 0, untyped 0), start lines 1, missing 0, non-auto stops 0', out)
+        self.assertIn('summary: transcripts 1 (other 0, untyped 0, earlier 0), start lines 1, missing 0, non-auto stops 0', out)
         self.assertNotIn('missing start:', out)
 
     def test_check_missing_start_and_non_auto(self):
@@ -420,8 +421,20 @@ class GateReportTest(unittest.TestCase):
         bad = [l for l in out.splitlines() if l.startswith('mode not auto:')]
         self.assertEqual(len(bad), 1, out)
         self.assertIn('stop: id=c1 mode=acceptEdits', bad[0])
-        self.assertTrue(out.rstrip().splitlines()[-1].startswith('summary: transcripts 2 (other 0, untyped 0), '
+        self.assertTrue(out.rstrip().splitlines()[-1].startswith('summary: transcripts 2 (other 0, untyped 0, earlier 0), '
                                                                  'start lines 1, missing 1, non-auto stops 1'))
+
+    def test_check_leaves_out_transcripts_of_an_earlier_task(self):
+        self.agent_files('s-test', 'c1')
+        self.agent_files('s-test', 'old1')
+        self.agent_files('s-test', 'old2', agent_type='general-purpose')
+        before = datetime(2026, 10, 31, 23, 0).timestamp()   # last written before the first run-log line
+        for name in ('old1', 'old2'):
+            os.utime(self.claude / '-proj' / 's-test' / 'subagents' / f'agent-{name}.jsonl', (before, before))
+        out = self.check('2026-11-01 05:00:00 step: n=1 name=Intake',
+                         '2026-11-01 05:10:00 start: agent=my-agent:coder id=c1 session=s-test')
+        self.assertNotIn('missing start:', out)
+        self.assertIn('summary: transcripts 1 (other 0, untyped 0, earlier 2), start lines 1, missing 0', out)
 
     def test_check_session_from_start_lines(self):
         self.agent_files('s-old', 'c9')
@@ -432,7 +445,7 @@ class GateReportTest(unittest.TestCase):
         self.agent_files('s-test', 'g1', agent_type='general-purpose')
         out = self.check('2026-11-01 05:00:00 step: n=1 name=Intake')
         self.assertNotIn('missing start:', out)
-        self.assertIn('summary: transcripts 1 (other 1, untyped 0), start lines 0, missing 0, non-auto stops 0', out)
+        self.assertIn('summary: transcripts 1 (other 1, untyped 0, earlier 0), start lines 0, missing 0, non-auto stops 0', out)
 
     def test_check_no_meta_is_compared_as_unknown(self):
         self.agent_files('s-test', 'u1', meta=False)
@@ -440,11 +453,11 @@ class GateReportTest(unittest.TestCase):
         out = self.check('2026-11-01 05:00:00 step: n=1 name=Intake')
         self.assertIn('missing start: id=u1 agent=unknown', out)
         self.assertIn('missing start: id=u2 agent=unknown', out)
-        self.assertIn('transcripts 2 (other 0, untyped 2), start lines 0, missing 2', out)
+        self.assertIn('transcripts 2 (other 0, untyped 2, earlier 0), start lines 0, missing 2', out)
 
     def test_check_no_transcripts_folder(self):
         out = self.check('2026-11-01 05:00:00 step: n=1 name=Intake')
-        self.assertIn('summary: transcripts 0 (other 0, untyped 0), start lines 0, missing 0, non-auto stops 0', out)
+        self.assertIn('summary: transcripts 0 (other 0, untyped 0, earlier 0), start lines 0, missing 0, non-auto stops 0', out)
 
     def test_check_without_run_log(self):
         r = self.run_gr('check')
