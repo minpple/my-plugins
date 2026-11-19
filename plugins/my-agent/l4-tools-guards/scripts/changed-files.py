@@ -5,7 +5,8 @@ usage: changed-files.py --task TASK_FOLDER [--previous EARLIER_CHANGED_FILES_MD]
 
 Writes <task folder>/changed-files.md and prints one line `changed-files: <N> files, <M> unmapped[, <K> changed since Run <r>]`.
 Files: in the dev profile with a git task location, `git diff --name-only HEAD` plus the untracked files, without the
-task records folder; otherwise the files under <task folder>/work/ and deliverable/.
+task records folder; otherwise the files under <task folder>/work/ and deliverable/, plus each file a unit lists under
+`Files to change` that exists in the task location (code a coder changed in place where git cannot list it).
 A file maps to every plan unit that names it (`Files to change`, or any backticked path of the unit outside git); a file
 no unit names is `unmapped`, a shared test helper or `ma_schema.py` is `shared`; both have the criteria `all`.
 The criteria come from the units that name the file only: a criterion that also leans on a file of another unit is
@@ -95,6 +96,7 @@ def main(argv=None) -> int:
     location = Path(field(itext, 'Location') or task.parent.parent)
     top = git(location, 'rev-parse', '--show-toplevel') if field(itext, 'Profile') == 'dev' else None
     units = unit_paths(ptext)
+    in_place = {}
 
     if top:
         root = Path(top[0])
@@ -114,6 +116,13 @@ def main(argv=None) -> int:
         files = sorted(p.relative_to(task).as_posix() for d in ('work', 'deliverable') if (task / d).is_dir()
                        for p in (task / d).rglob('*') if p.is_file())
         base = '-'
+        for _uid, _crit, named, _every in units:   # code changed in place: no git to list it, so the plan names it
+            for n in named:
+                p = (location / n).resolve()
+                if n not in files and p.is_file() and task not in p.parents:
+                    files.append(n)
+                    in_place[n] = p
+        files.sort()
 
         def owners(f):
             return [(uid, crit) for uid, crit, _named, every in units if any(p == f or p.endswith('/' + f) for p in every)]
@@ -137,7 +146,7 @@ def main(argv=None) -> int:
             unit_cell = ', '.join(uid for uid, _c in own)
             nums = sorted({n for _u, crit in own for n in crit})
             crit_cell = ', '.join(map(str, nums)) or '-'
-        fp = fingerprint(root / f) if f in files else 'reverted'
+        fp = fingerprint(in_place.get(f, root / f)) if f in files else 'reverted'
         if previous is None:
             since = '-'
         else:

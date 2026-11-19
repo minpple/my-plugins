@@ -65,6 +65,9 @@ Run: <n>
 ### General (general)
 
 - Open the deliverable, find the part that matches each criterion, and give its location as evidence.
+- For a `[check: command]` criterion, run its command (named in the criterion or as a check command in `plan.md`), once as "Scope of each run" says, and give the result as evidence. If the command fails, or the plan names none, the criterion is FAIL.
+- Code changed in place (the map rows outside `work/` and `deliverable/`): Read each file; it is part of the deliverable.
+- Researcher notes under `work/` (items of the form `- <claim> · <source URL> · "<quote>"`): do the research profile's quote check on them. A claim of the deliverable that rests on a missing quote, or on a page that does not support it, makes the related criterion FAIL.
 
 ### Research · docs (research)
 

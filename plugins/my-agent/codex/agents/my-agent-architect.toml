@@ -54,6 +54,9 @@ If `## Revisions` exists, leave it at the very end as is (rule above).
 
 - Units that make one deliverable. If the deliverable is a document and there are two or more units, the last unit is one where `my-agent:writer` combines the `work/` results of the earlier units into one deliverable (`work/final.md`, or a file under `work/` that fits the deliverable format). L1 does not make the deliverable, so in 6 Merge it hands off that unit and only checks it.
 - The mock-up is an example of the deliverable (the first few rows of a table, a document's outline and a sample paragraph).
+- A unit that needs facts from the web is a `my-agent:researcher` unit with one note `work/<slug>.md` (claim · source URL · quote); the writer unit that uses the note lists it under its files to read.
+- A unit that needs code is a `my-agent:coder` unit: write its `Files to change` (paths in the task location, changed in place) and its check commands. Coder units get no worktree, so no two coder units share a parallel group.
+- Every `[check: command]` criterion names the command that shows it, in the criterion or as a check command of a unit that carries it.
 - Use subagents only. Do not plan a workflow.
 
 ### Research · docs (research)

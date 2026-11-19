@@ -54,6 +54,15 @@ Run: <n>
 ### General (general)
 
 - `## Scope summary` (purpose, non-goals, deliverable location) and a numbered `## Completion criteria` are at the top. If not, BLOCKER.
+- **Scope summary:** this profile has no Scope Review, so judge the summary against the request (`Request:` in `intake.md`) here.
+  - Coverage: every thing the request asks for is a completion criterion or a non-goal. A part of the request that is in neither is a BLOCKER.
+  - Contradictions: two criteria, or a criterion and a non-goal, that cannot both hold are a BLOCKER.
+  - Deliverable location: one line ``- Deliverable location: `<path>` `` with an absolute path (no `~`, no relative path). A missing line means the task folder's `deliverable/`; a relative path or `~` is a BLOCKER.
+  - A criterion its tag cannot decide (a vague word such as "good", "clean" or "enough" without a measure) is a SHOULD-FIX that names the measure to add.
+  - A term with more than one reading (an undefined name, "etc.", "properly") is a SHOULD-FIX that names the term and its readings.
+- **Check commands:** every `[check: command]` criterion names its command, in the criterion or as a check command of a unit that carries it. A criterion with no command is a BLOCKER.
+- **Coder units:** each has `Files to change` in the task location and check commands, and shares its parallel group with no other coder unit (this profile uses no worktree). If not, BLOCKER.
+- **Researcher units:** each has one note `work/<slug>.md`, and the writer unit that uses it lists the note under its files to read. If not, SHOULD-FIX.
 
 ### Research · docs (research)
 

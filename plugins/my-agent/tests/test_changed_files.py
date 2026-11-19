@@ -206,6 +206,30 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(list(rows), ['work/draft.md'])
         self.assertEqual(rows['work/draft.md']['units'], 'u2')
 
+    def test_general_task_lists_code_changed_in_place(self):
+        """Outside the dev profile git lists nothing, so a coder unit's `Files to change` that exist are on the map."""
+        (self.task / 'intake.md').write_text(f'Status: active\nLocation: {self.root}\nProfile: general\nTask: {TASK}\n',
+                                             encoding='utf-8')
+        (self.task / 'work').mkdir()
+        (self.task / 'work' / 'draft.md').write_text('d\n', encoding='utf-8')
+        res = self.run_cf()
+        self.assertEqual(res.returncode, 0, res.stderr)
+        _text, rows, _r = self.table()
+        # the new test file of u1 does not exist yet, so it is not listed
+        self.assertEqual(list(rows), ['plugins/demo/lib/parser.py', 'web/view.html', 'work/draft.md'])
+        self.assertEqual((rows['plugins/demo/lib/parser.py']['units'], rows['plugins/demo/lib/parser.py']['criteria']),
+                         ('u1', '1, 2'))
+        self.assertEqual(rows['work/draft.md']['units'], 'unmapped')
+        first = self.task / 'first.md'
+        first.write_text((self.task / ma_schema.CHANGED_FILES).read_text(encoding='utf-8'), encoding='utf-8')
+        self.write('web/view.html', '<p>y</p>\n')
+        res = self.run_cf('--previous', str(first))
+        self.assertEqual(res.returncode, 0, res.stderr)
+        _text, rows, rejudge = self.table()
+        self.assertEqual(rows['web/view.html']['since'], 'changed')
+        self.assertEqual(rows['plugins/demo/lib/parser.py']['since'], 'same')
+        self.assertEqual(rejudge, '3')
+
     def test_parser_tolerates_missing_text(self):
         self.assertEqual(ma_schema.changed_files_rows(None), ([], None))
         self.assertEqual(ma_schema.changed_files_rows(''), ([], None))

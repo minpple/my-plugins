@@ -347,6 +347,32 @@ class AgentsTest(unittest.TestCase):
         row = (REPO / 'l1-orchestration' / 'profiles' / 'dev.md').read_text(encoding='utf-8')
         self.assertIn('plan-reviewer judges the coverage', row)
 
+    def test_general_profile_units_are_judged(self):
+        """Q34: the general profile's scope summary, researcher notes and coder units each have a judge."""
+        def general(name):
+            return self._agent(name).split('### General (general)')[1].split('### Research')[0]
+        p = general('plan-reviewer')
+        self.assertIn('judge the summary against the request (`Request:` in `intake.md`)', p)
+        self.assertIn('A part of the request that is in neither is a BLOCKER', p)
+        self.assertIn('A criterion with no command is a BLOCKER', p)
+        self.assertIn('shares its parallel group with no other coder unit', p)
+        a = general('architect')
+        self.assertIn('`Files to change` (paths in the task location, changed in place) and its check commands', a)
+        self.assertIn('no two coder units share a parallel group', a)
+        v = general('verifier')
+        self.assertIn('or the plan names none, the criterion is FAIL', v)
+        self.assertIn("do the research profile's quote check on them", v)
+        r = general('reviewer')
+        self.assertIn('the form the `## Mock-up` in `plan.md` shows', r)
+        self.assertNotIn('the deliverable format in the scope', r)
+        self.assertIn("gets the dev section's code review", r)
+        profile = (REPO / 'l1-orchestration' / 'profiles' / 'general.md').read_text(encoding='utf-8')
+        self.assertIn('plan-reviewer judges the scope summary against the request', profile)
+        self.assertIn('call it without `isolation: "worktree"`', profile)
+        self.assertIn('the files coder units changed in place', profile)
+        build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
+        self.assertIn('In the dev profile, give coder the call argument `isolation: "worktree"`', build)
+
     def test_architect_models_section(self):
         """Criterion 5: architect writes `## Models` after `## Estimate`, from the preset lines L1 passes."""
         a = self._agent('architect')
