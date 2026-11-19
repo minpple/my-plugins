@@ -331,6 +331,22 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('not from memory', p)
         self.assertIn('colours, states and labels', p)
 
+    def test_plan_reviewer_test_coverage(self):
+        """Q32: plan-reviewer judges the planned tests against the scope; architect writes them in a form it can judge."""
+        p = self._agent('plan-reviewer')
+        dev = p.split('### Dev (dev)')[1].split('## When done')[0]
+        self.assertIn('**Test coverage:**', dev)
+        self.assertIn('every `[check: command]` criterion has at least one test to add tagged with its number', dev)
+        self.assertIn('A criterion with neither is a BLOCKER', dev)
+        self.assertIn('every exception case in the scope has a test to add tagged with it', dev)
+        self.assertIn('An existing test that asserts behavior the plan changes', dev)
+        self.assertEqual(dev.split('**Test coverage:**')[1].split('**Worktree:**')[0].count('SHOULD-FIX'), 3)
+        a = self._agent('architect')
+        self.assertIn('`(criterion <n>)` or `(exception: <case>)`', a)
+        self.assertIn('plan-reviewer judges this coverage', a)
+        row = (REPO / 'l1-orchestration' / 'profiles' / 'dev.md').read_text(encoding='utf-8')
+        self.assertIn('plan-reviewer judges the coverage', row)
+
     def test_architect_models_section(self):
         """Criterion 5: architect writes `## Models` after `## Estimate`, from the preset lines L1 passes."""
         a = self._agent('architect')

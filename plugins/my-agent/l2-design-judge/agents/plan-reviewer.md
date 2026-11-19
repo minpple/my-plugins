@@ -71,6 +71,11 @@ Run: <n>
 - **Feasibility:** open the files and functions the plan mentions and confirm they exist. If the plan changes something that does not exist, BLOCKER.
 - **Impact:** find the callers of changed functions and settings with Grep; if the plan misses a caller, BLOCKER.
 - **Tests:** every work unit has tests to add and check commands. If not, BLOCKER.
+- **Test coverage:** judge the tests to add against the scope (`scope.md`), not only that they exist.
+  - Criteria: every `[check: command]` criterion has at least one test to add tagged with its number, in a unit that carries that criterion, or a check command the plan names for it that is not a test (build, lint). A criterion with neither is a BLOCKER.
+  - Exception cases: every exception case in the scope has a test to add tagged with it. A missing case is a SHOULD-FIX that names the case.
+  - Existing tests: find the tests of the changed functions with Grep. An existing test that asserts behavior the plan changes, in a file no unit lists under `Files to change`, is a SHOULD-FIX.
+  - A test to add that does not name its test file and what it checks ("add tests") cannot be judged: SHOULD-FIX.
 - **Worktree:** only the first parallel group has a worktree. If a later group uses a worktree, BLOCKER.
 - **Design sketch and mock-up:** the behavior after the change is concrete (command output, sample response). If vague, SHOULD-FIX.
 
