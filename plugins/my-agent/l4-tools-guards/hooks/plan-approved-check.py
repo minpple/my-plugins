@@ -18,7 +18,7 @@ so the tool call is blocked (and `onFailure: block` covers a crash or timeout).
 
 Plan gaps (4.4 "Plan gaps"): an Edit or Write that puts the `Approved` line into the active plan.md is denied while
 `ma_schema.plan_gaps` finds a gap (a criterion without a check tag; in the dev profile a `[check: command]` criterion
-no work unit marks `(criterion <n>)`). A Bash write of that line is not read; L1 writes it with Edit (plan.md item 4).
+no work unit marks `(criterion <n>)`). A Bash write of that line is not read; L1 writes it with Edit (plan.md item 5).
 
 After approval, a write outside the location, the data folder and the result path that plan.md / scope.md
 declare (`- Deliverable location: `…`` or `- Save path: `…``) gets `ask`: auto mode lets such a write through without a

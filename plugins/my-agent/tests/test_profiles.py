@@ -242,7 +242,7 @@ class ProfilesTest(unittest.TestCase):
         # prototype: opened locally by the plugin script, not published
         stale = ('publishes it', 'private artifact', 'artifact link', 'claude.ai')
         proto3 = define.split('**G1a prototype:**')[1].split('4. **Confirm the scope:**')[0]
-        item2 = plan.split('2. If `## Prototype`')[1].split('3. Record before and after')[0]
+        item2 = plan.split('2. If `## Prototype`')[1].split('3. **Hosts:**')[0]
         for sec in (proto3, item2):
             self.assertIn('open-html.py', sec)
             self.assertIn('local path', sec)
@@ -267,7 +267,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('### Takeaway', g1b_item1)
         self.assertIn('`Models` row', g1b_item1)
         self.assertIn('`Prototype` row', g1b_item1)
-        item3 = plan.split('3. Record before and after')[1].split('4. **Approve:**')[0]
+        item3 = plan.split('4. Record before and after')[1].split('5. **Approve:**')[0]
         for gate, sec in (('G1a', g1a), ('G1b', item3)):
             for word in ('--report', '--pointer', 'pointer line', 'Gate reports'):
                 self.assertIn(word, sec)
@@ -301,7 +301,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('`## Models`', step3.split('3. Sections')[1])
         step4 = plan.split('## 4. Plan Review')[1].split('## G1b plan approval')[0]
         self.assertIn('agent-models.py', step4.split('3. Hand it')[1].split('4. Handle')[0])
-        approve = plan.split('4. **Approve:**')[1].split('5. **Request changes:**')[0]
+        approve = plan.split('5. **Approve:**')[1].split('6. **Request changes:**')[0]
         self.assertIn('`## Models`', approve)
         self.assertIn('Request changes', approve)
         self.assertIn('refuses', approve)
@@ -393,6 +393,50 @@ class CoderNotesRulesTest(unittest.TestCase):
         for name in ('explorer.md', 'researcher.md', 'writer.md'):
             self.assertNotIn('coder-notes.md', (REPO / 'l3-workers' / 'agents' / name).read_text(encoding='utf-8'), name)
         self.assertIn('coder-notes.md', (REPO / 'l3-workers' / 'agents' / 'coder.md').read_text(encoding='utf-8'))
+
+
+class EnvironmentAndUpstreamRulesTest(unittest.TestCase):
+    """Environment check before the gates (Q36) and the upstream check in 6 Merge (Q37)."""
+
+    def read(self, *parts):
+        return REPO.joinpath(*parts).read_text(encoding='utf-8')
+
+    def test_explorer_runs_check_commands_once(self):
+        explorer = self.read('l3-workers', 'agents', 'explorer.md')
+        self.assertIn('→ pass | fail: <failing tests> | cannot run: <reason>', explorer)
+        self.assertIn('Run each check command once', explorer)
+        self.assertIn('install nothing', explorer)
+
+    def test_scope_interview_asks_about_environment_lines(self):
+        define = self.read('l1-orchestration', 'phases', 'define.md')
+        for phrase in ('**Environment:**', '`I fix the environment first (Recommended)` / `Judge without this command`',
+                       '`Failures from before this task do not count (Recommended)` / `Fix them in this task`',
+                       '`- Environment: <command> — '):
+            self.assertIn(phrase, define)
+        verifier = self.read('l2-design-judge', 'agents', 'verifier.md')
+        for phrase in ('`- Environment:` lines', 'not run (scope: Environment)', '`replaced by`'):
+            self.assertIn(phrase, verifier)
+
+    def test_hosts_are_checked_before_g1b(self):
+        self.assertIn('`- Needs host: <host name>`', self.read('l2-design-judge', 'agents', 'architect.md'))
+        plan = self.read('l1-orchestration', 'phases', 'plan.md')
+        self.assertIn('3. **Hosts:** for each `- Needs host: <name>` line', plan)
+        self.assertIn('`I allow the hosts first (Recommended)` / `Plan change` / `Go on as is`', plan)
+        self.assertLess(plan.index('**Hosts:**'), plan.index('Popup: `Approve (Recommended)`'))
+        self.assertIn('`Plan change` is the same as item 6, Request changes', plan)
+        self.assertIn('6. **Request changes:**', plan)
+
+    def test_dev_merge_checks_upstream_before_verify(self):
+        dev = self.read('l1-orchestration', 'profiles', 'dev.md')
+        for phrase in ('## Upstream check (6 Merge)', 'git rev-list --count HEAD..<ref>', 'git merge --autostash <ref>',
+                       '`Bring them in now (Recommended)` / `Go on without them`', '`git merge --abort`',
+                       'merge unit=upstream'):
+            self.assertIn(phrase, dev)
+        self.assertIn('do "Upstream check" below, then run the check commands', dev)
+        self.assertIn('"Upstream check" comes before the check commands',
+                      self.read('l1-orchestration', 'phases', 'build.md'))
+        for name in ('general.md', 'research.md'):
+            self.assertNotIn('Upstream check', self.read('l1-orchestration', 'profiles', name))
 
 
 if __name__ == '__main__':

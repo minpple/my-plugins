@@ -422,7 +422,7 @@ class SkillMdTest(unittest.TestCase):
         for gone in ('cp -pR', '`cmp`', 'date +%y%m%d-%H%M%S'):
             self.assertNotIn(gone, rec)
         self.assertTrue((L4 / 'scripts' / 'archive.py').is_file())
-        approve = next(l for l in self.phase('plan').splitlines() if l.startswith('4. **Approve:**'))
+        approve = next(l for l in self.phase('plan').splitlines() if l.startswith('5. **Approve:**'))
         self.assertIn('from the line the `answer` command printed (no `date` call)', approve)
         self.assertIn('the date and minute the `answer` line printed', self.phase('define'))
         tools = self.section('### Tool choice', '### Change requests')

@@ -37,7 +37,7 @@ If `## Approval` in `plan.md` has no `Approved` line, do not start this phase; g
 ## 6. Merge
 
 1. Record: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" step n=6 name=Merge --model <main session model ID> --data-dir "<data folder>" --task-dir "<task_dir>"`
-2. Combine the results and run the basic checks. For profile-specific content, follow the profile file.
+2. Combine the results and run the basic checks. For profile-specific content, follow the profile file (dev: its "Upstream check" comes before the check commands).
 3. Merge worktree results one at a time, in the plan's work unit order.
    - If a conflict is small (2 files or fewer, about 10 lines), L1 resolves it only when both sides' intent is clear.
    - If larger, rerun the unit merged later as a new worker call in the main tree, on top of the merged result. Pass the conflict and the notes file path along.
