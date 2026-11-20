@@ -161,7 +161,7 @@ class CodexRecordsTest(unittest.TestCase):
                 os.environ['CLAUDE_PLUGIN_OPTION_DATA_DIR'] = str(self.root / 'data')
                 self.assertEqual(ma_data.data_dir(), self.root / 'data')
                 os.environ['CLAUDE_PLUGIN_OPTION_DATA_DIR'] = '${user_config.data_dir}'
-                self.assertEqual(ma_data.data_dir(), Path.home() / 'dev' / 'log' / 'my-agent')
+                self.assertEqual(ma_data.data_dir(), Path.home() / '.my-agent-data')
         finally:
             for k, v in old.items():
                 os.environ.pop(k, None)

@@ -39,7 +39,7 @@ def snapshot(task_dir: Path, prices: dict) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--cwd', default=os.getcwd())
-    ap.add_argument('--data-dir', help='the my-agent data folder (default: the setting, else ~/dev/log/my-agent)')
+    ap.add_argument('--data-dir', help='the my-agent data folder (default: the setting, else ~/.my-agent-data)')
     ap.add_argument('--task-dir', help='the task subfolder, setting `task_dir` (default: the setting, else .my-agent)')
     ap.add_argument('--task-folder')
     args = ap.parse_args(argv)   # argparse exits 2 on bad arguments

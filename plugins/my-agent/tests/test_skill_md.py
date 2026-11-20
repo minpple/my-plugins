@@ -536,8 +536,9 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('<data folder>/monitor-config.json', item)
         self.assertIn('autostart off', self.MONITOR_SKILL.read_text(encoding='utf-8'))
 
-    def test_intake_popup_recommends_data_folder(self):
-        self.assertIn('`<data folder> (Recommended)`', self.new_task)
+    def test_intake_popup_recommends_current_folder(self):
+        self.assertIn('`Current folder (Recommended)` / `<data folder>` / `Other path`', self.new_task)
+        self.assertNotIn('`<data folder> (Recommended)`', self.new_task)
 
     # --- apply open feedback (task 261101-apply-open-feedback, u1) ---
     def section(self, start, end, text=None):

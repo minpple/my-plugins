@@ -155,7 +155,7 @@ def main(argv=None) -> int:
     ap.add_argument('fields', nargs='*', metavar='key=value')
     ap.add_argument('--model')
     ap.add_argument('--cwd', default=os.getcwd())
-    ap.add_argument('--data-dir', help='the my-agent data folder (default: the setting, else ~/dev/log/my-agent)')
+    ap.add_argument('--data-dir', help='the my-agent data folder (default: the setting, else ~/.my-agent-data)')
     ap.add_argument('--task-dir', help='the task subfolder, setting `task_dir` (default: the setting, else .my-agent)')
     args = ap.parse_args(argv)
     if args.kind not in KINDS:

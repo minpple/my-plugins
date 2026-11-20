@@ -3,7 +3,7 @@
 
 usage: data-dir.py [--data-dir X] [--task-dir Y]
 X is the `data_dir` setting. $MA_TASKS_DIR wins over it; an empty X or an unsubstituted `${...}` placeholder means
-"not set" and gives ~/dev/log/my-agent. Y is the `task_dir` setting; the second line is the relative task subfolder
+"not set" and gives ~/.my-agent-data. Y is the `task_dir` setting; the second line is the relative task subfolder
 ($MA_TASK_DIR wins; unset, absolute, `..` or reserved gives .my-agent). Exit 0.
 On Codex it first checks the hook marks (ma_host.hook_health): a hook that did not run for this session (not
 trusted, or trust stale) is named on stderr, nothing is printed and the exit is 1. Claude: no check.

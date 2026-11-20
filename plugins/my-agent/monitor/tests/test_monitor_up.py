@@ -465,7 +465,7 @@ class DataDirTest(unittest.TestCase):
 
     def test_default_is_home_my_agent(self):
         self.up('set-browser', 'chrome')
-        self.assertTrue((Path(self.tmp.name) / 'dev' / 'log' / 'my-agent' / 'monitor-config.json').exists())
+        self.assertTrue((Path(self.tmp.name) / '.my-agent-data' / 'monitor-config.json').exists())
 
 
 if __name__ == '__main__':

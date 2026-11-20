@@ -24,7 +24,7 @@
       "title": "Data folder",
       "description": "Where my-agent keeps its project list, run index, monitor state, retrospective notes and report copies.",
       "required": true,
-      "default": "~/dev/log/my-agent"
+      "default": "~/.my-agent-data"
     },
     "task_dir": {
       "type": "string",

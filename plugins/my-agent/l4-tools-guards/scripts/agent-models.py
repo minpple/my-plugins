@@ -6,7 +6,7 @@ usage: agent-models.py show --profile P --preset NAME [--data-dir DIR]
        agent-models.py presets --profile P [--data-dir DIR]
 
 The presets are in `<data folder>/agent-models.json` (data folder: $MA_TASKS_DIR, else --data-dir, else
-$CLAUDE_PLUGIN_OPTION_DATA_DIR, else ~/dev/log/my-agent); an agent or a key a preset leaves out keeps the value of
+$CLAUDE_PLUGIN_OPTION_DATA_DIR, else ~/.my-agent-data); an agent or a key a preset leaves out keeps the value of
 its definition file. A missing, empty or `{}` file, and a profile without presets, mean "no file": `show` prints
 the definition values (for the preset `standard`) and `presets` prints `none`.
 
@@ -101,10 +101,10 @@ def main(argv=None) -> int:
     s.add_argument('--profile')
     s.add_argument('--preset')
     s.add_argument('--plan', metavar='PLAN.md')
-    s.add_argument('--data-dir', help='the my-agent data folder (default: the setting, else ~/dev/log/my-agent)')
+    s.add_argument('--data-dir', help='the my-agent data folder (default: the setting, else ~/.my-agent-data)')
     p = sub.add_parser('presets')
     p.add_argument('--profile', required=True)
-    p.add_argument('--data-dir', help='the my-agent data folder (default: the setting, else ~/dev/log/my-agent)')
+    p.add_argument('--data-dir', help='the my-agent data folder (default: the setting, else ~/.my-agent-data)')
     args = ap.parse_args(argv)
     if args.cmd == 'show' and not args.plan and not (args.profile and args.preset):
         ap.error('show needs --profile and --preset, or --plan')

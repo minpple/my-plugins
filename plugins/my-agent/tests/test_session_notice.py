@@ -115,7 +115,7 @@ class SessionNoticeTest(unittest.TestCase):
     def test_codex_unexpanded_option_counts_as_empty(self):
         e = {'MA_TASKS_DIR': '', 'CLAUDE_PLUGIN_OPTION_DATA_DIR': '${user_config.data_dir}'}
         out = self.codex(env=e)
-        self.assertIn('data folder ' + str(Path.home() / 'dev' / 'log' / 'my-agent') + ' (', out)
+        self.assertIn('data folder ' + str(Path.home() / '.my-agent-data') + ' (', out)
 
     def test_codex_failure_prints_nothing(self):
         for stdin in ('nope', '[1]'):
