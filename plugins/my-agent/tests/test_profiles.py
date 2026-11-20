@@ -452,5 +452,17 @@ class EnvironmentAndUpstreamRulesTest(unittest.TestCase):
             self.assertNotIn('Upstream check', self.read('l1-orchestration', 'profiles', name))
 
 
+class SessionFolderCheck(unittest.TestCase):
+    """L1 checks the session's folder before a main-tree hand-out; the person answers, also under delegation."""
+
+    def test_build_names_the_check_and_the_popup(self):
+        build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
+        line = next(l for l in build.splitlines() if l.lstrip().startswith('- Session folder check'))
+        for part in ('`git rev-parse --show-toplevel`', 'without `isolation: "worktree"`', 'start of 6 Merge',
+                     'also under delegated approval', '`I moved the session back (Recommended)` / `Abort`',
+                     '`/cd <task location>`', '`/my-agent continue`', 'run the check again'):
+            self.assertIn(part, line)
+
+
 if __name__ == '__main__':
     unittest.main()

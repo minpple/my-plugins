@@ -14,7 +14,10 @@ its own file and its Bash only reads; an L3 agent writes nothing. Roles then wid
 researcher may use the web, the researcher and writer write `work/` (writer also `prototype/` and the project
 blueprint folder, 4.7.5), the coder writes the location or its worktree (also one inside a linked-worktree location)
 but not `<task_dir>/`, `.git/`, `.claude/` (hooks and settings run in L1's context) or the blueprint folder (only the
-writer writes it), and the gate-analyst reads only gate-tally.md and gate-report.md. The
+writer writes it), and the gate-analyst reads only gate-tally.md and gate-report.md. A worktree is the coder's own
+only when its folder is `agent-<the input's agent_id>` (F19); with a `cwd` in any other worktree of the location (a
+session moved into another coder's worktree) the coder has the main-tree rules, and relative paths still resolve
+against that `cwd`. The
 architect may not add the `Approved` or
 `Prototype: requested` line L1 writes into plan.md (4.4 G1b) nor drop a `## Revisions` line (4.8.1).
 On a deny with an active task it appends one `guard:` line to the task's run-log (fields ma_schema.GUARD_FIELDS, `why` is
@@ -121,9 +124,14 @@ def in_tool_results(p: Path, session_id) -> bool:
     return len(rel.parts) >= 4 and rel.parts[1] == session_id and rel.parts[2] == 'tool-results'
 
 
-def worktree(cwd: Path, location: Path) -> Optional[Path]:
+def worktree(cwd: Path, location: Path, agent_id=None) -> Optional[Path]:
+    """The coder's own worktree: the linked worktree of `location` that holds `cwd`, when its folder is
+    `agent-<agent_id>` (F19). In any other worktree (the session was moved into another coder's, and a coder called
+    without isolation inherits that folder) the coder is a main-tree coder: None."""
     root = ma_active.git_root(cwd)
     if root is None or not (root / '.git').is_file():
+        return None
+    if not isinstance(agent_id, str) or not agent_id or root.name != f'agent-{agent_id}':
         return None
     container = ma_active.containing_checkout(root)
     if ma_active.main_worktree(root) == location or (container is not None and same(container, location)):
@@ -139,7 +147,7 @@ def level_rules(level: str, role: str, active) -> Rules:
     return Rules(read, [], [], False, False)   # L3
 
 
-def rules(role: str, active, cwd: Path) -> Optional[Rules]:
+def rules(role: str, active, cwd: Path, agent_id=None) -> Optional[Rules]:
     level = ma_schema.AGENTS.get(role)
     if level is None:
         return None
@@ -155,7 +163,7 @@ def rules(role: str, active, cwd: Path) -> Optional[Rules]:
     if role == 'writer':
         return r._replace(write=[T / 'work', T / 'prototype'] + ([blueprint] if blueprint else []))
     if role == 'coder':
-        W = worktree(cwd, L)
+        W = worktree(cwd, L, agent_id)
         own = W or L
         records = T.parent   # the records folder, resolved by the reader
         return r._replace(read=r.read + ([W] if W else []), write=[own], bash_writes=True,
@@ -197,7 +205,7 @@ def check(inp: dict, role: str, active) -> Optional[str]:
     if not isinstance(ti, dict):
         raise TypeError('tool_input is not an object')
     cwd = Path(inp.get('cwd') or os.getcwd()).resolve()
-    r = rules(role, active, cwd)
+    r = rules(role, active, cwd, inp.get('agent_id'))
     if r is None:
         return f'Not a defined my-agent agent: {role}'
     if tool in ('WebFetch', 'WebSearch'):

@@ -28,12 +28,15 @@ class ScopeGuardTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def hook(self, agent, tool, tool_input, cwd=None, session='sess-1'):
+    def hook(self, agent, tool, tool_input, cwd=None, session='sess-1', agent_id=None):
         payload = {'hook_event_name': 'PreToolUse', 'tool_name': tool, 'tool_input': tool_input}
         if session is not None:
             payload['session_id'] = session
+        if agent_id is None:   # an isolated agent runs in `agent-<its id>` (F19): by default the folder's owner
+            name = Path(cwd).name if cwd else ''
+            agent_id = name[len('agent-'):] if name.startswith('agent-') else 'a1'
         if agent is not None:
-            payload.update(agent_type=agent, agent_id='a1')
+            payload.update(agent_type=agent, agent_id=agent_id)
         return run_hook('scope-guard.py', None, payload, cwd or self.L, env=self.env)
 
     def denied(self, *a, **kw):
@@ -351,6 +354,28 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertTrue(self.denied('my-agent:coder', 'Write', {'file_path': str(self.L / 'src/a.py')}, cwd=W))
         self.assertTrue(self.denied('my-agent:coder', 'Write', {'file_path': str(records(self.L) / 'x/y')}, cwd=W))
         self.assertFalse(self.denied('my-agent:coder', 'Read', {'file_path': str(self.T / 'plan.md')}, cwd=W))
+
+    def test_main_tree_coder_in_a_session_moved_to_another_agents_worktree(self):
+        """The session's folder is the worktree of another coder (`agent-x`); a coder called without isolation
+        inherits that `cwd` but is a main-tree coder: it writes the task location, not that worktree."""
+        (self.L / '.git' / 'worktrees' / 'agent-x').mkdir(parents=True)
+        W = self.L / '.claude' / 'worktrees' / 'agent-x'
+        (W / 'src').mkdir(parents=True)
+        (W / '.git').write_text(f"gitdir: {self.L / '.git' / 'worktrees' / 'agent-x'}\n")
+        c, other = 'my-agent:coder', dict(cwd=W, agent_id='y')
+        self.assertFalse(self.denied(c, 'Write', {'file_path': str(self.L / 'src/a.py'), 'content': 'x'}, **other))
+        self.assertFalse(self.denied(c, 'Bash', {'command': f'touch {self.L}/src/b.py'}, **other))
+        self.assertFalse(self.denied(c, 'Read', {'file_path': str(self.L / 'src/a.py')}, **other))
+        # a relative path still resolves against the real folder, which is not this coder's
+        self.assertTrue(self.denied(c, 'Bash', {'command': 'touch src/b.py'}, **other))
+        self.assertTrue(self.denied(c, 'Write', {'file_path': str(W / 'src/a.py'), 'content': 'x'}, **other))
+        self.assertTrue(self.denied(c, 'Write', {'file_path': str(self.T / 'plan.md'), 'content': 'x'}, **other))
+        self.assertTrue(self.denied(c, 'Write', {'file_path': str(self.L / '.git/config'), 'content': 'x'}, **other))
+        # no agent id at all: not the owner either
+        self.assertTrue(self.denied(c, 'Write', {'file_path': str(W / 'src/a.py'), 'content': 'x'}, cwd=W, agent_id=''))
+        # the owner keeps its worktree and stays out of the main tree
+        self.assertFalse(self.denied(c, 'Write', {'file_path': str(W / 'src/a.py'), 'content': 'x'}, cwd=W))
+        self.assertTrue(self.denied(c, 'Write', {'file_path': str(self.L / 'src/a.py'), 'content': 'x'}, cwd=W))
 
     def test_coder_main_tree(self):
         self.assertFalse(self.denied('my-agent:coder', 'Edit', {'file_path': str(self.L / 'src/a.py')}))
