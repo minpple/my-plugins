@@ -20,15 +20,15 @@ Write one task plan, `plan.md`, from the scope document and the explore results.
 
 ## Input
 
-- `intake.md` (`Profile:` in its first lines), the preset name and the `agent-models.py show` lines L1 passes (none without a `Models:` line), `explore.md`, `scope.md` (the dev small task has none: L1 passes its 5-line summary instead).
+- `intake.md` (`Profile:` in its first lines), the preset name and the `agent-models.py show` lines L1 passes (none without a `Models:` line), `explore.md`, `scope.md` (a small task has none: L1 passes its 5-line summary instead).
 - When rewriting: the `plan-review.md` path or the person's change request, and the list of deliverables already made.
 
 ## `plan.md` sections (in this order, all required)
 
 The file starts with the `# Plan: <task-id>` title and a lead paragraph: one or two sentences on what the plan builds (not a `Profile:` line or a pointer to the criteria). The G1b Report view shows it as the plan summary.
 
-1. `## Scope summary` (only when there is no `scope.md`: the dev small task): purpose, non-goals, deliverable location (an absolute path (no `~`, no relative path)).
-2. `## Completion criteria` (only when there is no `scope.md`: the dev small task): a numbered list `1.`, `2.`; it carries each criterion's check tag (`[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`) unchanged. Other profiles use the numbers and tags in `scope.md` as is.
+1. `## Scope summary` (only when there is no `scope.md`: a small task): purpose, non-goals, deliverable location (an absolute path (no `~`, no relative path)).
+2. `## Completion criteria` (only when there is no `scope.md`: a small task): a numbered list `1.`, `2.`; it carries each criterion's check tag (`[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`) unchanged. Other tasks use the numbers and tags in `scope.md` as is.
 3. `## Work units`: for each unit, a `### u<n> <name>` heading (`u1`, `u2` …, unique within the plan), and under it `- ` lines with the agent that takes it (`my-agent:researcher`·`writer`·`coder`), files to read, and for a coder the files to change, or for a writer or researcher the result path (`<task_dir>/<task-id>/work/…`), the parallel group (`group 1`, `group 2` …), the matching completion criterion number, and `- Status: pending` (when rewriting, a unit whose result `## Existing work` keeps as is gets `- Status: done`). L1 calls workers by this ID and the run-log records it as `unit=`.
    - Scripts read three of these lines by their label, so write the labels exactly: `- Files to change: ` with each path in backticks (on that line or as nested `  - ` bullets), `- Parallel group: group <n>`, `- Completion criteria: <numbers>`. A unit written with other labels (`Change:`, `Group:`, `Criteria:`) is not read: every file it changes is then `unmapped` in `changed-files.md` and re-judged against all criteria.
    - A coder unit that fetches from the network (reference data, a package outside the installed dependencies) gets one line `- Needs host: <host name>` per host, as a bare DNS name. L1 checks these hosts before G1b, so name every one.

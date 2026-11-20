@@ -95,8 +95,8 @@ def checks(T: Path):
 
     popups = sum(1 for k, f in lines if k == 'ask' and f.get('gate') in PEOPLE_GATES)
     normal = NORMAL_POPUPS.get(profile)
-    if profile == 'dev' and skipped:
-        normal = 2
+    if (profile == 'dev' and skipped) or (profile == 'general' and not (T / 'scope.md').exists()):
+        normal = 2   # a small task: no G1a
     out.append(f'info popups: {popups} ({profile} normal path: {normal if normal is not None else "?"})')
     out.append(f"info G2 asks: {sum(1 for k, f in lines if k == 'ask' and f.get('gate') == 'G2')}")
     modes = sorted({f.get('mode') for k, f in lines if k == 'stop' and f.get('mode') not in (None, '-', 'auto')})

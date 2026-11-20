@@ -159,6 +159,11 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('`define.md` "Scope Review"', general)
         self.assertIn('| `my-agent:scope-reviewer` | 2 (before G1a)', general)
         self.assertNotIn('no Scope Review', general)
+        # the small-task exception is shared with dev (Q38)
+        self.assertIn('| Small task exception |', general)
+        self.assertIn('skip the Scope interview, Scope Review and G1a', general)
+        self.assertIn('`SKIPPED small task`', general)
+        self.assertIn('2 times: G1b, G3', general)
 
     def test_merge_copies_new_files_before_apply(self):
         """Criterion 15: new files are copied before `git apply`, then the worktree is removed."""
