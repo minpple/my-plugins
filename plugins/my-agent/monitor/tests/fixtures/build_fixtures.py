@@ -213,8 +213,10 @@ def weekly_report():
     t = Task('work-notes', '261022-weekly-report', '2026-10-22')
     S = 's-wk'
     t.step('09:10', 1, 'Intake', session=S)
+    t.step('09:11', 2, 'Explore-Scope', session=S)
+    t.popup('09:12', 'G1a', 'Confirm this scope?', '09:12:30', 'Confirm (Recommended)')
     t.step('09:13', 3, 'Plan', session=S)
-    t.popup('09:16', 'G1b', 'Approve the scope and plan?', '09:16:30', 'Approve')
+    t.popup('09:16', 'G1b', 'Proceed with this plan?', '09:16:30', 'Approve (Recommended)')
     t.step('09:17', 5, 'Execute', session=S)
     t.agent('09:17:05', '09:21', 'writer', 'ag-w1', 'sonnet', 'medium', tokens=31000, mins=4)
     t.step('09:25', 7, 'Verify', session=S)
@@ -225,7 +227,8 @@ def weekly_report():
     t.log('09:34:00', 'deliver', path='reports/2026-w43.md')
     t.file('intake.md', intake('261022-weekly-report', 'done', t.project, 'general', '2 meeting notes → weekly report draft',
                               'Delivered: reports/2026-w43.md\n'), '09:34')
-    t.file('plan.md', '# Plan\n## Completion criteria\n1. Decisions\n2. To-dos for next week\n3. Open questions\n## Estimate\n- Estimated tokens: 150k\n'
+    t.file('scope.md', '# Scope\n## Completion criteria\n1. Decisions\n2. To-dos for next week\n3. Open questions\n## Non-goals\n- Per-person status\n## Confirmation\nConfirmed 2026-10-22 09:12\n', '09:12')
+    t.file('plan.md', '# Plan\n## Estimate\n- Estimated tokens: 150k\n'
            '## Mock-up\nKind: report first page\n# Weekly report (10/20 ~ 10/24)\n## Approval\n- Approved 2026-10-22 09:16 G1b\n', '09:16')
     t.file('work/draft.md', '# draft\n', '09:22')
     t.file('verify.md', 'Verdict: ALL PASS\nRun: 2\n- 1. PASS\n- 2. PASS\n- 3. PASS\n', '09:27')

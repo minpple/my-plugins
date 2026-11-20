@@ -59,7 +59,8 @@ Run: <n>
 
 ### General (general)
 
-- Not called: the general profile has no G1a, and plan-reviewer judges its scope summary at the top of `plan.md`. If called anyway, write `REVISE` with one BLOCKER `scope.md:1 general profile has no Scope Review → none`.
+- **Non-goals:** `scope.md` has a `## Non-goals` section with its items as bullets. A missing section is a BLOCKER.
+- **Deliverable location:** `## Deliverable` has one line ``- Deliverable location: `<path>` `` with an absolute path (no `~`, no relative path). A missing line means the task folder's `deliverable/`; a relative path or `~` is a BLOCKER.
 
 ### Research · docs (research)
 

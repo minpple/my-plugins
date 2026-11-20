@@ -131,7 +131,7 @@ Mock-up v22 is the reference for the screen. The build starts from the mock-up's
 | Main session cost | main transcript or `main-usage.json` (5.3) × `prices.json` (5.4); a step window with no priced model is `null` |
 | Gates, popup questions and choices | run-log popup lines, `scope.md ## Confirmation`, `plan.md ## Approval` |
 | rev | run-log `revision:` lines, `plan.md`/`scope.md ## Revisions`, `archive/` |
-| Criteria | `scope.md` completion criteria (for the general profile, the scope summary at the top of `plan.md`), `verify.md` verdicts |
+| Criteria | `scope.md` completion criteria (for a dev small task, the scope summary at the top of `plan.md`), `verify.md` verdicts |
 | Escalation | verifier `stop:` results in the run-log (consecutive FAIL), worker stop records |
 | Cost estimate | token counts × `prices.json` (5.4), shown as USD only |
 | Cost statusline | run-log `cost:` lines |

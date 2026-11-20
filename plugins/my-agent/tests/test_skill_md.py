@@ -335,7 +335,7 @@ class SkillMdTest(unittest.TestCase):
     def test_profile_change_procedure(self):
         section = self.section('## In-flight revision', '## Abort', self.changes)
         bullet = section[section.index('**Profile change at the first gate'):]
-        for word in ('-profile/', '`Request:` is left as written', 'scope summary', 'back=', '`phase:`',
+        for word in ('-profile/', '`Request:` is left as written', '`## Scope summary`', 'back=', '`phase:`',
                      'Keep <current profile> (Recommended)', 'new task (`Follows:`)',
                      'Split into a new task (Recommended)'):
             self.assertIn(word, bullet, word)

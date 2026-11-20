@@ -22,7 +22,7 @@ Judge, with evidence, whether the deliverable meets each completion criterion, a
 
 ## Input
 
-The file with the completion criteria (`scope.md` if it exists, otherwise `plan.md`: the general profile and the dev profile's small task), the `Scope change:` lines under `## Approval` in `plan.md`, the deliverable path, `intake.md` (`Profile:`), the changed-file map `changed-files.md` (each changed file with its work units, criteria and fingerprint; L1 writes it with `changed-files.py`), on a rerun the previous `verify.md` path, and the result path `verify.md`.
+The file with the completion criteria (`scope.md` if it exists, otherwise `plan.md`: the dev profile's small task), the `Scope change:` lines under `## Approval` in `plan.md`, the deliverable path, `intake.md` (`Profile:`), the changed-file map `changed-files.md` (each changed file with its work units, criteria and fingerprint; L1 writes it with `changed-files.py`), on a rerun the previous `verify.md` path, and the result path `verify.md`.
 
 ## `verify.md` format
 

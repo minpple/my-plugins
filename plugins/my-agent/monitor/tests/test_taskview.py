@@ -31,7 +31,7 @@ EXPECTED = {
         status='done', step=9, profile='research', gates=G('ok', 'ok', 'ok', 'ok'),
         crit={'total': 5, 'res': ['p'] * 5}, vfail=0, sstop=0, revs=None),
     ('work-notes', '261022-weekly-report'): dict(
-        status='done', step=9, profile='general', gates=G('skip', 'ok', 'todo', 'ok'),
+        status='done', step=9, profile='general', gates=G('ok', 'ok', 'todo', 'ok'),
         crit={'total': 3, 'res': ['p'] * 3}, vfail=0, sstop=0, revs=None),
     ('flight-search', '261021-flight-watch'): dict(
         status='stopped', step=5, profile='dev', gates=G('ok', 'ok', 'todo', 'todo'),

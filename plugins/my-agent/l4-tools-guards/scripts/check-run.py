@@ -14,7 +14,7 @@ import ma_plan  # noqa: E402
 import ma_schema  # noqa: E402
 
 PEOPLE_GATES = ma_schema.PEOPLE_POPUPS
-NORMAL_POPUPS = {'general': 2, 'research': 3, 'dev': 3}
+NORMAL_POPUPS = {'general': 3, 'research': 3, 'dev': 3}
 
 
 def first_line(path: Path) -> str:

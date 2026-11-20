@@ -348,12 +348,16 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('plan-reviewer judges the coverage', row)
 
     def test_general_profile_units_are_judged(self):
-        """Q34: the general profile's scope summary, researcher notes and coder units each have a judge."""
+        """Q34, Q35: the general profile's scope (Scope Review), researcher notes and coder units each have a judge."""
         def general(name):
             return self._agent(name).split('### General (general)')[1].split('### Research')[0]
+        sr = general('scope-reviewer')
+        self.assertNotIn('Not called', sr)
+        self.assertIn('`## Non-goals` section', sr)
+        self.assertIn('``- Deliverable location: `<path>` ``', sr)
+        self.assertIn('a relative path or `~` is a BLOCKER', sr)
         p = general('plan-reviewer')
-        self.assertIn('judge the summary against the request (`Request:` in `intake.md`)', p)
-        self.assertIn('A part of the request that is in neither is a BLOCKER', p)
+        self.assertNotIn('## Scope summary', p)
         self.assertIn('A criterion with no command is a BLOCKER', p)
         self.assertIn('shares its parallel group with no other coder unit', p)
         a = general('architect')
@@ -366,8 +370,10 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('the form the `## Mock-up` in `plan.md` shows', r)
         self.assertNotIn('the deliverable format in the scope', r)
         self.assertIn("gets the dev section's code review", r)
+        self.assertIn('G1a scope confirmation, G1b plan approval', general('gate-analyst'))
         profile = (REPO / 'l1-orchestration' / 'profiles' / 'general.md').read_text(encoding='utf-8')
-        self.assertIn('plan-reviewer judges the scope summary against the request', profile)
+        self.assertIn('asked 3 times: G1a, G1b, G3', profile)
+        self.assertIn('confirm with G1a', profile)
         self.assertIn('call it without `isolation: "worktree"`', profile)
         self.assertIn('the files coder units changed in place', profile)
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')

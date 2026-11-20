@@ -156,8 +156,9 @@ class ProfilesTest(unittest.TestCase):
             self.assertIn('| `my-agent:scope-reviewer` | 2 (before G1a', text, name)
         self.assertIn('skip the Scope interview, Scope Review and G1a', (PROFILES / 'dev.md').read_text(encoding='utf-8'))
         general = (PROFILES / 'general.md').read_text(encoding='utf-8')
-        self.assertIn('no Scope Review', general)
-        self.assertNotIn('`my-agent:scope-reviewer`', general)
+        self.assertIn('`define.md` "Scope Review"', general)
+        self.assertIn('| `my-agent:scope-reviewer` | 2 (before G1a)', general)
+        self.assertNotIn('no Scope Review', general)
 
     def test_merge_copies_new_files_before_apply(self):
         """Criterion 15: new files are copied before `git apply`, then the worktree is removed."""
@@ -317,10 +318,10 @@ class ProfilesTest(unittest.TestCase):
         rules = build.split('## Workflow rules')[1].split('## 6. Merge')[0]
         self.assertIn('definition values', rules)
 
-    def test_general_g1b_takeaway_carries_scope(self):
+    def test_general_g1b_shows_the_scope_confirmed_at_g1a(self):
         g = (REPO / 'l1-orchestration' / 'profiles' / 'general.md').read_text(encoding='utf-8')
         row = [l for l in g.splitlines() if l.startswith('| G1b')][0]
-        self.assertIn('### Takeaway', row)
+        self.assertIn('confirmed at G1a, so do not ask again', row)
 
 
     def test_verify_and_review_scope(self):

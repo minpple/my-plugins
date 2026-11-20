@@ -29,7 +29,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 
 | Gate | When | Choices |
 |---|---|---|
-| G1a Scope confirmation | End of Scope (none in the general profile; merged into G1b) | Confirm / Revise / Abort |
+| G1a Scope confirmation | End of Scope | Confirm / Revise / Abort |
 | G1b Plan approval | End of Plan Review, after opening the task's Report tab | Approve / Request changes / Abort |
 | G2 Risky action | Right before a risky tool call; the Claude Code permission dialog shows it | Allow once / Deny |
 | G3 Final acceptance | Verify ALL PASS, Review BLOCKER 0 | Accept / Rework / Abort (dev profile: Commit / Rework / Abort) |

@@ -24,7 +24,12 @@ class MdFilesTest(unittest.TestCase):
     def test_criteria_and_verify(self):
         self.assertEqual(read_criteria(HOOKS / 'scope.md'), 5)
         self.assertEqual(read_verify(HOOKS / 'verify.md'), ['p'] * 5)
-        self.assertEqual(read_criteria(WEEKLY / 'plan.md'), 3)
+        self.assertEqual(read_criteria(WEEKLY / 'scope.md'), 3)
+        import tempfile   # a dev small task keeps its criteria in plan.md
+        with tempfile.TemporaryDirectory() as d:
+            plan = Path(d) / 'plan.md'
+            plan.write_text('# Plan\n## Completion criteria\n1. a\n2. b\n## Work units\n', encoding='utf-8')
+            self.assertEqual(read_criteria(plan), 2)
 
     def test_criteria_with_check_tags(self):
         import tempfile

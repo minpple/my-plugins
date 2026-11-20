@@ -544,7 +544,7 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
 
       <section id="p-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
         <h2>The flow of one task (general profile example)</h2>
-        <p class="arrow-line">① Define → ② Plan → G1b approval → ③ Build → ④ Accept → G3 approval</p>
+        <p class="arrow-line">① Define → G1a approval → ② Plan → G1b approval → ③ Build → ④ Accept → G3 approval</p>
         <div id="flow-note"></div>
         <div class="track" id="track" role="group" aria-label="Choose a step"></div>
         <div class="step-card" id="step-card" aria-live="polite"></div>
@@ -737,7 +737,7 @@ claude plugin install my-agent@my-plugins</pre>
 
   /* ---------- 2. flow ---------- */
   document.getElementById('flow-note').appendChild(disc('Details: the example request',
-    `<p>The example request is "write a document in several parts" (the basis for such requests being my-agent's target is <code>plugins/my-agent/skills/my-agent/SKILL.md</code>). On the normal path of the general profile, the person answers only twice, at G1b and G3.</p>` +
+    `<p>The example request is "write a document in several parts" (the basis for such requests being my-agent's target is <code>plugins/my-agent/skills/my-agent/SKILL.md</code>). On the normal path of the general profile, the person answers three times, at G1a, G1b and G3.</p>` +
     src('plugins/my-agent/l1-orchestration/profiles/general.md')));
 
   var steps = [
@@ -745,8 +745,11 @@ claude plugin install my-agent@my-plugins</pre>
       text: `The person sends a request. The main session (L1) looks at the request and picks a profile. If the user named a profile, it follows that. Document work counts as general. Then it creates the task folder and sets the task ID.`,
       src: 'plugins/my-agent/skills/my-agent/SKILL.md' },
     { n: '①', title: '① Define', gate: false,
-      text: `If the request relates to existing files or a project, the explorer looks at the relevant files and current behavior and reports back; if the request is enough on its own, nothing is delegated. Then L1 asks, by popup, for the purpose, the completion criteria, what will not be done, and where the deliverable goes. Items the request already answers are not asked. In general, scope confirmation (G1a) is not asked separately: the scope summary goes at the top of the plan and is approved together at G1b.`,
+      text: `If the request relates to existing files or a project, the explorer looks at the relevant files and current behavior and reports back; if the request is enough on its own, nothing is delegated. Then L1 asks, by popup, for the purpose, the completion criteria, what will not be done, and where the deliverable goes. Items the request already answers are not asked. Before G1a, the scope-reviewer judges the scope against the request, and L1 fixes what it finds.`,
       src: 'plugins/my-agent/l1-orchestration/phases/define.md, plugins/my-agent/l1-orchestration/profiles/general.md' },
+    { n: 'G1a', title: 'G1a Scope confirmation', gate: true,
+      text: `L1 opens the task's Report tab, which shows the purpose, the completion criteria and what will not be done, and keeps the chat report short. Then the person answers in a popup (confirm / revise / stop). Nothing is planned before this answer.`,
+      src: 'plugins/my-agent/l1-orchestration/phases/define.md, plugins/my-agent/l2-design-judge/agents/scope-reviewer.md' },
     { n: '②', title: '② Plan', gate: false,
       text: `The architect writes a <code>plan.md</code> split into work units. Each work unit carries its agent, parallel group, and status, and a mock-up, a sample of the deliverable, is always included.`,
       src: 'plugins/my-agent/l1-orchestration/phases/plan.md' },
@@ -859,7 +862,7 @@ claude plugin install my-agent@my-plugins</pre>
        [],
        'plugins/my-agent/skills/my-agent/SKILL.md',
        `<div class="mini-box"><table class="mini"><thead><tr><th>Gate</th><th>When</th><th>Choices</th></tr></thead><tbody>` +
-       `<tr><td>G1a Scope confirmation</td><td>When scope drafting ends (not in general; folded into G1b)</td><td>Confirm / edit / stop</td></tr>` +
+       `<tr><td>G1a Scope confirmation</td><td>When scope drafting ends </td><td>Confirm / edit / stop</td></tr>` +
        `<tr><td>G1b Plan approval</td><td>After plan review, once the whole mock-up is pasted into the chat</td><td>Approve / request changes / stop</td></tr>` +
        `<tr><td>G2 Risky action</td><td>Just before a risky tool call, in the Claude Code permission dialog</td><td>Allow once / deny</td></tr>` +
        `<tr><td>G3 Final acceptance</td><td>When verification is ALL PASS and review has 0 BLOCKER</td><td>Accept / rework / stop (dev: commit / rework / stop)</td></tr>` +
@@ -1012,10 +1015,10 @@ claude plugin install my-agent@my-plugins</pre>
         'If it is not a git repository, the router does not choose <code>dev</code> and chooses <code>general</code>.'],
        'plugins/my-agent/skills/my-agent/SKILL.md'],
       ['general: any other multi-step work.',
-       'On the normal path the person answers only twice, at G1b and G3.',
-       ['Scope confirmation (G1a) is not asked separately; the scope summary goes at the top of the plan and is approved all at once at G1b. If the request already answered the purpose, completion criteria, what will not be done, and the deliverable location, the scope interview is also skipped.',
+       'On the normal path the person answers three times, at G1a, G1b, and G3.',
+       ['The scope interview settles four things in <code>scope.md</code>: the purpose, the completion criteria, what will not be done, and the deliverable location. If the request already answered all four, the interview is skipped, but G1a is still asked. Before G1a the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
         'If the changed files add up to fewer than 3, plan review can be skipped. The work is run only with subagents, not workflows.',
-        'If the deliverable is a document with two or more work units, the last writer unit merges the earlier results, and the deliverable is saved at the location given in the scope summary (otherwise <code>deliverable/</code> in the task folder).'],
+        'If the deliverable is a document with two or more work units, the last writer unit merges the earlier results, and the deliverable is saved at the location given in the scope (otherwise <code>deliverable/</code> in the task folder).'],
        'plugins/my-agent/l1-orchestration/profiles/general.md'],
       ['research: web research into notes with sources.',
        'On the normal path the person answers three times, at G1a, G1b, and G3, and every claim comes with a source URL and a quote from the original.',

@@ -211,7 +211,7 @@ def _build(project, task_dir, tid, key, prices, tcache, now):
 
     def gate(g, ok):
         return 'wait' if ev.gates.get(g) == 'wait' else 'ok' if ok else 'todo'
-    gates = {'G1a': 'skip' if profile == 'general' else gate('G1a', read_confirmation(task_dir / 'scope.md')),
+    gates = {'G1a': gate('G1a', read_confirmation(task_dir / 'scope.md')),
              'G1b': gate('G1b', plan['approved_at']),
              'G2': ev.gates.get('G2', 'todo'),
              'G3': gate('G3', status == 'done')}

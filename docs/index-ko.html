@@ -544,7 +544,7 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
 
       <section id="p-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
         <h2>한 작업의 흐름 (general 프로필 예시)</h2>
-        <p class="arrow-line">① 정의 → ② 계획 → G1b 승인 → ③ 실행 → ④ 인수 → G3 승인</p>
+        <p class="arrow-line">① 정의 → G1a 승인 → ② 계획 → G1b 승인 → ③ 실행 → ④ 인수 → G3 승인</p>
         <div id="flow-note"></div>
         <div class="track" id="track" role="group" aria-label="단계 선택"></div>
         <div class="step-card" id="step-card" aria-live="polite"></div>
@@ -737,7 +737,7 @@ claude plugin install my-agent@my-plugins</pre>
 
   /* ---------- 2. flow ---------- */
   document.getElementById('flow-note').appendChild(disc('자세히: 예시 요청',
-    `<p>예시 요청은 "여러 부분으로 된 문서를 만들어 줘"입니다(이런 요청이 my-agent의 대상이라는 근거는 <code>plugins/my-agent/skills/my-agent/SKILL.md</code>). general 프로필의 정상 경로에서 사람은 두 번, G1b와 G3에서만 답합니다.</p>` +
+    `<p>예시 요청은 "여러 부분으로 된 문서를 만들어 줘"입니다(이런 요청이 my-agent의 대상이라는 근거는 <code>plugins/my-agent/skills/my-agent/SKILL.md</code>). general 프로필의 정상 경로에서 사람은 G1a, G1b, G3 세 번 답합니다.</p>` +
     src('plugins/my-agent/l1-orchestration/profiles/general.md')));
 
   var steps = [
@@ -745,8 +745,11 @@ claude plugin install my-agent@my-plugins</pre>
       text: `사람이 요청을 보냅니다. 메인 세션(L1)이 요청을 보고 프로필을 고릅니다. 사용자가 프로필을 직접 지정했으면 그대로 따릅니다. 문서 작업은 general에 해당합니다. 이어서 작업 폴더를 만들고 작업 ID를 정합니다.`,
       src: 'plugins/my-agent/skills/my-agent/SKILL.md' },
     { n: '①', title: '① 정의', gate: false,
-      text: `요청이 기존 파일이나 프로젝트와 관련 있으면 explorer가 관련 파일과 현재 동작을 살펴 보고하고, 요청만으로 충분하면 위임하지 않습니다. 이어서 L1이 목적·완료 기준·하지 않을 일·결과물 위치를 팝업으로 묻습니다. 요청이 이미 답한 항목은 묻지 않습니다. general에서는 범위 확인(G1a)을 따로 묻지 않고, 정리한 범위 요약을 계획 첫머리에 넣어 G1b에서 함께 승인받습니다.`,
+      text: `요청이 기존 파일이나 프로젝트와 관련 있으면 explorer가 관련 파일과 현재 동작을 살펴 보고하고, 요청만으로 충분하면 위임하지 않습니다. 이어서 L1이 목적·완료 기준·하지 않을 일·결과물 위치를 팝업으로 묻습니다. 요청이 이미 답한 항목은 묻지 않습니다. G1a 전에 scope-reviewer가 범위를 요청과 대조해 판정하고, L1이 지적된 것을 고칩니다.`,
       src: 'plugins/my-agent/l1-orchestration/phases/define.md, plugins/my-agent/l1-orchestration/profiles/general.md' },
+    { n: 'G1a', title: 'G1a 범위 확인', gate: true,
+      text: `L1이 작업의 Report 탭을 열어 목적·완료 기준·하지 않을 일을 보여 주고, 채팅 보고는 짧게 합니다. 이어서 사람이 팝업으로 답합니다(확인 / 수정 / 중단). 이 답 전에는 계획을 세우지 않습니다.`,
+      src: 'plugins/my-agent/l1-orchestration/phases/define.md, plugins/my-agent/l2-design-judge/agents/scope-reviewer.md' },
     { n: '②', title: '② 계획', gate: false,
       text: `architect가 작업 단위로 나눈 <code>plan.md</code>를 씁니다. 작업 단위마다 담당 에이전트·병렬 그룹·상태가 들어가고, 결과물의 견본인 목업(mock-up)은 반드시 포함됩니다.`,
       src: 'plugins/my-agent/l1-orchestration/phases/plan.md' },
@@ -859,7 +862,7 @@ claude plugin install my-agent@my-plugins</pre>
        [],
        'plugins/my-agent/skills/my-agent/SKILL.md',
        `<div class="mini-box"><table class="mini"><thead><tr><th>게이트</th><th>언제</th><th>선택지</th></tr></thead><tbody>` +
-       `<tr><td>G1a 범위 확인</td><td>범위 정리가 끝날 때(general에는 없음, G1b에 합쳐짐)</td><td>확인 / 수정 / 중단</td></tr>` +
+       `<tr><td>G1a 범위 확인</td><td>범위 정리가 끝날 때</td><td>확인 / 수정 / 중단</td></tr>` +
        `<tr><td>G1b 계획 승인</td><td>계획 검토 끝, 목업 전체를 채팅에 붙인 뒤</td><td>승인 / 변경 요청 / 중단</td></tr>` +
        `<tr><td>G2 위험한 행동</td><td>위험한 도구 호출 직전, Claude Code 권한 대화상자</td><td>한 번 허용 / 거부</td></tr>` +
        `<tr><td>G3 최종 인수</td><td>검증 ALL PASS, 리뷰 BLOCKER 0일 때</td><td>수락 / 재작업 / 중단 (dev: 커밋 / 재작업 / 중단)</td></tr>` +
@@ -1012,10 +1015,10 @@ claude plugin install my-agent@my-plugins</pre>
         '라우터는 git 저장소가 아니면 <code>dev</code>를 고르지 않고 <code>general</code>을 고릅니다.'],
        'plugins/my-agent/skills/my-agent/SKILL.md'],
       ['general: 그 밖의 여러 단계 작업.',
-       '정상 경로에서 사람은 G1b와 G3 두 번만 답합니다.',
-       ['범위 확인(G1a)을 따로 묻지 않고, 범위 요약을 계획 첫머리에 넣어 G1b에서 한꺼번에 승인받습니다. 요청이 목적·완료 기준·하지 않을 일·결과물 위치를 모두 답했으면 범위 인터뷰도 건너뜁니다.',
+       '정상 경로에서 사람은 G1a·G1b·G3 세 번 답합니다.',
+       ['범위 인터뷰에서 목적·완료 기준·하지 않을 일·결과물 위치 네 가지를 <code>scope.md</code>에 정합니다. 요청이 네 가지를 모두 답했으면 인터뷰는 건너뛰지만 G1a는 묻습니다. G1a 전에 scope-reviewer가 <code>scope.md</code>를 요청과 대조해 판정하고, L1이 지적된 것을 고칩니다.',
         '변경 파일이 모두 합쳐 3개 미만이면 계획 검토를 건너뛸 수 있습니다. 실행은 하위 에이전트로만 하고 워크플로는 쓰지 않습니다.',
-        '결과물이 문서이고 작업 단위가 둘 이상이면 마지막 writer 단위가 앞선 결과를 합치고, 결과물은 범위 요약에 적은 위치에 저장됩니다(없으면 작업 폴더의 <code>deliverable/</code>).'],
+        '결과물이 문서이고 작업 단위가 둘 이상이면 마지막 writer 단위가 앞선 결과를 합치고, 결과물은 범위에 적은 위치에 저장됩니다(없으면 작업 폴더의 <code>deliverable/</code>).'],
        'plugins/my-agent/l1-orchestration/profiles/general.md'],
       ['research: 웹 조사를 출처 달린 노트로.',
        '정상 경로에서 사람은 G1a·G1b·G3 세 번 답하고, 모든 주장에 출처 URL과 원문 인용이 붙습니다.',

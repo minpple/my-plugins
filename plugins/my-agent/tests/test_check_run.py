@@ -48,7 +48,7 @@ class CheckRunTest(unittest.TestCase):
     def test_complete_run_passes(self):
         r = self.check()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('info popups: 2 (general normal path: 2)', r.stdout)
+        self.assertIn('info popups: 2 (general normal path: 3)', r.stdout)
         self.assertNotIn('FAIL', r.stdout)
 
     def test_guard_lines_give_no_finding(self):

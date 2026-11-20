@@ -208,7 +208,7 @@ LINE_SUFFIX = re.compile(r':\d+$')
 
 
 def criteria(text: str) -> list:
-    """[(n, text without the `[check: …]` tag, tag or None)] from `## Completion criteria` (scope.md, or plan.md for the general profile)."""
+    """[(n, text without the `[check: …]` tag, tag or None)] from `## Completion criteria` (scope.md, or plan.md for a dev small task)."""
     rows = []
     for line in section_lines(text, 'Completion criteria') or []:
         m = CRITERION_LINE.match(line)

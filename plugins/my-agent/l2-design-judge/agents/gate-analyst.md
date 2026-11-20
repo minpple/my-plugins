@@ -65,7 +65,7 @@ Put the sections below in this order.
 
 ### General (general)
 
-- Gates that appear: G1b plan approval (with the scope summary; no separate G1a), G3 result acceptance, questions (Q).
+- Gates that appear: G1a scope confirmation, G1b plan approval, G3 result acceptance, questions (Q).
 
 ### Research · docs (research)
 

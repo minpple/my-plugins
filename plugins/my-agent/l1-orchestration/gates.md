@@ -18,7 +18,7 @@ Right before a deliverable leaves the task folder, scan it for secret patterns: 
 
 ## Gate reports
 
-G1a, G1b and G3 (general and dev) are read on the task's Report tab; the chat report is short. E keeps the overview table followed by `### Details`.
+G1a, G1b and G3 are read on the task's Report tab; the chat report is short. E keeps the overview table followed by `### Details`.
 
 - **Opening the Report tab.** Right before each of these popups, after its `ask` line (and at G3 after the `cost` line), run `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" --report "<absolute task folder>" --pointer --data-dir "<data folder>"`. It opens the Report tab only when the setting `report_open` in `monitor-config.json` is `true` (the default opens nothing) and prints one line, the pointer line of the chat report.
   - It is a plugin script run with Bash; no harness tool is used, so the rule runs the same in Claude Code and Codex. The gate goes on in every case.
