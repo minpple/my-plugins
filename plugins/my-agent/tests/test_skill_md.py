@@ -539,6 +539,10 @@ class SkillMdTest(unittest.TestCase):
     def test_intake_popup_recommends_current_folder(self):
         self.assertIn('`Current folder (Recommended)` / `<data folder>` / `Other path`', self.new_task)
         self.assertNotIn('`<data folder> (Recommended)`', self.new_task)
+        self.assertIn('Popup every time, also inside a git repository', self.intake_item(2))
+        self.assertNotIn('do not ask', self.intake_item(2))
+        self.assertIn('"Commit the task log? The essential information goes into docs/blueprint, so committing it is not recommended."',
+                      self.intake_item(5))
 
     # --- apply open feedback (task 261101-apply-open-feedback, u1) ---
     def section(self, start, end, text=None):
@@ -580,7 +584,7 @@ class SkillMdTest(unittest.TestCase):
     def test_intake_running_task_candidates(self):
         """Item 1 names where it looks for `.active`; item 2 checks a location typed as `Other path`."""
         one = self.intake_item(1)
-        self.assertIn('the location `<data folder>/active-index.json` gives for the run folder', one)
+        self.assertIn('the folder you ran in (its git root, if any), the location `<data folder>/active-index.json` gives for it', one)
         self.assertIn('the folders the item 2 popup offers', one)
         self.assertIn('If `<task_dir>/.active` exists in one, popup:', one)
         self.assertIn('(an `Other path`) and has `<task_dir>/.active`, show the item 1 popup', self.intake_item(2))
