@@ -150,5 +150,24 @@ class CoderNotesCard(unittest.TestCase):
             self.assertIn('plugins/my-agent/l1-orchestration/phases/build.md', m.group(1), name)
 
 
+class StepLetters(unittest.TestCase):
+    """The phase and step sentence names steps by code (1A..4B)."""
+
+    SENTENCES = {
+        'index.html': '\u2460 Define = 1A Intake \u00b7 1B Explore \u2192 Scope, \u2461 Plan = 2A Plan \u00b7 2B Plan review, '
+                      '\u2462 Build = 3A Build \u00b7 3B Merge, \u2463 Accept = 4A Verify \u00b7 4B Review \u2192 Deliver.',
+        'index-ko.html': '\u2460 \uc815\uc758 = 1A \uc811\uc218(Intake) \u00b7 1B \ud0d0\uc0c9\u2192\ubc94\uc704, \u2461 \uacc4\ud68d = 2A \uacc4\ud68d \u00b7 2B \uacc4\ud68d \uac80\ud1a0, '
+                         '\u2462 \uc2e4\ud589 = 3A \uc2e4\ud589 \u00b7 3B \ubcd1\ud569, \u2463 \uc778\uc218 = 4A \uac80\uc99d \u00b7 4B \ub9ac\ubdf0\u2192\uc778\ub3c4\uc785\ub2c8\ub2e4.',
+    }
+
+    def test_phase_step_sentence(self):
+        for name, sentence in self.SENTENCES.items():
+            page = read(name)
+            self.assertIn(sentence, page, name)
+            pos = [page.index(c) for c in ('1A ', '1B ', '2A ', '2B ', '3A ', '3B ', '4A ', '4B ')]
+            self.assertEqual(pos, sorted(pos), name)
+            self.assertIsNone(re.search(r'(= |\u00b7 )[1-8] (?!\u00b7)', sentence), name)
+
+
 if __name__ == '__main__':
     unittest.main()

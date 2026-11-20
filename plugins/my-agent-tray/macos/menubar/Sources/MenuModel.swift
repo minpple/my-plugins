@@ -2,11 +2,18 @@
 // Used by the menu bar UI (main.swift) and by --print-menu, so the printed commands are the ones really run.
 import Foundation
 
-// Duplicate of STEP_NAME in web/index.html; change both together.
+// Duplicate of STEP_NAME and STEP_CODE in web/index.html; change both together.
 let stepNames: [Int: String] = [
     1: "Intake", 2: "Explore → Scope", 3: "Plan", 4: "Plan Review → G1b",
     5: "Execute", 6: "Merge · Self-check", 7: "Verify", 8: "Review → Deliver",
 ]
+let stepCodes: [Int: String] = [1: "1A", 2: "1B", 3: "2A", 4: "2B", 5: "3A", 6: "3B", 7: "4A", 8: "4B"]
+
+/// Step label like `3A Execute`; a step outside 1-8 shows its number.
+func stepText(_ n: Int) -> String {
+    guard let code = stepCodes[n], let name = stepNames[n] else { return "\(n)" }
+    return "\(code) \(name)"
+}
 
 struct RunningTask: Equatable {
     let id: String
@@ -74,8 +81,7 @@ func parseRunning(_ data: Data) -> [RunningTask]? {
 
 func taskTitle(_ t: RunningTask) -> String {
     guard let n = t.step else { return "\(t.id) · –" }
-    guard let name = stepNames[n] else { return "\(t.id) · \(n)" }
-    return "\(t.id) · \(n). \(name)"
+    return "\(t.id) · \(stepText(n))"
 }
 
 /// SF Symbol of the menu bar icon: the plain display while the monitor is off or idle, the play display while a task runs.

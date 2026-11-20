@@ -92,6 +92,19 @@ class BuildDocsTest(unittest.TestCase):
         payload = self.page.split('const D = ', 1)[1].split(';\nconst $', 1)[0]
         self.assertNotIn('</script', payload)
 
+    def test_template_step_letters(self):
+        import re
+        tpl = (REPO / 'tools' / 'docs-template.html').read_text(encoding='utf-8')
+        m = re.search(r'const STEP_CODE = (\{[^}]*\});', tpl)
+        self.assertIsNotNone(m)
+        table = dict(re.findall(r"'(\d)'\s*:\s*'(\w+)'", m.group(1)))
+        self.assertEqual(table, {'1': '1A', '2': '1B', '3': '2A', '4': '2B',
+                                 '5': '3A', '6': '3B', '7': '4A', '8': '4B'})
+        for gone in ('<b>${s.n}</b>', '`${n}. ${', 'Step ${s.n} ·'):
+            self.assertNotIn(gone, tpl)
+        for kept in ('#flow/${s.n}', 'id="step-${s.n}"'):
+            self.assertIn(kept, tpl)
+
 
 if __name__ == '__main__':
     unittest.main()

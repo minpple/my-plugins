@@ -41,7 +41,7 @@ Only screen settings are stored, in the defaults domain `my-agent.monitor-menuba
 
 ### Menu (right click)
 
-- The menu has one line per running task, like `261025-monitor-popup-window · 3. Plan`. Choosing a line runs `monitor-up.py --open --task <key>`, which opens the monitor with that task selected.
+- The menu has one line per running task, like `261025-monitor-popup-window · 2A Plan`. Choosing a line runs `monitor-up.py --open --task <key>`, which opens the monitor with that task selected.
 - `Browser ▸` (below `Open Monitor`) has `Default Browser`, `Safari` and `Chrome (App Window)`; the current value is checked. Choosing one runs `monitor-up.py set-browser <value>`, which changes only the `browser` key of `monitor-config.json`. Every way of opening the monitor (this menu, my-agent's automatic start, `monitor-up.py`) follows it. The submenu is shown even when the server is off or no task is running.
 - With no running task the menu shows `No running tasks`. With the server off it shows `Monitor server is off`.
 - `Open Monitor` runs `monitor-up.py --open`. `Quit` quits the app only; the server keeps running.
@@ -69,7 +69,7 @@ macos/menubar/build/my-agent-menubar
 macos/menubar/build/my-agent-menubar --print-menu    # print the menu and the commands it would run, then exit
 macos/menubar/build/my-agent-menubar --print-list [--filter all|running|done|stopped] [--ports A-B]
                                                # print the List lines (symbol, ID, step, elapsed, bar, pulse or -, key), then exit
-                                               # (the step column is printed here only; the window does not show it)
+                                               # (the step column is the label, for example `3A Execute`; printed here only, the window does not show it)
 macos/menubar/build/my-agent-menubar --print-list --tones
                                                # add two columns: the mark's tone and 8 bar tone letters (p past, r run, w wait, b done, s stop, -)
 macos/menubar/build/my-agent-menubar --list-frame 1180,220,300,640 12 0,0,1512,944

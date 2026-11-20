@@ -51,11 +51,10 @@ func statusMark(_ row: TaskRow) -> String {
     }
 }
 
-func stepLabel(_ row: TaskRow) -> String {
+func rowStepText(_ row: TaskRow) -> String {
     if row.status == "done" { return "Done" }
     guard let n = row.step else { return "–" }
-    guard let name = stepNames[n] else { return "\(n)" }
-    return "\(n). \(name)"
+    return stepText(n)
 }
 
 /// Eight cells like stepState in web/index.html: d done, c current, s stopped, - todo.
@@ -303,7 +302,7 @@ func renderList(_ state: ListState, filter: ListFilter, tones: Bool = false) -> 
         }
         var lines = ["list: \(rows.count)"]
         for r in rows {
-            var cols = [statusMark(r), r.id, stepLabel(r), elapsedText(r.elapsed), String(railStates(r)),
+            var cols = [statusMark(r), r.id, rowStepText(r), elapsedText(r.elapsed), String(railStates(r)),
                         pulses(r) ? "pulse" : "-", r.key]
             if tones { cols += [markTone(r).rawValue, String(railTones(r).map(toneChar))] }
             lines.append(cols.joined(separator: "\t"))

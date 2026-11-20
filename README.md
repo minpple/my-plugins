@@ -6,8 +6,8 @@ A Claude Code plugin marketplace by minpple.
 
 | Plugin | Version | Description |
 |---|---|---|
-| `my-agent` | 0.19.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
-| `my-agent-tray` | 0.1.4 | macOS menu bar app for the my-agent monitor (optional; needs my-agent 0.5.0 or later) |
+| `my-agent` | 0.20.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
+| `my-agent-tray` | 0.1.5 | macOS menu bar app for the my-agent monitor (optional; needs my-agent 0.5.0 or later) |
 
 ## Requirements
 

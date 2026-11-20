@@ -648,7 +648,17 @@ const PHASES = [
   { n: '③ Build', steps: [[5,'Execute'],[6,'Merge · Self-check']], gate: 'G2' },
   { n: '④ Accept', steps: [[7,'Verify'],[8,'Review → Deliver']], gate: 'G3' }
 ];
+/* Duplicate of stepNames and stepCodes in plugins/my-agent-tray/macos/menubar/Sources/MenuModel.swift; change both together. */
 const STEP_NAME = {1:'Intake',2:'Explore → Scope',3:'Plan',4:'Plan Review → G1b',5:'Execute',6:'Merge · Self-check',7:'Verify',8:'Review → Deliver'};
+const STEP_CODE = {1:'1A',2:'1B',3:'2A',4:'2B',5:'3A',6:'3B',7:'4A',8:'4B'};
+/* a step shows as phase digit + step letter; outside 1-8 the raw number */
+const stepCode = n => STEP_CODE[n] || String(n);
+const stepLetter = n => STEP_CODE[n] ? STEP_CODE[n][1] : String(n);
+const stepLabel = n => STEP_CODE[n] ? STEP_CODE[n] + ' ' + STEP_NAME[n] : String(n);
+/* text from events.py arrives as "step <n> · <name>": only that leading form is rewritten */
+const stepTx = tx => String(tx).replace(/^step ([1-8])(?= · |$)/, (_, n) => 'step ' + STEP_CODE[n]);
+/* the gate-tally steps cell arrives as "1 Intake, 2 Explore-Scope" */
+const stepsText = s => String(s).split(', ').map(p => p.replace(/^([1-8]) /, (_, n) => STEP_CODE[n] + ' ')).join(', ');
 /* effort fixed in each agent definition (design v0.18, 4.5) */
 const EFFORT = { 'scope-reviewer':'high', architect:'high', 'plan-reviewer':'high', verifier:'high', reviewer:'high', explorer:'low', researcher:'medium', writer:'medium', coder:'medium' };
 const etag = (a, eff) => (eff || EFFORT[a]) ? ` <span class="etag" title="effort">${eff || EFFORT[a]}</span>` : '';
@@ -882,7 +892,7 @@ function vsteps(t, S, o) {
     p.steps.forEach(([n]) => {
       const ss = o.state(n), sd = S.steps[n];
       h += `<div class="vs ${ss} ${o.compact ? 'compact' : ''} ${n === o.sel ? 'sel' : ''}" data-${o.key}="${n}">
-        <div class="vh"><span class="no">${ss === 'done' ? '✓' : n}</span>
+        <div class="vh"><span class="no">${ss === 'done' ? '✓' : stepLetter(n)}</span>
           <span class="nm">${esc(STEP_NAME[n])}${ss === 'cur' && t.status === 'running' ? ` <i class="dot run${t.waiting ? ' wait' : ''}"></i>` : ''}</span>
           <span class="st">${ss === 'inh' ? L(`from rev${o.R - 1}`, `rev${o.R - 1} 이어받음`) : ss === 'cut' ? `<span style="color:var(--gate)">→ rev${o.R + 1}</span>` : sd.start ? `${t.revs && o.R > 0 && n === t.revs[o.R].back ? '<span style="color:var(--gate)">↺ rev' + o.R + '</span> ' : ''}${fmtMin(sd.min)}${o.stats ? ` · ${money(sd.cost)}` : ''}` : ''}</span></div></div>`;
       if (GATE_AFTER[n]) h += `<div class="vgate">${esc(GATE_AFTER[n])} ${gl(GATE_ID[n])}</div>`;
@@ -909,16 +919,16 @@ function renderStatus() {
     ${ms.map(([m, r]) => `<tr><td>${mtag(m)}${r.live ? ' <i class="dot run"></i>' : ''}</td><td class="n">${r.main ? '–' : r.calls}</td><td class="n">${r.nil ? '–' : fmtMin(r.min)}</td><td class="n">${r.nil || (r.done && !r.priced) ? '–' : bar(r.cost, maxCost) + money(r.cost)}</td></tr>`).join('')}
     <tr class="sum"><td>Total</td><td class="n">${tot[0]}</td><td class="n">${fmtMin(t.elapsed)}</td><td class="n">${cu('mc-' + t.id, tot[1], '$')}</td></tr></table>
     ${(t.unpriced || []).length ? `<p class="note">${L('Not in prices.json: ', 'prices.json에 없는 모델: ')}${t.unpriced.map(esc).join(', ')}</p>` : ''}
-    ${t.log.filter(isMM).map(e => `<p class="note" style="color:var(--gate)">⚠ MISMATCH ${e.t} ${esc(e.tx)}: ${L('configured', '설정')} ${esc(e.model)} → ${L('actual', '실제')} ${esc(e.actual)}</p>`).join('')}`;
+    ${t.log.filter(isMM).map(e => `<p class="note" style="color:var(--gate)">⚠ MISMATCH ${e.t} ${esc(stepTx(e.tx))}: ${L('configured', '설정')} ${esc(e.model)} → ${L('actual', '실제')} ${esc(e.actual)}</p>`).join('')}`;
   const sel = t.status !== 'done' && R === latestRev(t) ? t.step : 0;
   const vl = revChips(t, R, 'rev') + vsteps(t, SR, { key: 'step', sel, R, stats: true, compact: true, tone: taskTone(t), state: n => rstate(t, R, n) });
   const c = t.crit, cPass = c.res.filter(x => x === 'p').length;
   const eLvl = (t.vfail >= 3 || t.sstop >= 2) ? 'bad' : (t.vfail >= 2 || t.sstop >= 1) ? 'warn' : 'ok';
   const run = t.running[0];
   const nowTile = t.status === 'done' ? `<div class="kv2 st-done">✓ ${L('Done', '완료')}</div><div class="ks">${L('accepted at G3 · deliverable saved', 'G3 수용 · 결과물 저장됨')}</div>`
-    : t.status === 'stopped' ? `<div class="kv2 st-stop">■ ${L('Stopped', '중단')}</div><div class="ks">${(t.step ? L(`at ${t.step}. ${STEP_NAME[t.step]}`, `${t.step}. ${STEP_NAME[t.step]}에서`) : '–')}</div>`
+    : t.status === 'stopped' ? `<div class="kv2 st-stop">■ ${L('Stopped', '중단')}</div><div class="ks">${(t.step ? L(`at ${stepLabel(t.step)}`, `${stepLabel(t.step)}에서`) : '–')}</div>`
     : t.waiting ? `<div class="kv2 st-wait">? ${esc(t.waiting.gate)} ${L('awaiting', '대기')}</div><div class="ks">${L('answer the popup in the terminal', '터미널 팝업에 답하세요')} · ${esc(t.waiting.q)}</div>`
-    : `<div class="kv2">${t.step ? t.step + '. ' + esc(STEP_NAME[t.step]) : '–'} <span class="dots3"><i></i><i></i><i></i></span></div><div class="ks">${run ? `${mtag(run.model)}${etag(run.a, run.effort)} ${esc(run.id)} · ${esc(run.sub)} · ${L(`${dm(run.since, t.now)}m so far`, `${dm(run.since, t.now)}분째`)}` : L('L1 working', 'L1 처리 중')}</div>`;
+    : `<div class="kv2">${t.step ? esc(stepLabel(t.step)) : '–'} <span class="dots3"><i></i><i></i><i></i></span></div><div class="ks">${run ? `${mtag(run.model)}${etag(run.a, run.effort)} ${esc(run.id)} · ${esc(run.sub)} · ${L(`${dm(run.since, t.now)}m so far`, `${dm(run.since, t.now)}분째`)}` : L('L1 working', 'L1 처리 중')}</div>`;
   const cells = Array.from({ length: c.total }, (_, i) => { const r = c.res[i]; return `<i class="${r === 'p' ? 'pass' : r === 'f' ? 'fail' : r === 'r' ? 'run' : ''}" title="${L('criterion', '기준')} ${i + 1}"></i>`; }).join('');
   const tiles = `<div class="kpis">
     <div class="kpi"><div class="kl">Now</div>${nowTile}</div>
@@ -951,7 +961,7 @@ function renderArch() {
         <p style="margin:4px 0;color:var(--muted)">${esc(L(...COMP_DESC[c]))}</p>
         ${EFFORT[c] ? `<p class="note" style="margin:0 0 8px">model ${mtag(comp[2].split(' · ')[1])} · effort <span class="etag">${EFFORT[c]}</span> <span>${L('(fixed in the agent definition)', '(에이전트 정의에 고정)')}</span></p>` : ''}
         <b style="font-size:12px">In this task</b>
-        ${evs.length ? `<ul>${evs.map(e => `<li><code>${e.t}</code> ${esc(e.sub || e.tx)}${e.res ? ` <span class="res">${esc(e.res)}</span>` : e.live ? ` <span class="res run">${L('running', '실행 중')}</span>` : ''}</li>`).join('')}</ul>` : `<p class="note">${L('no records', '기록 없음')}</p>`}
+        ${evs.length ? `<ul>${evs.map(e => `<li><code>${e.t}</code> ${esc(e.sub || stepTx(e.tx))}${e.res ? ` <span class="res">${esc(e.res)}</span>` : e.live ? ` <span class="res run">${L('running', '실행 중')}</span>` : ''}</li>`).join('')}</ul>` : `<p class="note">${L('no records', '기록 없음')}</p>`}
       </div></div>`;
 }
 
@@ -964,7 +974,7 @@ function renderFiles() {
   const f = mock || isDiff ? { p: 'mock', t: '', pv: '' } : t.files.find(x => x.p === st.file) || { p: '–', t: '', pv: '' };
   const rows = t.files.map(x => `<button class="frow ${x.todo ? 'todo' : ''} ${x.live ? 'live' : ''} ${x.p === st.file ? 'sel' : ''}" data-file="${esc(x.p)}">
       <span class="fn">${x.p.includes('/') && !x.p.endsWith('/') ? '│&nbsp;&nbsp;└ ' + esc(x.p.split('/')[1]) : '├ ' + esc(x.p)}</span>
-      <span class="fm">${x.todo ? L(`made at step ${x.s}`, `${x.s}단계에서 생김`) : `${x.s}. ${esc(STEP_NAME[x.s].split(' ')[0])} · ${esc(x.t)}`}</span></button>`).join('');
+      <span class="fm">${x.todo ? L(`made at step ${stepCode(x.s)}`, `${stepCode(x.s)}단계에서 생김`) : `${stepCode(x.s)} ${esc(STEP_NAME[x.s].split(' ')[0])} · ${esc(x.t)}`}</span></button>`).join('');
   const d = t.deliver || { kind: 'none', label: null, items: [] }, M = mocksOf(t);
   const dLabel = d.label || (d.kind === 'file' ? L('saved where the scope said', '범위 문서가 정한 위치에 저장') : t.status === 'stopped' ? L('stopped · nothing delivered', '중단 · 결과물 없음') : t.status === 'running' ? L('after G3', 'G3 뒤에 저장') : L('none', '없음'));
   $('p-files').innerHTML = `<div class="ph"><h3>3 · Deliverables</h3><small>${L('click a file to preview it on the right', '파일을 누르면 오른쪽에 미리보기')}</small></div>
@@ -972,7 +982,7 @@ function renderFiles() {
     <div class="fgroup">Final deliverable · ${esc(dLabel)}</div>
     <div class="ftree">${d.items.length ? d.items.map(i => `<div class="frow"><span class="fn">${esc(i[0])}</span><span class="fm">${esc(i[1])} · ${esc(i[2])}</span></div>`).join('') : `<p class="note">${L('none', '없음')}</p>`}</div>
     <div class="fgroup">Intermediate · mock-ups approved at G1b</div>
-    <div class="ftree">${M.length > 1 ? `<button class="frow ${st.file === 'mockdiff' ? 'sel' : ''}" data-file="mockdiff"><span class="fn">⇄ ${L('compare mock-ups', 'mock-up 비교')} rev0 → rev${M.at(-1).r}</span><span class="fm">${L('what the revision changed', '수정이 바꾼 것')}</span></button>` : ''}${M.map((m, i) => `<button class="frow ${st.file === 'mock:' + i ? 'sel' : ''}" data-file="mock:${i}"><span class="fn">◇ mock-up${t.revs ? ' rev' + m.r : ''} · ${esc(m.kind)}${m.proto ? ' + prototype' : ''}</span><span class="fm">3. Plan · ${esc(m.at)}</span></button>`).join('') || `<p class="note">${L('none yet (made at 3. Plan)', '아직 없음 (3. Plan에서 생김)')}</p>`}</div>
+    <div class="ftree">${M.length > 1 ? `<button class="frow ${st.file === 'mockdiff' ? 'sel' : ''}" data-file="mockdiff"><span class="fn">⇄ ${L('compare mock-ups', 'mock-up 비교')} rev0 → rev${M.at(-1).r}</span><span class="fm">${L('what the revision changed', '수정이 바꾼 것')}</span></button>` : ''}${M.map((m, i) => `<button class="frow ${st.file === 'mock:' + i ? 'sel' : ''}" data-file="mock:${i}"><span class="fn">◇ mock-up${t.revs ? ' rev' + m.r : ''} · ${esc(m.kind)}${m.proto ? ' + prototype' : ''}</span><span class="fm">2A Plan · ${esc(m.at)}</span></button>`).join('') || `<p class="note">${L('none yet (made at 2A Plan)', '아직 없음 (2A Plan에서 생김)')}</p>`}</div>
     <div class="fgroup">Task files · ${esc(t.folder)}/</div>
     <div class="ftree">${rows}</div></div>
     <div class="fside">${isDiff ? mockDiff(t, 0, M.length - 1) : mock ? mockBlock(t, mock) : `<div class="preview">${f.todo ? `<span class="h">${L('not created yet', '아직 만들어지지 않음')}</span>` : `<span class="h">── ${esc(f.p)} · ${esc(f.t)}\n</span>${esc(f.pv || L('(no preview sample)', '(미리보기 예시 없음)'))}`}</div>`}</div></div>`;
@@ -998,26 +1008,27 @@ function timeline(t) {
   const am = e => tsm(e.ts, e.t), t0 = am(t.log[0]), nowM = t.nowTs ? tsm(t.nowTs) : t0 + dm(t.log[0].t, t.now), t1 = Math.max(t0 + 1, nowM, ...t.log.map(am)), W = t1 - t0, X = m => ((m - t0) / W * 100).toFixed(2) + '%';
   const ticks = axisTicks(t0 * 60000, t1 * 60000);
   const bands = []; let last = 0;
-  t.log.forEach(e => { const key = rOf(e) + '-' + e.s; if (key !== last) { bands.push({ m: am(e), lb: (t.revs && rOf(e) ? 'r' + rOf(e) + '·' : '') + e.s }); last = key; } });
+  t.log.forEach(e => { const key = rOf(e) + '-' + e.s; if (key !== last) { bands.push({ m: am(e), lb: (t.revs && rOf(e) ? 'r' + rOf(e) + '·' : '') + stepCode(e.s) }); last = key; } });
   const pops = t.log.filter(e => e.k === 'popup' || e.k === 'rev');
   const bg = bands.map(b => `<div class="tl-band" style="left:${X(b.m)}"></div>`).join('') + pops.map(e => `<div class="tl-mark" style="left:${X(am(e))}"></div>`).join('');
+  /* the mark prints the first word of the log text (a gate name, never a step number); only the title text goes through stepTx */
   const head = `<div class="tl-row" style="border-bottom:1px solid var(--line)"><span class="lb"><small>Steps · gates</small></span><div class="tl-track">
     ${bands.map(b => `<div class="tl-band" style="left:${X(b.m)}"><span>${b.lb}</span></div>`).join('')}
-    ${pops.map(e => `<div class="tl-mark" style="left:${X(am(e))}" title="${esc(e.tx)}"><b style="top:12px">${e.k === 'rev' ? '↺' : esc(e.tx.split(' ')[0])}</b></div>`).join('')}</div></div>`;
+    ${pops.map(e => `<div class="tl-mark" style="left:${X(am(e))}" title="${esc(stepTx(e.tx))}"><b style="top:12px">${e.k === 'rev' ? '↺' : esc(e.tx.split(' ')[0])}</b></div>`).join('')}</div></div>`;
   /* an "×N" call is N parallel agents: one row each */
   const items = [];
   t.log.filter(e => e.k === 'agent').forEach(e => { const m = e.tx.match(/×(\d+)/); const n = m ? +m[1] : 1;
-    for (let j = 0; j < n; j++) items.push({ e, label: n > 1 ? e.tx.replace(/\s*×\d+/, '') + '-' + (j + 1) : e.tx, d: e.live ? null : Math.max(1, Math.round(num(e.dur) * (n > 1 ? [1, .8, .9, .7][j % 4] : 1))) }); });
+    for (let j = 0; j < n; j++) items.push({ e, label: n > 1 ? e.tx.replace(/\s*×\d+/, '') + '-' + (j + 1) : stepTx(e.tx), d: e.live ? null : Math.max(1, Math.round(num(e.dur) * (n > 1 ? [1, .8, .9, .7][j % 4] : 1))) }); });
   const rows = items.map(({ e, label, d: dd }, i) => {
     const s = am(e), d = dd == null ? Math.max(1, t1 - s) : dd, m = modelOf(e);
-    return `<div class="tl-row"><span class="lb" title="${esc(e.tx)}"><span class="lvbadge ${LV_OF(e.a).cls}">${LV_OF(e.a).id}</span> ${esc(label.replace('my-agent:', ''))} <small>${L(`step ${e.s}`, `${e.s}단계`)}</small></span>
-      <div class="tl-track">${bg}<div class="tl-bar ${e.live ? 'live' : ''} ${isMM(e) ? 'mm' : ''}" style="left:${X(s)};width:calc(${(d / W * 100).toFixed(2)}%);--c:${MCOL[m] || 'var(--accent)'};--i:${i}" title="${esc(e.tx)} · ${esc(m)}${(e.effort || EFFORT[e.a]) ? ' · effort ' + (e.effort || EFFORT[e.a]) : ''} · ${e.live ? L('running', '실행 중') : fmtMin(num(e.dur)) + ' · ' + money(e.c)}" data-jump="${t.log.indexOf(e)}"></div></div></div>`;
+    return `<div class="tl-row"><span class="lb" title="${esc(stepTx(e.tx))}"><span class="lvbadge ${LV_OF(e.a).cls}">${LV_OF(e.a).id}</span> ${esc(label.replace('my-agent:', ''))} <small>${L(`step ${stepCode(e.s)}`, `${stepCode(e.s)}단계`)}</small></span>
+      <div class="tl-track">${bg}<div class="tl-bar ${e.live ? 'live' : ''} ${isMM(e) ? 'mm' : ''}" style="left:${X(s)};width:calc(${(d / W * 100).toFixed(2)}%);--c:${MCOL[m] || 'var(--accent)'};--i:${i}" title="${esc(stepTx(e.tx))} · ${esc(m)}${(e.effort || EFFORT[e.a]) ? ' · effort ' + (e.effort || EFFORT[e.a]) : ''} · ${e.live ? L('running', '실행 중') : fmtMin(num(e.dur)) + ' · ' + money(e.c)}" data-jump="${t.log.indexOf(e)}"></div></div></div>`;
   }).join('');
   const peak = (() => { let mx = 0; for (let m = t0; m <= t1; m++) { const n = items.filter(({ e, d }) => am(e) <= m && m < am(e) + (d == null ? t1 - am(e) : d)).length; mx = Math.max(mx, n); } return mx; })();
   return `<div class="tl-legend"><span><i style="background:var(--l2)"></i>opus</span><span><i style="background:var(--l3)"></i>sonnet</span><span><i style="background:var(--l1)"></i>haiku</span>
       <span><i style="background:var(--gate);width:2px"></i>${L('popup · gate · revision', '팝업·게이트·수정')}</span><span>${L('stripes = running', '줄무늬 = 실행 중')}</span><span>${L('red border = MISMATCH', '빨간 테두리 = MISMATCH')}</span><span style="margin-left:auto">${L(`peak concurrency ${peak}`, `최대 동시 실행 ${peak}개`)}</span></div>
     <div class="tl"><div class="tl-axis">${axisHtml(ticks)}</div>${head}${rows}</div>
-    <p class="note">${L('Click a bar to jump to that moment in Replay. Numbers in the top row are step numbers.', '막대를 누르면 재생에서 그 시점으로 갑니다. 위 칸의 숫자는 단계 번호입니다.')}</p>`;
+    <p class="note">${L('Click a bar to jump to that moment in Replay. Labels in the top row are steps: phase digit and step letter (3A = phase 3, first step).', '막대를 누르면 재생에서 그 시점으로 갑니다. 위 칸의 표시는 단계입니다: 앞 숫자는 페이즈, 뒤 글자는 그 안의 단계 (3A = 페이즈 3의 첫 단계).')}</p>`;
 }
 function replay(t) {
   const n = t.log.length;
@@ -1026,10 +1037,10 @@ function replay(t) {
   const i = st.ri, e = t.log[i], upto = t.log.slice(0, i + 1);
   const curStep = e.s;
   const con = upto.map((x, j) => x.k === 'rev'
-    ? `<div class="pop" style="border-style:dashed">${esc(x.t)} ${L('[revision]', '[수정]')} ${esc(x.tx)}<br>${esc(x.sub || '')}</div>`
+    ? `<div class="pop" style="border-style:dashed">${esc(x.t)} ${L('[revision]', '[수정]')} ${esc(stepTx(x.tx))}<br>${esc(x.sub || '')}</div>`
     : x.k === 'popup'
-    ? `<div class="pop">${esc(x.t)} ${L('[popup]', '[팝업]')} ${esc(x.tx)}<br>${esc(x.sub || '')}</div>`
-    : `<div class="ln ${j === i ? 'last' : ''} ${isMM(x) ? 'mm' : ''}">${esc(x.t)} <span class="ltag t${LV_OF(x.a).id[1]}">${LV_OF(x.a).id} ${esc(x.a)}</span> <span class="tx2">${esc(x.tx)}${x.sub ? ' — ' + esc(x.sub) : ''}${isMM(x) ? ` ⚠ MISMATCH ${esc(x.model)}→${esc(x.actual)}` : ''}</span></div>`).join('');
+    ? `<div class="pop">${esc(x.t)} ${L('[popup]', '[팝업]')} ${esc(stepTx(x.tx))}<br>${esc(x.sub || '')}</div>`
+    : `<div class="ln ${j === i ? 'last' : ''} ${isMM(x) ? 'mm' : ''}">${esc(x.t)} <span class="ltag t${LV_OF(x.a).id[1]}">${LV_OF(x.a).id} ${esc(x.a)}</span> <span class="tx2">${esc(stepTx(x.tx))}${x.sub ? ' — ' + esc(x.sub) : ''}${isMM(x) ? ` ⚠ MISMATCH ${esc(x.model)}→${esc(x.actual)}` : ''}</span></div>`).join('');
   const filesAt = k => { if (k < 0) return []; const ev = t.log[k]; return t.files.filter(f => !f.todo && f.s <= ev.s && (f.s < ev.s || mins(f.t) <= mins(ev.t))); };
   const files = filesAt(i), before = new Set(filesAt(i - 1).map(f => f.p));
   const mockNow = mocksOf(t).filter(m => m.r === rOf(e) && e.k === 'popup' && e.tx.startsWith('G1b'))[0];
@@ -1042,8 +1053,8 @@ function replay(t) {
     <div class="rp-grid">
       <div>${t.revs ? `<span class="badge rev">rev${rOf(e)}</span>` : ''}${vsteps(t, stats(t, rOf(e)), { key: 'rpstep', compact: true, tone: taskTone(t), sel: curStep, R: rOf(e), state: n => (t.revs && rOf(e) > 0 && n < t.revs[rOf(e)].back) ? 'inh' : e.k === 'rev' && n === curStep ? 'cut' : n < curStep ? 'done' : n === curStep ? 'cur' : 'todo' })}</div>
       <div><div class="console" id="rp-console">${con}</div>
-        <div class="rp-card"><b>${esc(e.t)} · ${curStep ?? '–'}. ${esc(STEP_NAME[curStep])}</b> · <span class="lvbadge ${lv.cls}">${lv.id} ${esc(compName(lv, e.a))}</span><br>
-          ${esc(e.tx)}${e.sub ? `<br><span class="note">${esc(e.sub)}</span>` : ''}
+        <div class="rp-card"><b>${esc(e.t)} · ${curStep ? esc(stepLabel(curStep)) : '–'}</b> · <span class="lvbadge ${lv.cls}">${lv.id} ${esc(compName(lv, e.a))}</span><br>
+          ${esc(stepTx(e.tx))}${e.sub ? `<br><span class="note">${esc(e.sub)}</span>` : ''}
           ${e.k === 'agent' && !e.live ? `<br>${mtag(modelOf(e))}${etag(e.a, e.effort)} ${fmtMin(num(e.dur))} · ${money(e.c)} · <span class="res">${esc(e.res)}</span>${mmTag(e)}` : ''}
           <br><span class="note">${L(`cumulative so far ≈ ${money(costSoFar)}`, `이 시점까지 누적 ≈ ${money(costSoFar)}`)}</span></div>${mockNow ? mockBlock(t, mockNow) : ''}</div>
       <div><div class="fgroup" style="margin-top:0">Task files at this moment</div><div class="ftree">${files.map(f => `<div class="frow"><span class="fn">├ ${before.has(f.p) ? esc(f.p) : `<span class="fnew" data-type="${esc(f.p)}">${esc(f.p)}</span>`}</span><span class="fm">${before.has(f.p) ? esc(f.t) : L('new', '새로 씀')}</span></div>`).join('') || `<p class="note">${L('none', '없음')}</p>`}</div></div>
@@ -1055,7 +1066,7 @@ function compView() {
   const t = cur(); if (!t || !t.log || !t.log.length) return `<p class="note">${L('No run-log records yet.', '아직 run-log 기록이 없습니다.')}</p>`;
   const e = t.log[st.ri || 0], used = new Set(t.log.slice(0, (st.ri || 0) + 1).map(x => x.a)), lv = LV_OF(e.a);
   return `<div class="ph"><h3>Components at this moment</h3><small>${esc(t.id)} · ${st.ri + 1} / ${t.log.length}</small></div>
-    <p class="note" style="margin:0 0 10px">${esc(e.t)} · ${e.s}. ${esc(STEP_NAME[e.s])} · <span class="lvbadge ${lv.cls}">${lv.id} ${esc(compName(lv, e.a))}</span></p>
+    <p class="note" style="margin:0 0 10px">${esc(e.t)} · ${esc(stepLabel(e.s))} · <span class="lvbadge ${lv.cls}">${lv.id} ${esc(compName(lv, e.a))}</span></p>
     <div class="legend"><span>${L('outlined = acting now', '테두리 = 지금 일하는 구성 요소')}</span><span>${L('faded = not used yet', '흐린 칸 = 아직 안 쓰임')}</span></div>
     <div class="rp-mini">${LEVELS.map(l => `<div class="lv ${l.cls}"><div class="lh"><b>${l.id}</b><span>${esc(l.name)}</span></div><div class="chips">
       ${l.comps.map(([id, nm]) => `<span class="chip ${used.has(id) ? 'used' : ''} ${id === e.a ? 'live' : ''}"><b>${esc(nm)}</b></span>`).join('')}</div></div>`).join('')}</div>`;
@@ -1216,15 +1227,15 @@ function rpTimeline(t) {
   h += `<div class="rtl-axis">${ticks}</div>`;
   steps.forEach((s, i) => {
     const left = 100 * (s.a.getTime() - t0) / span, w = Math.max(0, 100 * (s.b.getTime() - s.a.getTime()) / span), secs = (s.b - s.a) / 1000;
-    h += `<div class="rtl-row"><div class="lb">${rpEsc(s.n)} ${rpEsc(s.name)}<small>${rpHms(s.a)} &middot; ${rpDur(secs)}</small></div><div class="rtl-track">` +
-      `<span class="rtl-bar" style="--i:${i};--c:${RP_COLORS[i % RP_COLORS.length]};left:${left}%;width:${w}%" title="${rpEsc(s.n + ' ' + s.name + ': ' + rpHms(s.a) + ', ' + rpDur(secs))}"></span>` +
-      backs.filter(b => b.from === s.n).map(b => `<span class="rtl-back" style="left:${pct(b.at)}%" title="${rpEsc(b.why)}">&crarr; back to ${rpEsc(b.to)}</span>`).join('') + '</div></div>';
+    h += `<div class="rtl-row"><div class="lb">${rpEsc(stepCode(s.n))} ${rpEsc(s.name)}<small>${rpHms(s.a)} &middot; ${rpDur(secs)}</small></div><div class="rtl-track">` +
+      `<span class="rtl-bar" style="--i:${i};--c:${RP_COLORS[i % RP_COLORS.length]};left:${left}%;width:${w}%" title="${rpEsc(stepCode(s.n) + ' ' + s.name + ': ' + rpHms(s.a) + ', ' + rpDur(secs))}"></span>` +
+      backs.filter(b => b.from === s.n).map(b => `<span class="rtl-back" style="left:${pct(b.at)}%" title="${rpEsc(b.why)}">&crarr; back to ${rpEsc(stepCode(b.to))}</span>`).join('') + '</div></div>';
   });
   h += '<div class="rtl-marks">' + gates.map(g => `<span class="rtl-mark" style="left:calc(${pct(g.at)}% - 1px)"></span>`).join('') + '</div></div>';
   const wt = t.wait;
   h += '<div class="rlegend"><span><i style="background:var(--gate)"></i>' + L('gate mark (G1a, G1b, G3)', '게이트 표시 (G1a, G1b, G3)') + '</span>' +
     (backs.length ? `<span>&crarr; ${L('back-to point', '되돌아간 지점')}: ${rpEsc(backs[0].why)}</span>` : '') +
-    (wt ? `<span>After the G3 popup opened at ${rpHm(new Date(wt.from))} the person answered at ${rpHm(new Date(wt.until))} (${rpDur((new Date(wt.until) - new Date(wt.from)) / 1000)}, not part of step ${rpEsc(wt.step)}).</span>` : '') + '</div>';
+    (wt ? `<span>After the G3 popup opened at ${rpHm(new Date(wt.from))} the person answered at ${rpHm(new Date(wt.until))} (${rpDur((new Date(wt.until) - new Date(wt.from)) / 1000)}, not part of step ${rpEsc(stepCode(wt.step))}).</span>` : '') + '</div>';
   return h;
 }
 function rpMore(d) {
@@ -1234,7 +1245,7 @@ function rpMore(d) {
     const max = Math.max.apply(null, cost.map(c => c.usd || 0)) || 1, rec = cost.filter(c => c.usd != null).length;
     h += rpSec('rq-cost', 'Cost per stretch <small>gate-tally.md</small>', `<span class="vd neutral">${rec} of ${cost.length} recorded</span>`,
       '<div class="ctabwrap"><table class="ctab"><thead><tr><th>Stretch</th><th>Steps</th><th class="n">USD (approx.)</th></tr></thead><tbody>' + cost.map(c =>
-        `<tr><td class="mono">${rpEsc(c.span)}</td><td>${rpEsc(c.steps)}</td><td class="n">${c.usd == null ? '<span class="nr">not recorded</span>' : Number(c.usd).toFixed(2) + `<span class="cbar" style="width:${Math.max(3, 100 * c.usd / max)}%"></span>`}</td></tr>`).join('') + '</tbody></table></div>');
+        `<tr><td class="mono">${rpEsc(c.span)}</td><td>${rpEsc(stepsText(c.steps))}</td><td class="n">${c.usd == null ? '<span class="nr">not recorded</span>' : Number(c.usd).toFixed(2) + `<span class="cbar" style="width:${Math.max(3, 100 * c.usd / max)}%"></span>`}</td></tr>`).join('') + '</tbody></table></div>');
   } else h += NYW('gate-tally.md');
   if (d.review) {
     const fs = d.review.findings || [], openN = fs.filter(f => !f.applied).length;
@@ -1302,7 +1313,7 @@ function rpBanner(d, count) {
   const v = d.verdict, gate = d.gate;
   if (!v) return NYW('run-log.md');
   const box = (tone, ic, big, small, body) => `<div class="rbanner ${tone}" role="status"><div class="rb-top"><span class="rb-ic" aria-hidden="true">${ic}</span><div><div class="rb-big">${big}</div><div class="rb-small">${small}</div></div></div>${body ? `<div class="rb-body">${body}</div>` : ''}</div>`;
-  const step = v.step ? `${L('step', '단계')} ${rpEsc(v.step.n)} ${rpEsc(v.step.name)}` : '';
+  const step = v.step ? `${L('step', '단계')} ${rpEsc(stepCode(v.step.n))} ${rpEsc(v.step.name)}` : '';
   if (v.status === 'aborted') return box('stop', '&#10005;', L('Aborted', '중단됨') + (v.reason ? ': ' + rpEsc(v.reason) : ''), step ? L('at', '위치') + ' ' + step : '');
   if (gate) {
     const label = String(gate.q || '').split(':')[0];
@@ -1329,7 +1340,7 @@ function rpTakeaway(d) {
     [L(`${sc.units} work units`, `작업 단위 ${sc.units}개`), sc.verify_run != null ? `Verify ${L('run', '회차')} ${sc.verify_run}` : '', sc.plan_rewrites ? L(`${sc.plan_rewrites} plan rewrite`, `계획 재작성 ${sc.plan_rewrites}회`) : ''].filter(Boolean).join(' &middot; '))
     : row(false, L('Scope', '범위'), '-', NYW('scope.md'));
   const dmain = !dv ? '-' : dv.status === 'done' ? (dv.commit ? `${L('Committed as', '커밋')} <code>${rpEsc(dv.commit)}</code>.` : dv.delivered ? rpEsc(dv.delivered) : L('Done.', '완료.'))
-    : dv.status === 'aborted' ? L('Aborted.', '중단됨.') : L('Nothing delivered yet.', '아직 전달 없음.') + (dv.step ? ` ${L('step', '단계')} ${rpEsc(dv.step.n)} ${rpEsc(dv.step.name)}` : '');
+    : dv.status === 'aborted' ? L('Aborted.', '중단됨.') : L('Nothing delivered yet.', '아직 전달 없음.') + (dv.step ? ` ${L('step', '단계')} ${rpEsc(stepCode(dv.step.n))} ${rpEsc(dv.step.name)}` : '');
   h += row(!!dv && dv.status === 'done', L('Delivered', '결과'), dmain, rpReviewSum(d.review_totals));
   h += nx ? row(!(nx.clear || nx.weak), L('Next', '다음'), rpEsc(nx.text), L(`${nx.clear} clear follow-up, ${nx.weak} weak`, `분명한 후속 ${nx.clear}개, 약한 후속 ${nx.weak}개`))
     : row(true, L('Next', '다음'), '-', '');

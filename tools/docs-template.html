@@ -242,11 +242,15 @@ function summary(id) {
   const a = agentById[id];
   return a ? `${a.model} · ${a.effort}` : '';
 }
+// Same letters as STEP_CODE in plugins/my-agent/monitor/web/index.html; change both together.
+const STEP_CODE = {'1':'1A','2':'1B','3':'2A','4':'2B','5':'3A','6':'3B','7':'4A','8':'4B'};
+const stepCode = n => STEP_CODE[n] || n;
+const stepLetter = n => STEP_CODE[n] ? STEP_CODE[n].slice(1) : n;
 function stepName(n) {
   if (n === 'R') return 'Retrospective';
   if (n === 'G1b') return 'G1b approval';
   const s = D.steps.find(x => x.n === n);
-  return s ? `${n}. ${s.name.replace(/<[^>]+>/g, '')}` : n;
+  return s ? `${stepCode(n)} ${s.name.replace(/<[^>]+>/g, '')}` : n;
 }
 function stepChip(n) {
   const href = /^\d$|^R$/.test(n) ? `#flow/${n}` : `#flow/gates`;
@@ -280,7 +284,7 @@ function viewOverview() {
     <div class="stack">
       <section class="panel"><h2>Four phases, eight steps <small>gates close each phase</small></h2>
         <div class="rail">${phases.map(p => `<div class="ph"><div class="pn">${esc(p)}</div>
-          ${D.steps.filter(s => s.phase === p).map(s => `<a class="st" href="#flow/${s.n}"><b>${s.n}</b><span>${plain(s.name)}</span></a>`).join('')}
+          ${D.steps.filter(s => s.phase === p).map(s => `<a class="st" href="#flow/${s.n}"><b>${stepLetter(s.n)}</b><span>${plain(s.name)}</span></a>`).join('')}
           <div class="gend">${D.steps.filter(s => s.phase === p && gateAfter[s.n]).map(s => `<a class="badge gate" href="#flow/gates">${gateAfter[s.n]}</a>`).join('')}</div></div>`).join('')}</div>
         <p class="muted" style="font-size:12.5px;margin:10px 0 0">G2 (risky action) can appear during any step; E (escalation) hands control to the person when failures repeat.</p>
       </section>
@@ -375,7 +379,7 @@ function l1Detail(c) {
     ${steps.length ? `<p><span class="muted">Leads steps: </span>${steps.map(s => stepChip(s.n)).join(' ')}</p>` : ''}
     <p class="muted" style="font-size:12.5px"><span class="muted">Does not: </span>${D.l1DoesNot}</p></div>
     <div class="panel"><h2>Rules</h2>${d.sources.map(s => src(s, true)).join('')}
-    ${steps.map(s => s.rules.map(r => src({ ...r, title: `Step ${s.n} · ${r.title}` }, false)).join('')).join('')}</div>`;
+    ${steps.map(s => s.rules.map(r => src({ ...r, title: `Step ${stepCode(s.n)} · ${r.title}` }, false)).join('')).join('')}</div>`;
 }
 function l4Detail(c) {
   const L = D.l4;
@@ -417,7 +421,7 @@ function viewFlow(sub) {
     const ag = s.n === 'R' ? ['gate-analyst'] : agentsIn(s.n);
     const lines = (s[profile] !== undefined) ? `<div class="row"><span>${esc(profile)} profile</span><div>${s[profile]}</div></div>` : '';
     return `<article class="step ${lvClass(lvl)}${sub === s.n ? ' hl' : ''}" id="step-${s.n}">
-      <div class="sh"><span class="n">${s.n === 'R' ? '↺' : s.n}</span><h3>${s.name}</h3><span class="badge lv">${esc(s.level)}</span></div>
+      <div class="sh"><span class="n">${s.n === 'R' ? '↺' : stepLetter(s.n)}</span><h3>${s.name}</h3><span class="badge lv">${esc(s.level)}</span></div>
       ${s.what ? `<div class="row"><span>What it does</span><div>${s.what}</div></div>` : ''}${lines}
       ${ag.length ? `<div class="row"><span>Agents</span><div class="chips">${ag.map(id => `<a class="chip" href="#levels/${id}">my-agent:${id}</a>`).join('')}</div></div>` : ''}
       ${arts.length ? `<div class="row"><span>Deliverables</span><div class="chips">${arts.map(artChip).join('')}</div></div>` : ''}
@@ -444,7 +448,7 @@ function viewArtifacts(id) {
   const a = D.artifacts.find(x => x.id === id) || D.artifacts[0];
   const top = D.artifacts.filter(x => x.id.startsWith('.'));
   const inTask = D.artifacts.filter(x => !x.id.startsWith('.'));
-  const link = x => `<a href="#artifacts/${encodeURIComponent(x.id)}" aria-current="${x.id === a.id}">${esc(x.id)}<span class="tag">${x.steps.length > 3 ? 'all' : x.steps.join(' ')}</span></a>`;
+  const link = x => `<a href="#artifacts/${encodeURIComponent(x.id)}" aria-current="${x.id === a.id}">${esc(x.id)}<span class="tag">${x.steps.length > 3 ? 'all' : x.steps.map(stepCode).join(' ')}</span></a>`;
   const opts = D.artifacts.map(x => `<option value="${encodeURIComponent(x.id)}"${x.id === a.id ? ' selected' : ''}>${esc(x.id)}</option>`).join('');
   const agents = D.agents.filter(g => a.writer.includes('my-agent:' + g.id));
   return `<div class="split"><aside class="side"><div class="list tree"><h3>&lt;task location&gt;/&lt;task_dir&gt;/</h3>${top.map(link).join('')}

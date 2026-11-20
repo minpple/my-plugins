@@ -21,8 +21,11 @@ BINARY = MENUBAR / 'build' / 'my-agent-menubar'
 PORTS = '8791-8794'
 BROWSER_LINE = (r'^Browser: (\*?default) (\*?safari) (\*?chrome)\t'
                 r'(run: \S+ \S+/monitor-up\.py set-browser|disabled)$')
+STEP_CODES = {1: '1A', 2: '1B', 3: '2A', 4: '2B', 5: '3A', 6: '3B', 7: '4A', 8: '4B'}
+STEP_LABELS_BY_ID = {'s1': '1A Intake', 's2': '1B Explore → Scope', 's3': '2A Plan', 's4': '2B Plan Review → G1b',
+                     's5': '3A Execute', 's6': '3B Merge · Self-check', 's7': '4A Verify', 's8': '4B Review → Deliver'}
 CLAUDE = PROJECTS_TXT = server = Registry = None   # set in setUpClass from the my-agent monitor core
-TASK_LINE = re.compile(r'^\S+ · (\d\. .+|–)\t([0-9a-f]{8}/\S+)\trun: \S+ \S+/monitor-up\.py --open --task \2$')
+TASK_LINE = re.compile(r'^\S+ · ([1-4][AB] .+|–)\t([0-9a-f]{8}/\S+)\trun: \S+ \S+/monitor-up\.py --open --task \2$')
 
 
 def port_open(port):
@@ -125,12 +128,13 @@ class MenubarTest(unittest.TestCase):
             self.assertRegex(line, TASK_LINE)
         ids = sorted(l.split(' · ')[0] for l in tasks)
         self.assertEqual(ids, ['261024-cli-json-output', '261024-hitl-survey'])
-        self.assertEqual([l.split('\t')[0].split(' · ')[1] for l in tasks], ['5. Execute', '5. Execute'])
+        self.assertEqual([l.split('\t')[0].split(' · ', 1)[1] for l in tasks], ['3A Execute', '3A Execute'])
         self.check_footer(lines)
 
     def test_step_missing_and_unknown(self):
         tasks = [{'id': 'no-step', 'key': 'aaaaaaaa/no-step', 'status': 'running'},
-                 {'id': 'odd-step', 'key': 'bbbbbbbb/odd-step', 'status': 'running', 'step': 9}]
+                 {'id': 'odd-step', 'key': 'bbbbbbbb/odd-step', 'status': 'running', 'step': 9},
+                 {'id': 'zero-step', 'key': 'cccccccc/zero-step', 'status': 'running', 'step': 0}]
 
         class H(BaseHTTPRequestHandler):
             def do_GET(self):
@@ -150,6 +154,36 @@ class MenubarTest(unittest.TestCase):
         lines = self.print_menu(httpd.server_address[1])
         self.assertEqual(lines[1].split('\t')[0], 'no-step · –')
         self.assertEqual(lines[2].split('\t')[0], 'odd-step · 9')
+        self.assertEqual(lines[3].split('\t')[0], 'zero-step · 0')
+
+    def test_menu_label_every_step(self):
+        tasks = [{'id': f's{n}', 'key': f'{n:08x}/s{n}', 'status': 'running', 'step': n} for n in range(1, 9)]
+        lines = self.print_menu(self.stub(tasks))
+        got = {l.split('\t')[0].split(' · ', 1)[0]: l.split('\t')[0].split(' · ', 1)[1] for l in lines[1:9]}
+        self.assertEqual(got, STEP_LABELS_BY_ID)
+
+    def test_step_names_match_web(self):
+        swift = (MENUBAR / 'Sources' / 'MenuModel.swift').read_text()
+        web = (CORE / 'web' / 'index.html').read_text()
+        block = re.search(r'let stepNames: \[Int: String\] = \[(.*?)\n\]', swift, re.S).group(1)
+        names = dict((int(n), v) for n, v in re.findall(r'(\d): "([^"]+)"', block))
+        web_names = dict((int(n), v) for n, v in re.findall(
+            r"(\d):'([^']+)'", re.search(r'const STEP_NAME = \{(.*?)\};', web).group(1)))
+        self.assertEqual(len(names), 8)
+        self.assertEqual(names, web_names)
+        before = swift[:swift.index('let stepNames')]
+        comment = before.rstrip().splitlines()[-1]
+        self.assertIn('web/index.html', comment)
+        self.assertIn('change both together', comment)
+        codes = dict((int(n), v) for n, v in re.findall(
+            r'(\d): "(\d[AB])"', re.search(r'let stepCodes: \[Int: String\] = \[(.*?)\]', swift, re.S).group(1)))
+        self.assertEqual(codes, STEP_CODES)
+
+    def test_readme_menu_example(self):
+        text = (MENUBAR / 'README.md').read_text()
+        part = text.split('### Menu (right click)')[1].split('\n### ')[0]
+        self.assertRegex(part, r'· [1-4][AB] ')
+        self.assertNotRegex(part, r'· \d\. ')
 
     def test_no_running_tasks(self):
         empty = self.dir / 'projects.txt'
@@ -243,15 +277,20 @@ class MenubarTest(unittest.TestCase):
         ids = [l.split('\t')[1] for l in lines[1:]]
         self.assertEqual(ids, ['b-run', 'd-wait', 'g-odd', 'a-done', 'c-stop', 'e-broken', 'f-nostatus', 'h-stop'])
 
+    def test_list_label_every_step(self):
+        tasks = [{'id': f's{n}', 'key': f'k/s{n}', 'status': 'running', 'step': n, 'elapsed': 10} for n in range(1, 9)]
+        rows = {l.split('\t')[1]: l.split('\t')[2] for l in self.print_list(self.stub(tasks))[1:]}
+        self.assertEqual(rows, STEP_LABELS_BY_ID)
+
     def test_list_rows(self):
         rows = {l.split('\t')[1]: l.split('\t') for l in self.print_list(self.stub(self.MIXED))[1:]}
-        self.assertEqual(rows['b-run'], ['●', 'b-run', '5. Execute', '1h 5m', 'ddddc---', 'pulse', 'k/b-run'])
-        self.assertEqual(rows['d-wait'], ['?', 'd-wait', '2. Explore → Scope', '12m', 'dc------', 'pulse', 'k/d-wait'])
+        self.assertEqual(rows['b-run'], ['●', 'b-run', '3A Execute', '1h 5m', 'ddddc---', 'pulse', 'k/b-run'])
+        self.assertEqual(rows['d-wait'], ['?', 'd-wait', '1B Explore → Scope', '12m', 'dc------', 'pulse', 'k/d-wait'])
         self.assertEqual(rows['a-done'], ['✓', 'a-done', 'Done', '2d 3h', 'dddddddd', '-', 'k/a-done'])
-        self.assertEqual(rows['c-stop'], ['■', 'c-stop', '4. Plan Review → G1b', '40m', 'ddds----', '-', 'k/c-stop'])
+        self.assertEqual(rows['c-stop'], ['■', 'c-stop', '2B Plan Review → G1b', '40m', 'ddds----', '-', 'k/c-stop'])
         self.assertEqual(rows['e-broken'], ['■', 'e-broken', '–', '–', '--------', '-', 'k/e-broken'])
         self.assertEqual(rows['g-odd'][2:5], ['12', '–', 'dddddddd'])
-        self.assertEqual(rows['h-stop'][2:5], ['1. Intake', '38m', 's-------'])
+        self.assertEqual(rows['h-stop'][2:5], ['1A Intake', '38m', 's-------'])
 
     def test_list_pulse_only_for_running(self):
         rows = {l.split('\t')[1]: l.split('\t') for l in self.print_list(self.stub(self.MIXED))[1:]}
@@ -581,7 +620,7 @@ class MenubarTest(unittest.TestCase):
         port = self.stub(self.MIXED[1:2])   # a monitor answers, but neither it nor monitor.json names a folder
         lines = self.print_menu(port, root=None)
         self.assertEqual(lines[0], 'icon: 1')
-        self.assertEqual(lines[1], 'b-run · 5. Execute\tk/b-run\tdisabled')
+        self.assertEqual(lines[1], 'b-run · 3A Execute\tk/b-run\tdisabled')
         self.assertEqual(lines[2], 'Monitor folder unknown: run /my-agent:monitor once')
         self.assertEqual(lines[3], '---')
         self.assertEqual(lines[-1], 'launch: none (monitor folder unknown)')
