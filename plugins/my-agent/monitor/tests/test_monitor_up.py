@@ -34,6 +34,7 @@ class MonitorUpTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         d = Path(self.tmp.name)
         (d / 'projects.txt').write_text('')
+        (d / 'monitor-config.json').write_text('{"autostart": true}')
         self.env = dict(os.environ, MA_TASKS_DIR=str(d), MA_PROJECTS_FILE=str(d / 'projects.txt'),
                         MA_CLAUDE_PROJECTS=str(d / 'claude'))
         self.state = d / 'monitor.json'
@@ -124,8 +125,9 @@ class MonitorUpTest(unittest.TestCase):
 
 
 class AutostartTest(MonitorUpTest):
-    """`autostart` in monitor-config.json: only an explicit JSON false stops a call without --open."""
+    """`autostart` in monitor-config.json: only an explicit JSON true starts a call without --open."""
     OFF = 'monitor: not started (autostart off)'
+    DEFAULT = 'monitor: not started (autostart off by default; start it with /my-agent:monitor)'
 
     def config(self, text):
         (Path(self.tmp.name) / 'monitor-config.json').write_text(text, encoding='utf-8')
@@ -154,20 +156,30 @@ class AutostartTest(MonitorUpTest):
         cfg = json.loads((Path(self.tmp.name) / 'monitor-config.json').read_text())
         self.assertIs(cfg['autostart'], False)
 
-    def test_other_values_start(self):
-        for text in ('{"autostart": true}', '{"autostart": "false"}', '{"autostart": 0}', '{broken', '[false]', None):
+    def test_no_value_starts_nothing(self):
+        for text in (None, '{}'):
+            for flags in ((), ('--no-open',)):
+                with self.subTest(text=text, flags=flags):
+                    cfg = Path(self.tmp.name) / 'monitor-config.json'
+                    if text is None:
+                        cfg.unlink(missing_ok=True)
+                    else:
+                        self.config(text)
+                    self.assertEqual(self.up(*flags, '--ports', PORTS), self.DEFAULT)
+                    self.assert_closed()
+                    self.assertFalse((Path(self.tmp.name) / 'monitor.log').exists())
+
+    def test_other_values_start_nothing(self):
+        for text in ('"false"', '0', '"yes"', '[false]', '{broken', '{"autostart": "false"}', '{"autostart": 0}',
+                     '{"autostart": "yes"}', '{"autostart": [false]}'):
             with self.subTest(text=text):
-                cfg = Path(self.tmp.name) / 'monitor-config.json'
-                if text is None:
-                    cfg.unlink(missing_ok=True)
-                else:
-                    self.config(text)
-                self.assertRegex(self.up('--no-open', '--ports', PORTS), r'\(started\)$')
-                self.up('stop', '--ports', PORTS)
-                for _ in range(50):
-                    if not port_open(8791):
-                        break
-                    time.sleep(0.1)
+                self.config(text)
+                self.assertEqual(self.up('--ports', PORTS), self.DEFAULT)
+                self.assert_closed()
+
+    def test_true_starts(self):
+        self.config('{"autostart": true}')
+        self.assertRegex(self.up('--no-open', '--ports', PORTS), r'\(started\)$')
 
 
 class OpenModeTest(unittest.TestCase):
@@ -181,6 +193,7 @@ class OpenModeTest(unittest.TestCase):
         d = Path(self.tmp.name)
         (d / 'projects.txt').write_text('')
         self.d = d
+        (d / 'monitor-config.json').write_text('{"autostart": true}')
         self.env = dict(os.environ, MA_TASKS_DIR=str(d), MA_PROJECTS_FILE=str(d / 'projects.txt'),
                         MA_CLAUDE_PROJECTS=str(d / 'claude'))
         spec = importlib.util.spec_from_file_location('monitor_up_under_test', SCRIPT)
@@ -241,12 +254,12 @@ class OpenModeTest(unittest.TestCase):
         self.assertEqual(self.calls, [('http://127.0.0.1:8791/', 'window')])
 
     def test_config_tab(self):
-        self.config('{"open": "tab"}')
+        self.config('{"autostart": true, "open": "tab"}')
         self.up()
         self.assertEqual([m for _, m in self.calls], ['tab'])
 
     def test_flag_beats_config(self):
-        self.config('{"open": "tab"}')
+        self.config('{"autostart": true, "open": "tab"}')
         self.up('--window')
         self.assertEqual([m for _, m in self.calls], ['window'])
 
@@ -260,6 +273,34 @@ class OpenModeTest(unittest.TestCase):
         self.config('{"autostart": false}')
         self.assertRegex(self.up('--open'), r'\(started\)$')
         self.assertEqual(self.calls, [('http://127.0.0.1:8791/', 'window')])
+
+    DEFAULT = 'monitor: not started (autostart off by default; start it with /my-agent:monitor)'
+
+    def test_open_starts_and_opens_whatever_the_value(self):
+        for text in (None, '{"autostart": true}', '{"autostart": false}'):
+            with self.subTest(text=text):
+                (self.d / 'monitor-config.json').unlink(missing_ok=True)
+                if text:
+                    self.config(text)
+                self.calls.clear()
+                self.assertRegex(self.up('--open'), r'\(started\)$')
+                self.assertEqual(self.calls, [('http://127.0.0.1:8791/', 'window')])
+                os.kill(json.loads((self.d / 'monitor.json').read_text())['pid'], signal.SIGTERM)
+                for _ in range(50):
+                    if not port_open(8791):
+                        break
+                    time.sleep(0.1)
+
+    def test_no_value_without_open_starts_nothing(self):
+        for text in (None, '{}'):
+            with self.subTest(text=text):
+                (self.d / 'monitor-config.json').unlink(missing_ok=True)
+                if text:
+                    self.config(text)
+                self.assertEqual(self.up(), self.DEFAULT)
+                self.assertEqual(self.up('--no-open'), self.DEFAULT)
+                self.assertEqual(self.calls, [])
+                self.assertFalse((self.d / 'monitor.log').exists())
 
     def test_autostart_off_without_open_opens_nothing(self):
         self.config('{"autostart": false}')
@@ -294,14 +335,14 @@ class OpenModeTest(unittest.TestCase):
     def test_browser_defaults_to_config_then_default(self):
         self.up('--no-open')
         self.up('--open')
-        self.config('{"browser": "safari"}')
+        self.config('{"autostart": true, "browser": "safari"}')
         self.up('--open')
-        self.config('{"browser": "nope"}')
+        self.config('{"autostart": true, "browser": "nope"}')
         self.up('--open')
         self.assertEqual(self.browsers, ['default', 'safari', 'default'])
 
     def test_browser_option_beats_config(self):
-        self.config('{"browser": "safari", "open": "tab"}')
+        self.config('{"autostart": true, "browser": "safari", "open": "tab"}')
         self.up('--browser', 'chrome')
         self.assertEqual(self.browsers, ['chrome'])
         self.assertEqual([m for _, m in self.calls], ['tab'])
@@ -309,7 +350,7 @@ class OpenModeTest(unittest.TestCase):
         self.assertEqual(self.browsers, ['chrome', 'default'])
 
     def test_unknown_browser_option_uses_config_and_exits_0(self):
-        self.config('{"browser": "chrome"}')
+        self.config('{"autostart": true, "browser": "chrome"}')
         self.assertRegex(self.up('--browser', 'firefox'), r'\(started\)$')
         self.assertEqual(self.browsers, ['chrome'])
 
@@ -325,6 +366,7 @@ class OpenModeTest(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
     def test_set_browser_creates_file_and_refuses_bad_value(self):
+        (self.d / 'monitor-config.json').unlink()
         self.assertRegex(self.up('set-browser', 'firefox'), r'^monitor: browser not changed')
         self.assertFalse((self.d / 'monitor-config.json').exists())
         self.assertRegex(self.up('set-browser'), r'^monitor: browser not changed')
@@ -346,6 +388,11 @@ class DataDirTest(unittest.TestCase):
                     if not k.startswith('MA_') and k not in ('CLAUDE_PLUGIN_OPTION_DATA_DIR', 'CLAUDE_PLUGIN_OPTION_TASK_DIR')}
         self.env.update(HOME=self.tmp.name, MA_CLAUDE_PROJECTS=str(Path(self.tmp.name) / 'claude'))
         self.addCleanup(self.kill_server)
+
+    def on(self, d=None):
+        d = d or self.d
+        d.mkdir(parents=True, exist_ok=True)
+        (d / 'monitor-config.json').write_text('{"autostart": true}')
 
     def kill_server(self):
         try:
@@ -374,7 +421,7 @@ class DataDirTest(unittest.TestCase):
     def test_data_dir_option_places_state_and_server_reads_its_projects(self):
         project = Path(self.tmp.name) / 'proj'
         self.make_task(project, '.my-agent')
-        self.d.mkdir()
+        self.on()
         (self.d / 'projects.txt').write_text(f'{project}\n')
         self.assertEqual(self.up('--no-open', '--ports', PORTS, '--data-dir', str(self.d)),
                          'monitor: http://127.0.0.1:8791/ (started)')
@@ -389,7 +436,7 @@ class DataDirTest(unittest.TestCase):
     def test_task_dir_option_reaches_the_server_and_health(self):
         project = Path(self.tmp.name) / 'proj'
         self.make_task(project, 'docs/agent')
-        self.d.mkdir()
+        self.on()
         (self.d / 'projects.txt').write_text(f'{project}\n')
         self.assertEqual(self.up('--no-open', '--ports', PORTS, '--data-dir', str(self.d), '--task-dir', 'docs/agent'),
                          'monitor: http://127.0.0.1:8791/ (started)')
@@ -404,16 +451,18 @@ class DataDirTest(unittest.TestCase):
     def test_default_task_dir_lists_dot_my_agent(self):
         project = Path(self.tmp.name) / 'proj'
         self.make_task(project, '.my-agent')
-        self.d.mkdir()
+        self.on()
         (self.d / 'projects.txt').write_text(f'{project}\n')
         self.up('--no-open', '--ports', PORTS, '--data-dir', str(self.d))
         self.assertEqual([t['id'] for t in self.tasks(8791)], ['261029-x'])
 
     def test_task_dir_after_subcommand(self):
+        self.on()
         self.up('--no-open', '--ports', PORTS, '--data-dir', str(self.d), '--task-dir', 'docs/agent')
         self.assertRegex(self.up('status', '--ports', PORTS, '--data-dir', str(self.d), '--task-dir', 'docs/agent'), r'\(running, since ')
 
     def test_reuse_with_other_task_dir_names_the_mismatch(self):
+        self.on()
         self.assertEqual(self.up('--no-open', '--ports', PORTS, '--data-dir', str(self.d)),
                          'monitor: http://127.0.0.1:8791/ (started)')
         pid = json.loads((self.d / 'monitor.json').read_text())['pid']
@@ -430,6 +479,7 @@ class DataDirTest(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('monitor_up_health', SCRIPT)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
+        self.on()
         old = {'app': 'my-agent-monitor', 'root': str(mod.ROOT)}
         env = {k: v for k, v in self.env.items() if k not in ('MA_TASK_DIR', 'CLAUDE_PLUGIN_OPTION_TASK_DIR')}
         with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(mod, 'health', return_value=old):
@@ -442,6 +492,7 @@ class DataDirTest(unittest.TestCase):
 
     def test_ma_tasks_dir_beats_data_dir_option(self):
         other = Path(self.tmp.name) / 'other'
+        self.on(other)
         env = dict(self.env, MA_TASKS_DIR=str(other))
         self.up('--no-open', '--ports', PORTS, '--data-dir', str(self.d), env=env)
         self.assertTrue((other / 'monitor.json').exists())
@@ -449,6 +500,7 @@ class DataDirTest(unittest.TestCase):
         os.kill(json.loads((other / 'monitor.json').read_text())['pid'], signal.SIGTERM)
 
     def test_status_and_stop_with_trailing_data_dir(self):
+        self.on()
         self.up('--no-open', '--ports', PORTS, '--data-dir', str(self.d))
         self.assertRegex(self.up('status', '--ports', PORTS, '--data-dir', str(self.d)), r'\(running, since ')
         self.assertEqual(self.up('stop', '--ports', PORTS, '--data-dir', str(self.d)), 'monitor: stopped 8791')

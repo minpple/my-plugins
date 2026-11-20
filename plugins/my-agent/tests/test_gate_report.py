@@ -253,6 +253,21 @@ class GateReportTest(unittest.TestCase):
                     '| Profile changes | 1 (dev → general) |'):
             self.assertIn(row, out)
 
+    def test_g3_answers_by_l1_are_delegated(self):
+        """Criterion 9: a G3 `answer … by=L1` is a delegated row and counts in `Delegated answers`."""
+        out = self.tally(
+            '2026-10-29 04:00:01 delegate: state=on how=flag',
+            '2026-10-29 04:07:00 ask: gate=G3 q="Accept?" rec="Rework: fix all open items"',
+            '2026-10-29 04:07:30 answer: gate=G3 choice="Rework: fix all open items" by=L1',
+            '2026-10-29 04:08:00 ask: gate=G3 q="Accept again?" rec=Commit',
+            '2026-10-29 04:08:30 answer: gate=G3 choice=Commit by=L1')
+        rows = self.rows(out)
+        self.assertEqual([r[1:] for r in rows], [
+            ['G3', 'Accept?', 'Rework: fix all open items', 'Rework: fix all open items', 'delegated', 'answered by L1'],
+            ['G3', 'Accept again?', 'Commit', 'Commit', 'delegated', 'answered by L1']])
+        self.assertIn('| Delegated answers | 2 |', out)
+        self.assertIn('| Reworks on open review items | 1 |', out)
+
     def test_two_questions_one_popup(self):
         out = self.tally(
             '2026-10-30 10:00:00 ask: gate=Q q=A rec=x session=s1 qn=1',

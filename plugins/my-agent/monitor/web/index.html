@@ -1235,7 +1235,8 @@ function rpTimeline(t) {
   const wt = t.wait;
   h += '<div class="rlegend"><span><i style="background:var(--gate)"></i>' + L('gate mark (G1a, G1b, G3)', '게이트 표시 (G1a, G1b, G3)') + '</span>' +
     (backs.length ? `<span>&crarr; ${L('back-to point', '되돌아간 지점')}: ${rpEsc(backs[0].why)}</span>` : '') +
-    (wt ? `<span>After the G3 popup opened at ${rpHm(new Date(wt.from))} the person answered at ${rpHm(new Date(wt.until))} (${rpDur((new Date(wt.until) - new Date(wt.from)) / 1000)}, not part of step ${rpEsc(stepCode(wt.step))}).</span>` : '') + '</div>';
+    (wt && wt.by === 'L1' ? `<span>G3 was answered by L1 (delegated approval) at ${rpHm(new Date(wt.until))}.</span>` : '') +
+    (wt && wt.by !== 'L1' ? `<span>After the G3 popup opened at ${rpHm(new Date(wt.from))} the person answered at ${rpHm(new Date(wt.until))} (${rpDur((new Date(wt.until) - new Date(wt.from)) / 1000)}, not part of step ${rpEsc(stepCode(wt.step))}).</span>` : '') + '</div>';
   return h;
 }
 function rpMore(d) {

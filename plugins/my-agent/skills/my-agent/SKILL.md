@@ -20,7 +20,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 - No Codex popup answer: `hosts.md` “Waiting for Codex popup responses”.
 - 2–4 choices; put the recommended one first with `(Recommended)`.
 - Ask one popup per topic. For a technical matter, start the question with a one-line plain explanation of what is being decided. A scope question whose single recommended answer is likely to be replaced may use multi-select (recommended first) or the Other field.
-- Popup bodies: G3 lists the open SHOULD-FIX and NITPICK items; E for repeated Verify FAIL names the criterion and a one-line reason; commit popups say what happens next.
+- Popup bodies: gates.md "Gate reports" for gate popups; E for repeated Verify FAIL names the criterion and a one-line reason; commit popups say what happens next.
 - For a popup written in a phase or profile file, use the choices as written (meaning, order, `(Recommended)` position; wording in the person's language). If another choice seems better, keep them and give the reason in one line in the question body.
 - Write an `ask` line right before a popup and an `answer` line after the answer (`recorder.md` "Recorder rules").
 - Subagents do not ask the person. They only return result files and reports.
@@ -42,9 +42,9 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 
 - Start: the `--auto` flag, or a message like "go ahead without asking me", confirmed once with the popup `Turn on (Recommended)` / `Keep asking me`. The state is the last `delegate` line in the run-log (also after compaction or `continue`).
 - While on, L1 answers G1a, G1b, findings popups and other non-gate popups with the recommended choice: write the `ask` line, then `answer … by=L1`, and show one chat line `<question> → <choice> (answered by L1)`.
-- Never answered by L1: G2, G3, E, the G1a/G1b popup after the third `REVISE`, a popup without a recommended choice, the Intake item 1–5 popups and the flag popups. They go to the person.
+- Never answered by L1: G2, E, the G1a/G1b popup after the third `REVISE`, a popup without a recommended choice, the Intake item 1–5 popups and the flag popups. They go to the person.
 - A message that takes it back ("stop deciding for me") → `delegate state=off how=person`. G3 acceptance or Abort → `delegate state=off how=end`.
-- When delegation is asked for or turns on, read `gates.md` "Delegated approval details" (a message while a popup is pending, the loop cap).
+- When delegation is asked for or turns on, read `gates.md` "Delegated approval details" (a pending popup, loop caps, how L1 answers G3).
 ### Levels
 
 | Level | Who | Does | Does not |

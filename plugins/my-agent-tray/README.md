@@ -27,7 +27,7 @@ After a marketplace install or update of my-agent-tray the plugin folder changes
 
 ## Notes
 
-- With `"autostart": false` in `monitor-config.json`, the app's start launch does nothing; `Open Monitor` starts the monitor.
+- The app's start launch does nothing unless `monitor-config.json` has `"autostart": true` (off by default); `Open Monitor` always starts the monitor.
 - After `/my-agent:monitor stop` (which deletes `monitor.json`) the app cannot start the monitor until `/my-agent:monitor` runs once.
 
 More: [macos/menubar/README.md](macos/menubar/README.md).

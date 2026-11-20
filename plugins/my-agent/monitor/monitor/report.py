@@ -13,7 +13,6 @@ TALLY_COST = 'Cost and tokens per stretch'
 PICKED = {'yes': 'yes', 'no': 'no', 'delegated': 'delegated', 'typed (Other)': 'typed', 'prose reply': 'typed'}
 GATE_MARKS = ('G1a', 'G1b', 'G3')
 REVIEW_BODY_SEVS = ('SHOULD-FIX', 'NITPICK')   # the severities listed one by one at G3 (a BLOCKER stops the task earlier)
-PLAN_REVIEW_FIX = re.compile(r'^Plan Review (BLOCKER|SHOULD-FIX|NITPICK)\s+(.*)$')
 STATUS_WORD = {'done': 'done', 'stopped': 'aborted'}   # task status → verdict status; anything else is running
 REVISION_TO = {'1': 2, '2': 3}   # `revision … to=` is the phase to go back to; the Report shows the step
 
@@ -105,7 +104,7 @@ def _cost_from_lines(lines):
 
 def _timeline(task_dir, lines):
     steps, gates, backs, cur = [], [], [], None
-    g3_ask = g3_answer = wait_step = None
+    g3_ask = g3_answer = wait_step = wait_by = None
     for l in lines:
         if l.kind == 'step' and l.f.get('n'):
             n = _int(l.f['n'])
@@ -121,12 +120,14 @@ def _timeline(task_dir, lines):
             if l.f['gate'] == 'G3':
                 g3_ask, wait_step = l.ts, cur
         elif l.kind == 'answer' and l.f.get('gate') == 'G3' and g3_ask is not None:
-            g3_answer = l.ts
+            g3_answer, wait_by = l.ts, l.f.get('by')
     end = g3_ask or (lines[-1].ts if lines else None)
     cost = _cost_from_tally(_text(task_dir / 'gate-tally.md'))
     if cost is None:
         cost = _cost_from_lines(lines)
     wait = {'step': wait_step, 'from': _iso(g3_ask), 'until': _iso(g3_answer)} if g3_ask and g3_answer else None
+    if wait and wait_by == ma_schema.ANSWERED_BY_L1:
+        wait['by'] = 'L1'
     return {'end': _iso(end) if end else None, 'steps': steps, 'gates': gates, 'backs': backs, 'wait': wait, 'cost': cost}
 
 
@@ -194,18 +195,10 @@ def _plan_reviews(task_dir, lines):
             runs[parsed['run'] if parsed['run'] is not None else ('none', i)] = (parsed, text)
     if not runs:
         return None
-    fixes = [PLAN_REVIEW_FIX.match((l.f.get('what') or '').strip()) for l in lines
-             if l.kind == 'fix' and l.f.get('before') == ma_schema.PLAN_EDIT_GATE]
-    fixes = [m.groups() for m in fixes if m]
+    pairs = [(l.kind, l.f) for l in lines]
     out = []
     for parsed, text in sorted(runs.values(), key=lambda r: (r[0]['run'] is None, r[0]['run'] or 0)):
-        decided = {(sev, where) for sev, where, outcome in ma_schema.plan_review_decisions(text) if outcome == 'applied'}
-        found = {sev: 0 for sev in ma_schema.SEVERITIES}
-        fixed = dict(found)
-        for sev, where, _body, _mark in ma_schema.review_findings(text):
-            found[sev] += 1
-            if (sev, where) in decided or any(f_sev == sev and ma_schema.finding_applied(where, [rest]) for f_sev, rest in fixes):
-                fixed[sev] += 1
+        found, fixed, _open = ma_schema.judged_counts(text, pairs)
         out.append({'run': parsed['run'], 'verdict': parsed['verdict'], 'blockers': parsed['blockers'],
                     'should_fix': parsed['should_fix'], 'nitpicks': parsed['nitpicks'], 'found': found, 'fixed': fixed})
     return out
@@ -237,51 +230,6 @@ def _gate_report(text, decisions):
         recommended = {'picked': yes, 'counted': yes + sum(1 for d in decisions if d['picked'] == 'no')}
     return {'recommended': recommended, 'summary': ma_schema.gate_report_summary(text),
             'improvements': [{'level': a, 'strength': b, 'text': c} for a, b, c in ma_schema.gate_report_improvements(text)]}
-
-
-def _review_rounds(task_dir, review):
-    """The texts of the Review rounds: archived copies by folder name, then the current review.md; a copy equal to an
-    earlier round or to the current file is skipped."""
-    rounds = []
-    for path in sorted(task_dir.glob('archive/*/review.md')):
-        text = _text(path)
-        if text is not None and text != review and text not in rounds:
-            rounds.append(text)
-    if review is not None:
-        rounds.append(review)
-    return rounds
-
-
-def _fix_whats(lines):
-    """The `what` of run-log `fix` lines after the last `step: n=8` that are Review fixes (no `before=`, no `Scope change:`)."""
-    last = max((i for i, l in enumerate(lines) if l.kind == 'step' and l.f.get('n') == '8'), default=-1)
-    return [l.f.get('what') or '' for l in lines[last + 1:]
-            if l.kind == 'fix' and not l.f.get('before') and not (l.f.get('what') or '').startswith('Scope change:')]
-
-
-def _review_state(task_dir, review, lines):
-    """(review_totals, open findings of the latest round as (sev, where, text, mark)); (None, []) without any round."""
-    rounds = _review_rounds(task_dir, review)
-    if not rounds:
-        return None, []
-    found = {sev: 0 for sev in ma_schema.SEVERITIES}
-    seen = set()
-    for text in rounds:
-        this = set()
-        for sev, where, _body, mark in ma_schema.review_findings(text):
-            if not (mark == 'carried' and (sev, where) in seen):
-                found[sev] += 1
-            this.add((sev, where))
-        seen |= this
-    latest = rounds[-1]
-    applied = ma_schema.review_applied(latest) + _fix_whats(lines)
-    open_items = [f for f in ma_schema.review_findings(latest) if not ma_schema.finding_applied(f[1], applied)]
-    totals = {}
-    for sev in ma_schema.SEVERITIES:
-        n_open = min(found[sev], sum(1 for f in open_items if f[0] == sev))
-        totals[sev] = {'found': found[sev], 'fixed': found[sev] - n_open, 'open': n_open}
-    totals['rounds'] = len(rounds)
-    return totals, open_items
 
 
 def _passed(verify, total=0):
@@ -387,7 +335,7 @@ def build_report(project, task_dir, task, followed_by):
     criteria = _criteria(scope, plan, verify, ko) if scope is not None or plan is not None else None
     units = _units(plan, lines, ko) if plan is not None else None
     gate_report = _gate_report(report, decisions)
-    totals, open_items = _review_state(task_dir, review, lines)
+    totals, open_items = ma_schema.review_state(task_dir, review, [(l.kind, l.f) for l in lines])
     verdict = _verdict(task, intake, scope, plan, verify, lines, timeline, overview['delivered']) if has_log else None
     return {
         'overview': overview,

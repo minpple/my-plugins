@@ -45,6 +45,25 @@ class ReadmePagesTest(unittest.TestCase):
         self.assertEqual(urls(en), urls(ko))
         self.assertTrue(urls(en))
 
+    def test_auto_row_says_l1_answers_g3(self):
+        """Delegated approval covers G3; G2 and escalations still go to the person."""
+        old = {'README.md': 'the final acceptance (G3) and escalations still go to you',
+               'README-ko.md': '최종 인수(G3)와 에스컬레이션은 계속 사람에게'}
+        for path in READMES:
+            row = next(l for l in read(path).splitlines() if l.startswith('| `/my-agent --auto'))
+            self.assertNotIn(old[path.name], row, path.name)
+            for word in ('G3', 'G2'):
+                self.assertIn(word, row, path.name)
+
+    def test_monitor_autostart_is_off_by_default(self):
+        """Every README that describes the monitor start names the setting that turns it on."""
+        docs = READMES + [REPO / 'plugins' / 'my-agent' / 'monitor' / 'README.md',
+                          REPO / 'plugins' / 'my-agent-tray' / 'README.md',
+                          REPO / 'plugins' / 'my-agent-tray' / 'macos' / 'menubar' / 'README.md']
+        for path in docs:
+            self.assertIn('"autostart": true', read(path), str(path))
+        self.assertNotIn('default true', read(docs[2]))
+
 
 if __name__ == '__main__':
     unittest.main()

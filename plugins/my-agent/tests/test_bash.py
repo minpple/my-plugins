@@ -469,6 +469,7 @@ class ReadPathsNotFilesTest(unittest.TestCase):
 
     def test_devices_and_patterns_are_not_read_paths(self):
         cwd = Path('/proj')
+        hosts = str(Path('/etc/hosts').resolve())  # /etc is a symlink to /private/etc on macOS
         for cmd, want in (
                 ('npm ci </dev/null', []),
                 ('diff /dev/null src/a.ts', ['/proj/src/a.ts']),
@@ -477,10 +478,10 @@ class ReadPathsNotFilesTest(unittest.TestCase):
                 ("awk '/export const M/,/as const/' src/db.ts", ['/proj/src/db.ts']),
                 ("awk -F / '/a/' src/db.ts", ['/proj/src/db.ts']),
                 ("grep -rn '/home/ui' src/a.ts", ['/proj/src/a.ts']),
-                ("grep -e x /etc/hosts", ['/etc/hosts']),
-                ("sed -n -e 1p /etc/hosts", ['/etc/hosts']),
-                ("grep -- /etc/a /etc/hosts", ['/etc/hosts']),
-                ("cat /etc/hosts", ['/etc/hosts'])):
+                ("grep -e x /etc/hosts", [hosts]),
+                ("sed -n -e 1p /etc/hosts", [hosts]),
+                ("grep -- /etc/a /etc/hosts", [hosts]),
+                ("cat /etc/hosts", [hosts])):
             with self.subTest(cmd=cmd):
                 self.assertEqual([str(p) for p in ma_bash.read_paths(cmd, cwd)], want)
 

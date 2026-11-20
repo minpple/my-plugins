@@ -452,7 +452,7 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
           <li>Every question is an <code>AskUserQuestion</code> popup with 2 to 4 choices, the recommended one first, so nothing gets lost in the chat.</li>
           <li>The scope and plan reports open with an Overview (background and goal) and a Takeaway, then a table of 5 to 8 rows; the details are in the monitor's Report tab.</li>
           <li>The structure comes in groups of about four (Cowan's 4±1 working-memory limit), so a person can hold it at a glance.</li>
-          <li>Delegated approval (<code>--auto</code>) answers routine popups with the recommended choice; G2, G3 and E still come to you. The recommended permission mode is auto, with the ask and deny rules and the hooks still in force.</li>
+          <li>Delegated approval (<code>--auto</code>) answers routine popups with the recommended choice. At G3 it has every open review item fixed (up to 3 rounds) and accepts when none is left; G2 and E still come to you. The recommended permission mode is auto, with the ask and deny rules and the hooks still in force.</li>
         </ul>
         <p class="src"><b>Source:</b> <span class="mono">plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/docs/build-guide/my-agent-architecture.md, plugins/my-agent/l4-tools-guards/permissions/permissions.json</span></p>
       </article>
@@ -772,7 +772,7 @@ claude plugin install my-agent@my-plugins</pre>
       text: `The reviewer judges the quality of the deliverable. These two verdicts are never skipped in any profile.`,
       src: 'plugins/my-agent/l1-orchestration/phases/accept.md' },
     { n: 'G3', title: 'G3 Final acceptance', gate: true,
-      text: `L1 shows the result summary, the failure list, the deliverable, and the exact path it will be saved to, and the person answers in a popup (accept / rework / stop). This popup always goes to the person, even when delegated approval is on. After acceptance, workers cannot write outside the task folder, so L1 copies the final version to its destination.`,
+      text: `L1 shows the result summary, the failure list, the deliverable, and the exact path it will be saved to, and the person answers in a popup (accept / rework / stop). The chat report has a findings table (BLOCKER, SHOULD-FIX and NITPICK: found, fixed, open), and the popup shows the open counts on one line and each open item on its own line; G1a and G1b use the same layout. With delegated approval on, L1 answers this popup: it has every open review item fixed (up to 3 rounds) and accepts when none is left. After acceptance, workers cannot write outside the task folder, so L1 copies the final version to its destination.`,
       src: 'plugins/my-agent/l1-orchestration/phases/accept.md, plugins/my-agent/l1-orchestration/profiles/dev.md' },
     { n: 'Retro', title: 'Retrospective', gate: false,
       text: `After acceptance, the gate-analyst reads the gate decision tally and writes a report with trends and improvement suggestions.`,
@@ -899,9 +899,10 @@ claude plugin install my-agent@my-plugins</pre>
       ['Delegated approval answers popups on the person\'s behalf.',
        'When the person turns it on, L1 answers routine popups with the recommended choice.',
        ['It starts with a flag (<code>--auto</code>) or a message like "proceed without asking"; when started by message, it goes through one confirmation popup.',
-        'G2, G3, E, the G1b popup after a third <code>REVISE</code>, and popups with no recommended choice still go to the person even when it is on.',
-        'If the same loop runs 5 times, it moves to E before the 6th.'],
-       'plugins/my-agent/skills/my-agent/SKILL.md']
+        'G2 and E, the G1b popup after a third <code>REVISE</code>, and popups with no recommended choice still go to the person even when it is on.',
+        'At G3, L1 answers "rework: fix all open items" while a SHOULD-FIX or NITPICK item is open, and accepts (dev: commits) when none is left. Open risks do not stop the acceptance; L1 lists them in the chat.',
+        'If the same loop runs 5 times, it moves to E before the 6th. The G3 fix loop has its own cap: after 3 fix rounds with items still open, it moves to E.'],
+       'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/l1-orchestration/gates.md']
     ]},
     { name: 'Enforcement and safety', feats: [
       ['Before plan approval, a hook denies delegation and asks about writes (G1b hard gate).',
@@ -963,7 +964,7 @@ claude plugin install my-agent@my-plugins</pre>
       ['A read-only monitor and a menu bar app.',
        'A local web page shows all my-agent tasks; it only reads and writes nothing.',
        ['The screens are Dashboard, Architecture, Deliverables, Log replay, and Report (one task on one page). It does not write to the project\'s task folder (<code>.my-agent/</code> by default), the conversation records, or the data folder.',
-        'The server listens only on 127.0.0.1, and the page refreshes every 2 seconds. When a task starts, my-agent opens the monitor automatically.',
+        'The server listens only on 127.0.0.1, and the page refreshes every 2 seconds. The monitor does not start when a task starts unless <code>monitor-config.json</code> has <code>&quot;autostart&quot;: true</code>; <code>/my-agent:monitor</code> always starts it.',
         'The menu bar app shows the number of running tasks on its icon and lists each task\'s status, elapsed time, and progress bar in a small window. It handles only status and launching the monitor, and writes no task data; clicking a task goes to the detail screen (the web monitor) with that task selected.',
         'The main-session tokens of a finished task are read from a file saved at the end of the task (<code>main-usage.json</code>), because Claude Code deletes conversation records after a while. Old finished tasks can be moved into the <code>.archived/</code> folder by a script the person runs, which takes them out of the monitor list (tasks in progress are not moved).'],
        'plugins/my-agent/monitor/README.md · plugins/my-agent-tray/macos/menubar/README.md · plugins/my-agent/l4-tools-guards/scripts/archive-tasks.py'],

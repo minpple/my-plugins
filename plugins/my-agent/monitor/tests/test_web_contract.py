@@ -111,6 +111,14 @@ class ReportTabTest(unittest.TestCase):
         self.assertIn('<section class="panel" data-view="report" id="p-report"></section>', self.html)
         self.assertLess(self.html.index('data-tab="log"'), self.html.index('data-tab="report"'))
 
+    def test_wait_legend_delegated_g3(self):
+        """Criterion 9: a G3 answered by L1 reads as a delegated approval; the person-wait text stays for the rest."""
+        i = self.code.index("wt.by === 'L1'")
+        legend = self.code[i:i + 400]
+        self.assertIn('G3 was answered by L1 (delegated approval) at ', legend)
+        self.assertIn('the person answered at ', self.code[i:i + 800])
+        self.assertIn('After the G3 popup opened at ', self.code[i:i + 800])
+
     def test_report_endpoint_fetch(self):
         self.assertIn("'/report'", self.code)
         self.assertIn("encodeURIComponent(key).replace(/%2F/g, '/')", self.code)

@@ -64,6 +64,14 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('Popup: `Commit (Recommended)` / `Rework` / `Abort`', text)
         self.assertIn('deliver path=commit:', text)
 
+    def test_dev_g3_points_to_delegated_approval_details(self):
+        """Under delegated approval L1 answers G3 by gates.md; without it the Commit popup is unchanged."""
+        text = (PROFILES / 'dev.md').read_text(encoding='utf-8')
+        g3 = text[text.index('## G3 in the dev profile'):]
+        self.assertNotIn('G3 always goes to the person', g3)
+        self.assertIn('L1 answers per gates.md "Delegated approval details"', g3)
+        self.assertIn('Popup: `Commit (Recommended)` / `Rework` / `Abort`', g3)
+
     def test_retrospective_files_judge_miss_item(self):
         retro = (REPO / 'l1-orchestration' / 'retro.md').read_text(encoding='utf-8').split('## Retrospective', 1)[1]
         for text in ('Judge misses', 'add L2', 'not named'):

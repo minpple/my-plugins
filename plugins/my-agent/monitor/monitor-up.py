@@ -17,9 +17,10 @@ $MA_TASK_DIR, else --task-dir, else $CLAUDE_PLUGIN_OPTION_TASK_DIR, else .my-age
 CLAUDE_PLUGIN_OPTION_TASK_DIR. A running server of ours is reused; when its /api/health
 `task_dir` (missing: docs/agent) differs from the setting, `start` says so and changes nothing.
 
-`"autostart": false` in monitor-config.json (default true; missing, unreadable or any
-other value means true) makes a call without --open print `monitor: not started
-(autostart off)` and start nothing. --open, status, stop and set-browser ignore it.
+A call without --open (--no-open too) starts the server only with `"autostart": true` in
+monitor-config.json. `false` prints `monitor: not started (autostart off)`; no value (missing or
+unreadable file, broken JSON, no key, any other value) prints `monitor: not started (autostart
+off by default; start it with /my-agent:monitor)`. --open, status, stop and set-browser ignore it.
 """
 import argparse
 import http.client
@@ -95,18 +96,23 @@ def read_state():
         return None
 
 
-def read_autostart(tasks_dir) -> bool:
-    """False only when monitor-config.json is a JSON object whose `autostart` is JSON false."""
+def read_autostart(tasks_dir):
+    """True / False for an explicit JSON true / false `autostart` in a JSON object of monitor-config.json; else None (no value)."""
     try:
         cfg = json.loads((Path(tasks_dir) / 'monitor-config.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
-        return True
-    return not (isinstance(cfg, dict) and cfg.get('autostart') is False)
+        return None
+    value = cfg.get('autostart') if isinstance(cfg, dict) else None
+    return value if isinstance(value, bool) else None
 
 
 def start(ports, open_browser, mode=None, task=None, browser=None):
-    if open_browser is not True and not read_autostart(tasks_dir()):
-        return 'monitor: not started (autostart off)'
+    if open_browser is not True:
+        auto = read_autostart(tasks_dir())
+        if auto is False:
+            return 'monitor: not started (autostart off)'
+        if auto is None:
+            return 'monitor: not started (autostart off by default; start it with /my-agent:monitor)'
     def show(port):
         link = url(port) + ('#task=' + urllib.parse.quote(task, safe='') if task else '')
         open_monitor(link, mode or read_mode(tasks_dir()),

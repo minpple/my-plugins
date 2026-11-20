@@ -9,7 +9,7 @@ argument-hint: '[status|stop]'
 
 The monitor is a read-only local web page that shows every my-agent task (architecture doc 4.7.4). Its starter script prints exactly one line and always exits 0.
 
-The no-argument call starts the monitor even when `autostart` is false in `monitor-config.json`.
+The no-argument call starts the monitor whatever the `autostart` value in `monitor-config.json` is (the Intake and `continue` calls start it only when `autostart` is true).
 
 Arguments: `$ARGUMENTS`
 
@@ -29,6 +29,7 @@ Then report the printed line to the user in their language, in one sentence, kee
 - `not running`, `stopped <port>`, `nothing to stop`: as they say
 - `(task folder mismatch: …)`: the running monitor lists another task folder than the setting names; tell the person to run `/my-agent:monitor stop` and start it again
 - `not started (autostart off)`: not started because the `autostart` setting is off (only the Intake and `continue` calls skip it)
+- `not started (autostart off by default; start it with /my-agent:monitor)`: no `autostart` value is set, so the Intake and `continue` calls did not start it; run `/my-agent:monitor` to start it
 - `not started (<reason>)`: could not start it, with the reason
 
 Do nothing else.

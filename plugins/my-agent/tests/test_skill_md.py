@@ -364,7 +364,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('item 1–5', intake[intake.index('Delegation covers'):])
 
     def test_delegated_approval_core_rules(self):
-        """Criterion 6: never G2, G3, E, the third-REVISE G1b popup or a popup without a recommendation; state from the last line."""
+        """Never G2, E, the third-REVISE G1b popup or a popup without a recommendation (G3 is answered per gates.md); state from the last line."""
         head = self.text[:self.text.index('## Arguments')]
         sec = head[head.index('### Delegated approval'):]
         sec = sec[:sec.index('\n### ', 5)] if '\n### ' in sec[5:] else sec
@@ -374,9 +374,65 @@ class SkillMdTest(unittest.TestCase):
                      'delegate state=off how=person', 'delegate state=off how=end'):
             self.assertIn(word, sec, word)
         self.assertLess(self.text.index('### Delegated approval'), self.text.index('## Arguments'))
+        never = next(l for l in sec.splitlines() if l.startswith('- Never answered by L1:'))
+        self.assertNotIn('G3', never)
+        for word in ('G2', ' E,'):
+            self.assertIn(word, never, word)
+
+    def delegated(self):
+        return self.section('## Delegated approval details', '## Check before anything leaves', self.gates)
+
+    def test_delegated_g3_fix_all_open_items(self):
+        """Criterion 4: with open SHOULD-FIX or NITPICK items L1 answers G3 `Rework: fix all open items`, without a popup."""
+        sec = self.delegated()
+        g3 = sec[sec.index('**G3 under delegated approval:**'):]
+        for word in ('answer gate=G3 choice="Rework: fix all open items" … by=L1', 'rec="Rework: fix all open items"',
+                     '→ Rework: fix all open items (answered by L1)', 'open SHOULD-FIX or NITPICK items', 'show no popup',
+                     'is the choice L1 gives', 'is for the popup shown to the person',
+                     'New findings of a fix round are open items of the next G3',
+                     'A Verify FAIL or a BLOCKER in a round follows the existing rules and caps',
+                     'After `delegate state=off how=person` the next G3 goes to the person',
+                     'On `findings: FAIL` show the cause; G3 goes to the person'):
+            self.assertIn(word, g3, word)
+        self.assertIn('3 Verify FAILs', sec)
+
+    def test_delegated_g3_take_when_nothing_is_open(self):
+        """Criteria 5 and 7: nothing open, so L1 takes, whatever the round count; open risks are listed, not a stop."""
+        sec = self.delegated()
+        g3 = sec[sec.index('**G3 under delegated approval:**'):]
+        for word in ('BLOCKER 0, SHOULD-FIX 0 and NITPICK 0 open', '`Accept`; dev `Commit`', 'whatever the round count',
+                     'rec="<Take>"', '→ <Take> (answered by L1)', 'Open risks do not stop the take',
+                     'an unexpected changed path', '`checked by the user later`', 'G2 dialog still goes to the person'):
+            self.assertIn(word, g3, word)
+        self.assertLess(g3.index('whatever the round count'), g3.index('3 G3 fix rounds reached'))
+        self.assertIn('Commit only the files this task changed', self.dev_g3())
+
+    def test_delegated_g3_cap_of_three_rounds(self):
+        """Criterion 6: 3 G3 fix rounds, then E; the count starts at the latest `delegate state=on` line or E answer."""
+        sec = self.delegated()
+        g3 = sec[sec.index('**G3 under delegated approval:**'):]
+        self.assertIn('ask gate=E q="Delegated approval: 3 G3 fix rounds reached" rec="Give direction"', g3)
+        self.assertIn('A round is one G3 that L1 answered `Rework: fix all open items`, counted since the latest '
+                      '`delegate state=on` line or E answer', g3)
+        self.assertNotIn('NITPICK fix rounds', sec)
+        self.assertIn('The G3 fix loop has its own cap of 3', sec)
+
+    def test_g3_choices_unchanged_without_delegation(self):
+        """Criterion 8: delegation off, so the G3 popup, its choices and the recommended one are as before."""
+        sec = self.section('## Gate reports', '## E escalation', self.gates)
+        for word in ('`<Take> (Recommended)` / `Rework` / `Abort`, `rec="<Take>"`',
+                     '`<Take>` / `Rework: fix all open items` / `Rework` / `Abort`',
+                     'At the first G3 of the task `Rework: fix all open items` is the recommended choice'):
+            self.assertIn(word, sec, word)
+        accept = self.phase('accept')
+        self.assertIn('Popup: `Accept (Recommended)` / `Rework` / `Abort`', accept)
+        self.assertIn('`verdict-fresh-check.py`', accept)
+        for text in (accept, self.dev_g3()):
+            self.assertIn('L1 answers per gates.md "Delegated approval details"', text)
+            self.assertNotIn('even while delegated approval is on', text)
 
     def test_loop_cap_section(self):
-        """Criterion 9: a 5-round cap per loop; the lower caps stay."""
+        """A 5-round cap per loop (the G3 fix loop has its own cap of 3); the lower caps stay."""
         self.assertNotIn('## Delegated approval details', self.text)
         sec = self.section('## Delegated approval details', '## Check before anything leaves', self.gates)
         for word in ('a round is', '6th round', 'E answer', 'third `REVISE`', '3 Verify FAILs',
@@ -389,7 +445,8 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('Delegated approval', plan[plan.index('third `REVISE`'):][:400])
         accept = (L1 / 'phases' / 'accept.md').read_text(encoding='utf-8')
         self.assertIn('delegate state=off how=end', accept)
-        self.assertIn('always to the person', accept)
+        self.assertIn('gates.md "Delegated approval details"', accept)
+        self.assertNotIn('always to the person', accept)
         abort = self.section('## Abort', None, self.changes)
         self.assertIn('delegate state=off how=end', abort)
 
@@ -535,6 +592,15 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('autostart off', item)
         self.assertIn('<data folder>/monitor-config.json', item)
         self.assertIn('autostart off', self.MONITOR_SKILL.read_text(encoding='utf-8'))
+
+    def test_autostart_true_needed_for_intake_start(self):
+        item = self.intake_item(9)
+        self.assertIn('`"autostart": true`', item)
+        self.assertIn('not started', item)
+        self.assertIn('start by hand', item)
+        text = self.MONITOR_SKILL.read_text(encoding='utf-8')
+        self.assertIn('starts the monitor whatever the `autostart` value', text)
+        self.assertIn('autostart off by default; start it with /my-agent:monitor', text)
 
     def test_intake_popup_recommends_current_folder(self):
         self.assertIn('`Current folder (Recommended)` / `<data folder>` / `Other path`', self.new_task)
@@ -875,6 +941,32 @@ class SkillMdTest(unittest.TestCase):
         self.assertNotIn('artifact', leave)
         self.assertIn('copying the deliverable after G3', leave)
         self.assertIn('committing', leave)
+
+    def test_gate_reports_findings_table(self):
+        """Criterion 1: each gate report holds the findings table printed by findings.py."""
+        sec = self.section('## Gate reports', None, self.gates)
+        for word in ('l4-tools-guards/scripts/findings.py" --task "<absolute task folder>" --file',
+                     '--file <scope-review|plan-review|review>', '### Scope Review findings', '### Plan Review findings',
+                     '### Review findings', 'Severity | Found | Fixed | Open', 'also when every count is 0',
+                     '`findings: skipped (', 'judgment was skipped', '`findings: FAIL`', 'G1a or G1b',
+                     'general', 'research', 'dev'):
+            self.assertIn(word, sec, word)
+        for path in (self.phase('define'), self.phase('plan'), self.phase('accept'), self.dev_g3()):
+            self.assertIn('findings table (gates.md "Gate reports")', path)
+
+    def test_gate_popup_text_layout(self):
+        """Criterion 2: the popup text has line breaks: question, counts line, one line per open item, next."""
+        sec = self.section('## Gate reports', None, self.gates)
+        for word in ('counts line', '`BLOCKER <n> \u00b7 SHOULD-FIX <n> \u00b7 NITPICK <n> (open)`', 'No open items',
+                     'more than 10', 'first 10', '`\u2026 and <k> more`', 'line breaks as written'):
+            self.assertIn(word, sec, word)
+        self.assertLess(sec.index('The short question'), sec.index('counts line'))
+        self.assertLess(sec.index('counts line'), sec.index('What happens next'))
+        block = re.search(r'```text\n(.*?)```', sec, re.S).group(1).splitlines()
+        self.assertGreaterEqual(len(block), 4)
+        self.assertTrue(any(l.strip().startswith('BLOCKER 0 \u00b7 SHOULD-FIX') for l in block))
+        self.assertNotIn('monitor-up.py', sec)
+        self.assertIn('Report: not opened (<reason>); task folder:', sec)
 
 
 if __name__ == '__main__':

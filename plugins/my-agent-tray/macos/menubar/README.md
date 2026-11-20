@@ -42,10 +42,10 @@ Only screen settings are stored, in the defaults domain `my-agent.monitor-menuba
 ### Menu (right click)
 
 - The menu has one line per running task, like `261025-monitor-popup-window · 2A Plan`. Choosing a line runs `monitor-up.py --open --task <key>`, which opens the monitor with that task selected.
-- `Browser ▸` (below `Open Monitor`) has `Default Browser`, `Safari` and `Chrome (App Window)`; the current value is checked. Choosing one runs `monitor-up.py set-browser <value>`, which changes only the `browser` key of `monitor-config.json`. Every way of opening the monitor (this menu, my-agent's automatic start, `monitor-up.py`) follows it. The submenu is shown even when the server is off or no task is running.
+- `Browser ▸` (below `Open Monitor`) has `Default Browser`, `Safari` and `Chrome (App Window)`; the current value is checked. Choosing one runs `monitor-up.py set-browser <value>`, which changes only the `browser` key of `monitor-config.json`. Every way of opening the monitor (this menu, my-agent's start with `"autostart": true`, `monitor-up.py`) follows it. The submenu is shown even when the server is off or no task is running.
 - With no running task the menu shows `No running tasks`. With the server off it shows `Monitor server is off`.
 - `Open Monitor` runs `monitor-up.py --open`. `Quit` quits the app only; the server keeps running.
-- When the app starts it runs `monitor-up.py --no-open`, so the server is up without a window. The menu refreshes every 5 s. The menu and the icon never blink.
+- When the app starts it runs `monitor-up.py --no-open`. With `"autostart": true` in `monitor-config.json` the server is then up without a window; otherwise (the default) nothing starts. The menu refreshes every 5 s. The menu and the icon never blink.
 
 How a window opens (window or tab, per browser) is decided by `monitor-up.py`; see [the monitor README](../../../my-agent/monitor/README.md).
 
@@ -115,7 +115,7 @@ After `/my-agent:monitor stop` (which deletes `monitor.json`) nothing answers an
 
 A monitor that still runs from before a my-agent update keeps reporting the old plugin folder. Restart it (`/my-agent:monitor stop`, then `/my-agent:monitor`) after updating my-agent, so the app uses the new folder.
 
-With `"autostart": false` in `monitor-config.json`, the `monitor-up.py --no-open` the app runs at start does nothing; `Open Monitor` starts the monitor.
+The `monitor-up.py --no-open` the app runs at start does nothing unless `monitor-config.json` has `"autostart": true` (off by default); `Open Monitor` always starts the monitor.
 
 Users of the 0.4.x menu bar app: the old login item points at a deleted binary; run `login-item.sh install` again (same label, so it replaces the old one).
 

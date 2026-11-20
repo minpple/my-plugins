@@ -1,12 +1,19 @@
 """Report data of one task (`monitor/report.py`, `Registry.get_report`) on the static fixtures in fixtures/report/."""
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from monitor.registry import Registry
+from monitor.runlog import read_lines
+
+import ma_schema
+
+FINDINGS = Path(__file__).resolve().parents[2] / 'l4-tools-guards' / 'scripts' / 'findings.py'
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'report'
 PROJECT = FIXTURE / 'project'
@@ -215,6 +222,54 @@ class ReportTest(unittest.TestCase):
             log.write_text(text, encoding='utf-8')
             t = report.build_report(PROJECT, task, info, [])['review_totals']
         self.assertEqual(t['NITPICK'], {'found': 3, 'fixed': 0, 'open': 3})
+
+    def findings(self, task, file):
+        """(counts {sev: (found, fixed, open)}, open lines) printed by findings.py for one task folder."""
+        r = subprocess.run([sys.executable, str(FINDINGS), '--task', str(task), '--file', file], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        rows = [[c.strip() for c in l.strip('|').split('|')] for l in r.stdout.splitlines() if l.startswith('| ') and l[2:3] in 'BSN']
+        opens = [l[2:] for l in r.stdout.splitlines() if l.startswith('- ')]
+        return {row[0]: tuple(int(x) for x in row[1:]) for row in rows if row[0] != 'Severity'}, opens
+
+    def test_findings_command_equals_review_totals(self):
+        """Criterion 3: the counts of findings.py are the Report tab's review_totals, the open lines its open items."""
+        for name in (ROUNDS, G3, FULL):
+            task = PROJECT / 'docs' / 'agent' / name
+            counts, opens = self.findings(task, 'review')
+            totals = self.report(name)['review_totals']
+            self.assertEqual(counts, {s: (totals[s]['found'], totals[s]['fixed'], totals[s]['open']) for s in ma_schema.SEVERITIES}, name)
+            pairs = [(l.kind, l.f) for l in read_lines(task / 'run-log.md')]
+            _totals, items = ma_schema.review_state(task, (task / 'review.md').read_text(encoding='utf-8'), pairs)
+            self.assertEqual(opens, [f'{s} {w} {b}'.rstrip() for s, w, b, _m in items] or ['none'], name)
+            self.assertEqual(sum(totals[s]['open'] for s in ma_schema.SEVERITIES), len(items) if items else 0, name)
+
+    def test_findings_command_equals_plan_review_entry(self):
+        from monitor import report
+        tmp, task, info = temp_copy(ROUNDS, 'done')
+        with tmp:
+            log = task / 'run-log.md'
+            log.write_text(log.read_text(encoding='utf-8') +
+                           '2026-11-05 10:40:00 fix: what="Plan Review NITPICK plan.md:50 heading" files=plan.md before=G1b\n', encoding='utf-8')
+            counts, _opens = self.findings(task, 'plan-review')
+            entry = report.build_report(PROJECT, task, info, [])['plan_review'][-1]
+        self.assertEqual({s: c[:2] for s, c in counts.items()}, {s: (entry['found'][s], entry['fixed'][s]) for s in ma_schema.SEVERITIES})
+        self.assertEqual((counts['SHOULD-FIX'][:2], counts['NITPICK'][:2]), ((1, 1), (1, 1)))
+        counts, opens = self.findings(PROJECT / 'docs' / 'agent' / ROUNDS, 'plan-review')   # without the fix line: the nitpick is declined
+        self.assertEqual((counts['NITPICK'], opens), ((1, 0, 1), ['NITPICK plan.md:50 A heading could be shorter.']))
+
+    def test_g3_answer_by_l1(self):
+        """Criterion 9: a G3 answer `by=L1` is a delegated decision row and marks the wait; a person's answer does not."""
+        from monitor import report
+        base = ('2026-11-08 11:30:00 step: n=8 name=Review-Deliver\n2026-11-08 11:40:00 ask: gate=G3 q="Commit?" rec=Commit\n'
+                '2026-11-08 11:50:00 answer: gate=G3 choice=Commit%s\n')
+        for suffix, by in ((' by=L1', 'L1'), ('', None)):
+            tmp, task, info = temp_copy(G3, 'done')
+            with tmp:
+                (task / 'run-log.md').write_text(base % suffix, encoding='utf-8')
+                data = report.build_report(PROJECT, task, info, [])
+            self.assertEqual(data['decisions'][-1]['picked'], 'delegated' if by else 'yes')
+            self.assertEqual(data['timeline']['wait'].get('by'), by)
+            self.assertEqual('by' in data['timeline']['wait'], bool(by))
 
     def test_plan_review_found_fixed(self):
         a, b = self.report(ROUNDS)['plan_review']

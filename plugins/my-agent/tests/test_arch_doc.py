@@ -68,9 +68,40 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('`permissionDecision: ask`', sec)
         self.assertIn('`permissionDecision: deny`', sec)
 
-    def test_status_line_starts_with_v060(self):
+    def test_delegated_approval_covers_g3_with_a_cap_of_three(self):
+        sec = self.section('**Delegated approval (2026-10-29, Q22)**', '**G1b hard gate**')
+        always = next(l for l in sec.splitlines() if l.startswith('- Always to the person:'))
+        self.assertIn('**G2 and E**', always)
+        self.assertNotIn('G3', always)
+        for word in ('**G3 under delegated approval (2026-11-20, Q39):**', '`Rework: fix all open items`',
+                     'after 3 G3 fix rounds it goes to E', 'whatever the round count', 'do not stop the take',
+                     'in the dev profile the commit still holds only the files this task changed',
+                     'The G3 fix loop has its own cap of 3 rounds', '`Severity | Found | Fixed | Open`',
+                     '`BLOCKER <n> · SHOULD-FIX <n> · NITPICK <n> (open)`', 'No gate starts the monitor'):
+            self.assertIn(word, sec, word)
+
+    def test_monitor_autostart_is_off_by_default(self):
+        sec = self.section('**When it starts: when the Router starts a task**', '- `"report_open": true`')
+        for word in ('Autostart is off by default', '`"autostart": true`',
+                     '`monitor: not started (autostart off by default; start it with /my-agent:monitor)`',
+                     '`--open` always starts and opens the monitor'):
+            self.assertIn(word, sec, word)
+        self.assertNotIn('default true)', sec)
+        self.assertIn("`timeline.wait.by = 'L1'`", self.text)
+
+    def test_decision_log_has_q39_and_q40_once_after_q38(self):
+        rows = re.findall(r'^\| (Q\d+) \|', self.text, re.M)
+        self.assertEqual(len(rows), len(set(rows)), rows)
+        self.assertEqual(rows[-3:], ['Q38', 'Q39', 'Q40'])
+        q39 = next(l for l in self.text.splitlines() if l.startswith('| Q39 |'))
+        q40 = next(l for l in self.text.splitlines() if l.startswith('| Q40 |'))
+        self.assertIn('capped at 3 rounds', q39)
+        self.assertIn('`"autostart": true`', q40)
+
+    def test_status_line_starts_with_v061(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.60 (2026-11-20, plugin 0.20.0: step letters'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.61 (2026-11-20, plugin 0.21.0: the chat report of every gate approval'), line[:90])
+        self.assertIn('v0.60 (2026-11-20, plugin 0.20.0: step letters', line)
         self.assertIn('v0.59 (2026-11-20, plugin 0.19.0: plan-reviewer judges', line)
         self.assertIn('v0.58 (2026-11-19, plugin 0.18.1: fixes from', line)
         self.assertIn('v0.57 (2026-11-18, plugin 0.18.0: coder notes', line)

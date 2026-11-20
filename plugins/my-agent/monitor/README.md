@@ -13,7 +13,7 @@ python3 server.py              # http://127.0.0.1:8765/ (if busy: 8766 … 8775)
 python3 server.py --port 9000
 ```
 
-my-agent starts it for you with `monitor-up.py` (Router at Intake, or `/my-agent:monitor`).
+`/my-agent:monitor` starts it for you with `monitor-up.py`. The Router at Intake starts it only when `monitor-config.json` has `"autostart": true` (off by default, see below).
 `GET /api/health` answers `{"app": "my-agent-monitor", "root": "<this folder>"}` so `monitor-up.py` can tell its own server from anything else on the port.
 
 `GET /api/tasks` returns `{"tasks": [...], "now": "HH:MM"}` with one summary per task in `tasks`; each summary has `elapsed` (minutes, read-only, recomputed on every request for a running task, `null` if the task could not be read). The menu bar app's List uses it.
@@ -28,7 +28,7 @@ my-agent starts it for you with `monitor-up.py` (Router at Intake, or `/my-agent
 
 - Setting: `<data folder>/monitor-config.json`, `{"open": "window"}` or `{"open": "tab"}`. Missing, broken or unknown values mean `window`.
 - Per run: `--window` or `--tab` beats the file. `--task <sha1 8>/<task-id>` opens the page with that task selected (`/#task=<key>`). `--open` always opens, `--no-open` never does.
-- Autostart: `"autostart": false` in the same file (default true; missing, unreadable or any value other than JSON `false` means true) makes a call without `--open` print `monitor: not started (autostart off)` and start nothing, including the menu bar app's own `--no-open` launch. `--open`, `status`, `stop` and `set-browser` ignore it.
+- Autostart: off by default. Only `"autostart": true` in the same file lets a call without `--open` start the monitor (the Router at Intake, and the menu bar app's own `--no-open` launch). With `"autostart": false` such a call prints `monitor: not started (autostart off)` and starts nothing. With a missing or unreadable file, broken JSON, no `autostart` key or any other value it prints `monitor: not started (autostart off by default; start it with /my-agent:monitor)` and starts nothing. `--open`, `status`, `stop` and `set-browser` ignore the setting.
 - Gate reports: `"report_open": true` in the same file makes `open-html.py --report` open the Report tab at G1a, G1b and G3. Missing, broken or any value other than JSON `true` means off (the default): nothing is opened and the call prints `not opened`; the pointer line in chat carries the URL. It does not change `monitor-up.py` or a prototype opened with `open-html.py <file>`.
 - Browser: `"browser": "default" | "safari" | "chrome"` in the same file (other keys are kept). Missing, broken or unknown means `default` (the system default browser, detected as below). `safari` always uses Safari (window: sized new window; tab: `open -a Safari`), `chrome` always uses Chrome (window: app window; tab: `open -b com.google.chrome`). If the chosen browser fails to open, the default browser's tab is used. Per run: `--browser default|safari|chrome` beats the file (an unknown value is ignored). `monitor-up.py set-browser <value>` writes the key; the menu bar app uses it.
 - Window by default browser (`browser` is `default`): Safari opens a sized new Safari window, and a default browser that was never changed (no http entry in LaunchServices) counts as Safari. Chrome, Edge, Brave, Chromium and Vivaldi open an app window. Any other browser, an unreadable LaunchServices file, or Safari automation being refused opens a tab.

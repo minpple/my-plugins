@@ -489,6 +489,13 @@ class CreateTest(CreateBase):
         lines = self.ok().stdout.splitlines()
         self.assertEqual([x.split(':')[0] for x in lines], ['task', 'folder', 'monitor', 'written'])
 
+    def test_no_monitor_config_reports_default_and_starts_nothing(self):
+        (self.data / 'monitor-config.json').unlink()
+        out = dict(line.partition(': ')[::2] for line in self.ok().stdout.splitlines())
+        self.assertEqual(out['monitor'], 'not started (autostart off by default; start it with /my-agent:monitor)')
+        self.assertFalse((self.data / 'monitor.json').exists())
+        self.assertFalse((self.data / 'monitor.log').exists())
+
     def test_custom_task_dir(self):
         r = run_script(SCRIPT, 'create', '--loc', str(self.repo), '--profile', 'general', '--slug', 'probe-task',
                        '--request=x', '--model', NAME, '--cwd', str(self.repo), '--data-dir', str(self.data),

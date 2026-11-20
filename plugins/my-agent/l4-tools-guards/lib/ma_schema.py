@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import shlex
+from pathlib import Path
 
 # --- agents (plugin.json lists the same ten; frontmatter `level:` and the folder say the same level) ---
 
@@ -610,3 +611,88 @@ def ko_copy(text) -> dict:
 def ko_current(sources: dict, items: dict) -> dict:
     """{key: Korean text} of the copy items whose sha still matches their English source."""
     return {k: items[k]['ko'] for k, en in sources.items() if k in items and items[k]['sha'] == text_sha(en)}
+
+
+# --- findings: Found, Fixed and Open of review.md, plan-review.md and scope-review.md (Report tab and findings.py) ---
+
+PLAN_REVIEW_FIX = re.compile(r'^Plan Review (BLOCKER|SHOULD-FIX|NITPICK)\s+(.*)$')   # `fix: what=` of a plan edit before G1b
+
+
+def _read_text(path):
+    try:
+        return Path(path).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return None
+
+
+def review_rounds(task_dir, review):
+    """The texts of the Review rounds: archived copies by folder name, then the current review.md; a copy equal to an
+    earlier round or to the current file is skipped."""
+    rounds = []
+    for path in sorted(Path(task_dir).glob('archive/*/review.md')):
+        text = _read_text(path)
+        if text is not None and text != review and text not in rounds:
+            rounds.append(text)
+    if review is not None:
+        rounds.append(review)
+    return rounds
+
+
+def review_fix_whats(pairs):
+    """The `what` of run-log `fix` lines after the last `step: n=8` that are Review fixes (no `before=`, no `Scope change:`);
+    `pairs` are the parsed run-log (kind, fields) pairs."""
+    last = max((i for i, (kind, f) in enumerate(pairs) if kind == 'step' and f.get('n') == '8'), default=-1)
+    return [f.get('what') or '' for kind, f in pairs[last + 1:]
+            if kind == 'fix' and not f.get('before') and not (f.get('what') or '').startswith('Scope change:')]
+
+
+def review_state(task_dir, review, pairs):
+    """(review_totals, open findings of the latest round as (sev, where, text, mark)); (None, []) without any round.
+    `review` is the text of review.md or None; the totals hold `found`, `fixed` and `open` per severity and `rounds`."""
+    rounds = review_rounds(task_dir, review)
+    if not rounds:
+        return None, []
+    found = {sev: 0 for sev in SEVERITIES}
+    seen = set()
+    for text in rounds:
+        this = set()
+        for sev, where, _body, mark in review_findings(text):
+            if not (mark == 'carried' and (sev, where) in seen):
+                found[sev] += 1
+            this.add((sev, where))
+        seen |= this
+    latest = rounds[-1]
+    applied = review_applied(latest) + review_fix_whats(pairs)
+    open_items = [f for f in review_findings(latest) if not finding_applied(f[1], applied)]
+    totals = {}
+    for sev in SEVERITIES:
+        n_open = min(found[sev], sum(1 for f in open_items if f[0] == sev))
+        totals[sev] = {'found': found[sev], 'fixed': found[sev] - n_open, 'open': n_open}
+    totals['rounds'] = len(rounds)
+    return totals, open_items
+
+
+def plan_review_fixes(pairs):
+    """[(severity, rest)] of the run-log `fix … before=G1b` lines `Plan Review <SEVERITY> <where> …`."""
+    matches = [PLAN_REVIEW_FIX.match((f.get('what') or '').strip()) for kind, f in pairs
+               if kind == 'fix' and f.get('before') == PLAN_EDIT_GATE]
+    return [m.groups() for m in matches if m]
+
+
+def judged_counts(text, pairs=()):
+    """(found, fixed, open findings) of a plan-review.md or scope-review.md text. `found` and `fixed` are per severity.
+    A finding is fixed when it has an `applied` outcome in `## Decisions` or when a run-log `fix … before=G1b` line
+    (`pairs`; plan-review only) names it; a declined finding stays open."""
+    decided = {(sev, where) for sev, where, outcome in plan_review_decisions(text) if outcome == 'applied'}
+    fixes = plan_review_fixes(pairs)
+    found = {sev: 0 for sev in SEVERITIES}
+    fixed = dict(found)
+    open_items = []
+    for item in review_findings(text):
+        sev, where = item[0], item[1]
+        found[sev] += 1
+        if (sev, where) in decided or any(f_sev == sev and finding_applied(where, [rest]) for f_sev, rest in fixes):
+            fixed[sev] += 1
+        else:
+            open_items.append(item)
+    return found, fixed, open_items

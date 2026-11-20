@@ -169,5 +169,27 @@ class StepLetters(unittest.TestCase):
             self.assertIsNone(re.search(r'(= |\u00b7 )[1-8] (?!\u00b7)', sentence), name)
 
 
+class DelegatedG3AndMonitorDefault(unittest.TestCase):
+    """Delegated approval covers G3, and the monitor does not start on its own."""
+
+    OLD = {
+        'index.html': ('G2, G3 and E still come to you', "'G2, G3, E, the G1b popup", 'opens the monitor automatically'),
+        'index-ko.html': ('G2, G3, E\ub294 \uadf8\ub798\ub3c4 \uc0ac\ub78c\uc5d0\uac8c', "'G2\u00b7G3\u00b7E, \uc138 \ubc88\uc9f8", '\ubaa8\ub2c8\ud130\ub97c \uc790\ub3d9\uc73c\ub85c \ub744\uc6c1\ub2c8\ub2e4'),
+    }
+
+    def test_old_sentences_are_gone(self):
+        for name, olds in self.OLD.items():
+            page = read(name)
+            for old in olds:
+                self.assertNotIn(old, page, f'{name}: {old}')
+
+    def test_auto_bullet_names_g3_and_autostart_setting(self):
+        for name in self.OLD:
+            page = read(name)
+            bullet = next(l for l in page.splitlines() if '<li>' in l and '<code>--auto</code>' in l)
+            self.assertIn('G3', bullet, name)
+            self.assertTrue('"autostart": true' in page or '&quot;autostart&quot;: true' in page, name)
+
+
 if __name__ == '__main__':
     unittest.main()
