@@ -2,7 +2,7 @@
 """Plugin hook (PreToolUse, every tool): read/write scope of my-agent:* agents
 (architecture 4.5 "read and write path limits", 4.12 "limiting read paths too").
 Every agent except the gate-analyst reads the task location, the data folder, the plugin folder, this session's
-scratchpad, the files listed under `## Reference files` in plan.md and, for the coder, its worktree; the gate-analyst
+scratchpad and command output files (`tasks/`, `tool-results/`), the files listed under `## Reference files` in plan.md and, for the coder, its worktree; the gate-analyst
 reads only gate-tally.md and gate-report.md. Secret files and environment reads are checked first, so no added root
 reaches them.
 
@@ -38,6 +38,7 @@ import ma_host  # noqa: E402
 import ma_logline  # noqa: E402
 import ma_plan  # noqa: E402
 import ma_schema  # noqa: E402
+import ma_subagent  # noqa: E402
 from ma_path import same, under  # noqa: E402
 
 HOME = Path.home()
@@ -96,7 +97,8 @@ def scratch_base(inp=None) -> Path:
 
 
 def in_scratchpad(p: Path, session_id, inp=None) -> bool:
-    """True when `p` is under this session's scratchpad `<base>/<project slug>/<session_id>/scratchpad`. Any slug
+    """True when `p` is under this session's scratchpad `<base>/<project slug>/<session_id>/scratchpad` or its
+    `tasks` folder beside it (the output files of background commands). Any slug
     matches (it comes from the launch folder, which the hook input does not carry); the session id is unique."""
     if not isinstance(session_id, str) or session_id in ('', '.', '..') or '/' in session_id or not hasattr(os, 'getuid'):
         return False
@@ -104,7 +106,19 @@ def in_scratchpad(p: Path, session_id, inp=None) -> bool:
         rel = p.resolve().relative_to(scratch_base(inp))
     except ValueError:
         return False
-    return len(rel.parts) >= 3 and rel.parts[1] == session_id and rel.parts[2] == 'scratchpad'
+    return len(rel.parts) >= 3 and rel.parts[1] == session_id and rel.parts[2] in ('scratchpad', 'tasks')
+
+
+def in_tool_results(p: Path, session_id) -> bool:
+    """True when `p` is under `<claude projects>/<project slug>/<session_id>/tool-results/`: the files Claude Code
+    saves a long command output to and tells the agent to read. The session record itself is not under it."""
+    if not isinstance(session_id, str) or session_id in ('', '.', '..') or '/' in session_id:
+        return False
+    try:
+        rel = p.resolve().relative_to(ma_subagent.claude_projects().expanduser().resolve())
+    except ValueError:
+        return False
+    return len(rel.parts) >= 4 and rel.parts[1] == session_id and rel.parts[2] == 'tool-results'
 
 
 def worktree(cwd: Path, location: Path) -> Optional[Path]:
@@ -202,7 +216,8 @@ def check(inp: dict, role: str, active) -> Optional[str]:
             return f'Secret paths are not read or written: {p}'
     for p in reads:
         if not (any(under(p, root) for root in r.read)
-                or (role != 'gate-analyst' and in_scratchpad(p, inp.get('session_id'), inp))):
+                or (role != 'gate-analyst' and (in_scratchpad(p, inp.get('session_id'), inp)
+                                                 or in_tool_results(p, inp.get('session_id'))))):
             return f'Outside the read scope of {role}: {p}'
     if tool == 'Bash' and role == 'verifier' and ma_bash.http_sends(ti['command']) is not False:
         return 'The verifier\'s curl and wget only fetch (GET) (this option sends data).'

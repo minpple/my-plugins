@@ -612,21 +612,58 @@ def _var_path(tok: str) -> bool:
     return '$' in tok and not VAR_PATH_NOT.search(tok) and ('/' in tok or tok.startswith(('~', '.')))
 
 
+PATTERN_FIRST = {'sed': ('-e', '-f', '--expression', '--file'), 'awk': ('-f', '--file'), 'gawk': ('-f', '--file'),
+                 'grep': ('-e', '-f', '--regexp', '--file'), 'egrep': ('-e', '-f', '--regexp', '--file'),
+                 'fgrep': ('-e', '-f', '--regexp', '--file'), 'rg': ('-e', '-f', '--regexp', '--file')}
+AWK_VALUE = {'-v', '-F', '--assign', '--field-separator'}
+
+
+def _text_indexes(words: List[str]) -> set:
+    """Indexes in `words` of arguments that are text, not files the command reads: the script or pattern of sed, awk
+    or grep (their first positional argument, unless an option such as `-e` or `-f` gives it) and the value of awk's
+    `-F` and `-v`."""
+    given = PATTERN_FIRST.get(os.path.basename(words[0])) if words else None
+    if given is None:
+        return set()
+    awk = os.path.basename(words[0]) in ('awk', 'gawk')
+    out = {i + 1 for i, a in enumerate(words) if awk and a in AWK_VALUE}
+    if any(a in given or a.startswith(tuple(g + '=' for g in given if g.startswith('--'))) for a in words[1:]):
+        return out
+    for i in range(1, len(words)):
+        a = words[i]
+        if i in out:
+            continue
+        if a == '--':
+            return out | {i + 1}
+        if not a.startswith('-') or a == '-':
+            return out | {i}
+    return out
+
+
+def _device(tok: str) -> bool:
+    return tok == '/dev/null' or tok.startswith(('/dev/fd/', '/dev/std'))
+
+
 def read_paths(cmd: str, cwd: Path) -> Optional[List[Path]]:
     """Every argument of `cmd` that looks like a path (has `/`, starts with `.` or `~`, or exists under `cwd`),
     resolved against every folder a `cd` may have reached; `--opt=/x` values included, the command word itself and
-    patterns (`^/api`, `s/a/b/`, URLs) not. None when a read cannot be named: a path built from a variable
+    patterns (`^/api`, `s/a/b/`, URLs, the script of sed or awk, the pattern of grep) and `/dev/null` not. None when a read cannot be named: a path built from a variable
     (`$HOME/.ssh/x`), or anything `_walk` cannot follow."""
     walked = _walk(cmd, cwd)
     if walked is None:
         return None
     out = []
     for c, cwds in walked:
-        for a in c.words[1:] + c.inputs:
+        skip = _text_indexes(c.words)
+        for i, a in list(enumerate(c.words))[1:] + [(None, a) for a in c.inputs]:
+            if i in skip:
+                continue
             if a.startswith('-'):
                 if '=' not in a:
                     continue
                 a = a.split('=', 1)[1]
+            if _device(a):
+                continue
             if _var_path(a):
                 return None
             if any(_looks_like_path(a, d) for d in cwds):

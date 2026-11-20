@@ -222,6 +222,24 @@ class ScopeGuardTest(unittest.TestCase):
     def scratch(self, sid='sess-1', slug='x-slug'):
         return Path('/tmp').resolve() / f'claude-{os.getuid()}' / slug / sid / 'scratchpad' / 'n.txt'
 
+    def test_session_command_output_is_readable(self):
+        """The output files of the session's own commands (`tasks/`, `tool-results/`) are read roots; the session
+        record and another session's files are not."""
+        tasks = self.scratch().parent.parent / 'tasks' / 'b1.output'
+        projects = self.root / 'claude-projects'
+        results = projects / 'x-slug' / 'sess-1' / 'tool-results' / 'b1.txt'
+        self.env = {**(self.env or {}), 'MA_CLAUDE_PROJECTS': str(projects)}
+        for agent in ('coder', 'verifier', 'reviewer'):
+            for tool, ti in (('Read', {'file_path': str(tasks)}), ('Bash', {'command': f'tail -5 {tasks}'}),
+                             ('Read', {'file_path': str(results)}), ('Grep', {'pattern': 'x', 'path': str(results)})):
+                with self.subTest(agent=agent, tool=tool):
+                    self.assertFalse(self.denied(f'my-agent:{agent}', tool, ti))
+            for path in (projects / 'x-slug' / 'sess-1.jsonl', projects / 'x-slug' / 'other' / 'tool-results' / 'b.txt',
+                         self.scratch('other-id').parent.parent / 'tasks' / 'b.output'):
+                with self.subTest(agent=agent, path=str(path)):
+                    self.assertTrue(self.denied(f'my-agent:{agent}', 'Read', {'file_path': str(path)}))
+        self.assertTrue(self.denied('my-agent:gate-analyst', 'Read', {'file_path': str(results)}))
+
     def test_read_roots(self):
         outside = self.root / 'outside'
         outside.mkdir()

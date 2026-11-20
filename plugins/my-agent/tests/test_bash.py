@@ -463,5 +463,27 @@ class GitMvTest(unittest.TestCase):
         self.assertIsNone(ma_bash._writes(c))
 
 
+
+class ReadPathsNotFilesTest(unittest.TestCase):
+    """Arguments that are not files a command reads: devices, and the script or pattern of sed, awk and grep."""
+
+    def test_devices_and_patterns_are_not_read_paths(self):
+        cwd = Path('/proj')
+        for cmd, want in (
+                ('npm ci </dev/null', []),
+                ('diff /dev/null src/a.ts', ['/proj/src/a.ts']),
+                ("sed -n '/export const M/,/as const/p' src/db.ts", ['/proj/src/db.ts']),
+                ("cat src/db.ts | sed -n '/export const M/,/as const/p'", ['/proj/src/db.ts']),
+                ("awk '/export const M/,/as const/' src/db.ts", ['/proj/src/db.ts']),
+                ("awk -F / '/a/' src/db.ts", ['/proj/src/db.ts']),
+                ("grep -rn '/home/ui' src/a.ts", ['/proj/src/a.ts']),
+                ("grep -e x /etc/hosts", ['/etc/hosts']),
+                ("sed -n -e 1p /etc/hosts", ['/etc/hosts']),
+                ("grep -- /etc/a /etc/hosts", ['/etc/hosts']),
+                ("cat /etc/hosts", ['/etc/hosts'])):
+            with self.subTest(cmd=cmd):
+                self.assertEqual([str(p) for p in ma_bash.read_paths(cmd, cwd)], want)
+
+
 if __name__ == '__main__':
     unittest.main()
