@@ -1,9 +1,46 @@
 # Features
 
+## Gate findings table and popup layout
+- Purpose: Make the finding counts and the open items readable at every gate approval (G1a, G1b, G3): a findings table in the chat report and a popup text with one line per part. Used by the person who answers the gates of a my-agent task.
+- Where: plugins/my-agent/l1-orchestration/gates.md ("Gate reports"), plugins/my-agent/l4-tools-guards/scripts/findings.py, plugins/my-agent/l4-tools-guards/lib/ma_schema.py, plugins/my-agent/monitor/monitor/report.py, plugins/my-agent/docs/build-guide/my-agent-architecture.md (4.4)
+- Tasks: 261120-g3-findings-auto
+- Updated: 2026-11-20
+
+1. The chat report of every gate approval, in every profile that has the gate, has a findings table with one row per severity (BLOCKER, SHOULD-FIX, NITPICK) and the columns Found, Fixed and Open, shown also when every count is 0; a skipped judgment gets one line in place of the table [check: file] → plugins/my-agent/l1-orchestration/gates.md:40-42; pointers in phases/define.md:28, phases/plan.md:37, phases/accept.md:32, profiles/dev.md:25; my-agent-architecture.md:276-278
+2. The popup text of every gate approval has a line break between its parts, in this order: the short question, one line with the open count per severity, each open item on its own line (one line saying there is none; with more than 10, the first 10 and the number left out), what happens next; the rule gives one worked example and rests on the host showing a multi-line question as written [check: file] → plugins/my-agent/l1-orchestration/gates.md:43-56; my-agent-architecture.md:280
+3. A command prints, from a task's judgment file (scope review, plan review or review), the per-severity Found, Fixed and Open counts and the open item lines; for the review file its counts equal the ones the monitor's Report tab shows; a judgment with no finding prints all counts as 0 [check: command] → `findings.py --task <task folder> --file <scope-review|plan-review|review>`; `test_findings.py` Ran 9 tests OK; monitor `test_findings_command_equals_review_totals`; cross-check over 32 task folders, 32 equal
+4. The 4 read-path subtests that failed on macOS pass, and the my-agent test suite ends with no failure [check: command] → plugins/my-agent/tests/test_bash.py:472; my-agent suite Ran 996 tests OK
+5. The architecture document, the two READMEs, the two feature pages, the monitor README and the tray READMEs describe the gate report and popup, the delegated approval range and the monitor default; each English/Korean pair says the same [check: file] → README.md:74, README-ko.md:74, docs/index.html:967, docs/index-ko.html:967, plugins/my-agent/monitor/README.md:16, :31, plugins/my-agent-tray/README.md:30, plugins/my-agent-tray/macos/menubar/README.md:48, :118, my-agent-architecture.md:4, :262-281, :957, :1647-1648
+6. my-agent is 0.21.0 and my-agent-tray is 0.1.6 in every place the repository rules name, and the maintenance notes have a dated entry [check: command] → `grep -n '"version"'` on the three manifests; `grep -n '^| `my-agent' README.md README-ko.md`; `tests.test_readme_version` ok; plugins/my-agent/maintenance-notes.md:74, :230, :278
+7. The four test suites, the architecture page freshness check and the Codex build check all pass [check: command] → my-agent Ran 996, monitor Ran 315, root Ran 238, tray Ran 69 tests OK; `python3 tools/build-docs.py --check` exit 0; `build-codex.py --check` exit 0
+
+## Delegated approval through G3
+- Purpose: Let delegated approval ("auto mode") carry a task through G3: L1 has every open review item fixed, then takes the deliverable once none is open. Used by the person who turns delegated approval on.
+- Where: plugins/my-agent/l1-orchestration/gates.md ("Delegated approval details"), plugins/my-agent/skills/my-agent/SKILL.md ("Delegated approval"), plugins/my-agent/l1-orchestration/phases/accept.md, plugins/my-agent/l1-orchestration/profiles/dev.md, plugins/my-agent/monitor/monitor/report.py, plugins/my-agent/monitor/web/index.html
+- Tasks: 261120-g3-findings-auto
+- Updated: 2026-11-20
+
+1. While delegated approval is on and G3 has one or more open SHOULD-FIX or NITPICK items, L1 answers G3 with `Rework: fix all open items` itself (recorded as answered by L1, with the one chat line), no popup is shown, and the task goes back to fix them; the cap of criterion 3 comes first [check: file] → plugins/my-agent/l1-orchestration/gates.md:14; skills/my-agent/SKILL.md:45, :47; my-agent-architecture.md:271, :273
+2. While delegated approval is on and G3 has no open item of any severity, L1 answers G3 with the take choice itself (`Accept`; dev `Commit`) and delivers as after a person's answer [check: file] → plugins/my-agent/l1-orchestration/gates.md:12; phases/accept.md:37, profiles/dev.md:23; my-agent-architecture.md:273
+3. The G3 fix loop is capped at 3 rounds (one round is one G3 that L1 answers with `Rework: fix all open items`, counted since delegated approval was last turned on or since the last E answer); before a 4th round L1 goes to E, which goes to the person; the other loops keep their cap of 5 [check: file] → plugins/my-agent/l1-orchestration/gates.md:8, :13; my-agent-architecture.md:273-274, :1647 (Q39)
+4. An open risk in the G3 report (an unexpected changed path, or a person-check criterion moved to after G3) does not stop the take: L1 approves and lists each open risk on a line after its answer line; in the dev profile the commit still holds only the files this task changed [check: file] → plugins/my-agent/l1-orchestration/gates.md:12; profiles/dev.md:26; my-agent-architecture.md:273; `test_arch_doc` `test_delegated_approval_covers_g3_with_a_cap_of_three`
+5. While delegated approval is off, every gate approval goes to the person with the same choices and recommended choice as before [check: file] → plugins/my-agent/l1-orchestration/gates.md:57-60; phases/accept.md:37, :41; profiles/dev.md:23, :29; `test_profiles.py` Ran 37 tests OK
+6. L1's G3 answers are counted as delegated answers in the gate tally and shown as delegated on the monitor's Report tab [check: command] → `test_gate_report.py` `test_g3_answers_by_l1_are_delegated`; monitor `test_report.py` `test_g3_answer_by_l1`, `test_web_contract.py` `test_wait_legend_delegated_g3`
+
+## Monitor autostart off by default
+- Purpose: Starting or resuming a task brings up no monitor server and no browser window unless the person turned autostart on. Used by the person who runs my-agent tasks and the tray app.
+- Where: plugins/my-agent/monitor/monitor-up.py, plugins/my-agent/l1-orchestration/new-task.md (item 9), plugins/my-agent/l1-orchestration/resume.md, plugins/my-agent/skills/monitor/SKILL.md, plugins/my-agent/docs/build-guide/my-agent-monitor-design.md
+- Tasks: 261120-g3-findings-auto
+- Updated: 2026-11-20
+
+1. With no monitor settings file, or a file without the autostart key, starting or resuming a task starts no monitor server and opens no browser window, and the monitor line of the Intake report says it was not started and why; the tray app's start follows the same default [check: command] → `test_monitor_up.py` `test_no_value_starts_nothing`, `test_other_values_start_nothing`, `test_no_value_without_open_starts_nothing`; `test_intake.py` `test_no_monitor_config_reports_default_and_starts_nothing`; tray suite Ran 69 tests OK
+2. With autostart set to true the monitor starts at task start; with it set to false nothing starts [check: command] → `test_monitor_up.py` `test_true_starts`, `test_off_no_open_starts_nothing`
+3. Starting the monitor by hand (the monitor skill, the tray's Open Monitor) starts the server and opens the window whatever the autostart value is [check: command] → `test_monitor_up.py` `test_open_starts_and_opens_whatever_the_value`, `test_autostart_off_open_starts_and_opens`; skills/monitor/SKILL.md:12, :20
+
 ## Step letters (phase digit plus step letter)
 - Purpose: Show each step as the phase digit plus a letter that restarts in each phase (`3A Execute`), so the phase digit and the step letter read as two different things. Used by the person who watches my-agent tasks in the tray menu, the web monitor and the overview pages.
 - Where: plugins/my-agent-tray/macos/menubar/Sources/MenuModel.swift, plugins/my-agent-tray/macos/menubar/Sources/ListModel.swift, plugins/my-agent-tray/macos/menubar/README.md, plugins/my-agent/monitor/web/index.html, docs/index.html, docs/index-ko.html, tools/docs-template.html (generates docs/architecture.html)
-- Tasks: 261120-tray-step-letters
+- Tasks: 261120-tray-step-letters, 261120-g3-findings-auto
 - Updated: 2026-11-20
 
 1. The tray right-click menu line of a running task reads `<id> · <phase digit><step letter> <name>` for all 8 steps (`1A Intake` … `4B Review → Deliver`) [check: command] → `cd plugins/my-agent-tray && python3 -m unittest discover -s tests`: `test_menu_label_every_step`, `test_running_tasks` ok (Ran 69 tests OK, not skipped)
@@ -14,12 +51,10 @@
 6. The English and Korean feature pages show the steps with the same letters in the phase sentence and keep the same content [check: command] → docs/index.html:857, docs/index-ko.html:857; `tests.test_feature_pages` `StepLetters.test_phase_step_sentence` and `PairedFeaturePages` ok (root suite Ran 234 tests OK)
 7. The architecture page template formats step labels with letters (the rail and the step card circle show the letter alone), and no display file outside the rule files shows a step as a number; no file in the repository shows a step on a status line [check: command] → `tests.test_build_docs` `test_template_step_letters`; `tests.test_step_labels.test_no_numeric_step_in_display_files` ok; `python3 tools/build-docs.py --check` up to date
 8. The tray README shows the new label in the menu example and the `--print-list` note [check: command] → plugins/my-agent-tray/macos/menubar/README.md:44, :72; `test_readme_menu_example` ok
-9. The state record, the run log and the data the monitor serves keep the numeric step; the code of those is unchanged [check: command] → `git diff b00cee9 --stat` on `monitor/monitor`, `monitor/server.py`, `l4-tools-guards`, `skills`, `l1-orchestration` is empty; the my-agent suite fails only 4 subtests of `test_bash.ReadPathsNotFilesTest.test_devices_and_patterns_are_not_read_paths` (`/private/etc/hosts`), outside this task
-10. The tray and monitor tests pass with the new labels and assert every step 1–8 [check: command] → tray suite Ran 69 tests OK; monitor suite Ran 307 tests OK
-11. my-agent-tray is 0.1.5 in its plugin.json and the README.md and README-ko.md table rows [check: command] → `grep -n '"version"' plugins/my-agent-tray/.claude-plugin/plugin.json`; `tests.test_readme_version.test_tray_versions_match` ok
-12. my-agent is 0.20.0 in both manifests and the README.md and README-ko.md table rows [check: command] → `grep -n '"version"'` on both manifests; `build-codex.py --check` exit 0; `tests.test_readme_version.test_three_versions_match` ok
-13. The maintenance notes have the 2026-11-20 step letters entry and the architecture page is up to date [check: command] → plugins/my-agent/maintenance-notes.md:275; `python3 tools/build-docs.py --check` exit 0
-14. The status line of the architecture document starts with the `v0.60` entry (plugin 0.20.0, step letters) before `v0.59` [check: command] → plugins/my-agent/docs/build-guide/my-agent-architecture.md:4; `test_arch_doc.test_status_line_starts_with_v060` ok (Scope change: u6 adds the `v0.60` entry and updates the test that pins the line)
+9. The state record, the run log and the data the monitor serves keep the numeric step; the code of those is unchanged [check: command] → `git diff b00cee9 --stat` on `monitor/monitor`, `monitor/server.py`, `l4-tools-guards`, `skills`, `l1-orchestration` is empty
+10. The tray and monitor tests pass with the new labels and assert every step 1–8 [check: command] → tray suite Ran 69 tests OK; monitor suite Ran 315 tests OK
+11. The maintenance notes have the 2026-11-20 step letters entry and the architecture page is up to date [check: command] → plugins/my-agent/maintenance-notes.md; `python3 tools/build-docs.py --check` exit 0
+12. The status line of the architecture document holds the `v0.60` entry (plugin 0.20.0, step letters) before `v0.59` [check: command] → plugins/my-agent/docs/build-guide/my-agent-architecture.md:4; `test_arch_doc.test_status_line_starts_with_v061` ok (asserts the `v0.60` entry)
 
 ## Coder notes (handoff between work units)
 - Purpose: Pass what an earlier coder work unit of the same task learned (conventions, pitfalls, working commands, choices later units must keep) to later coder work units without weakening the write guard and without adding questions to the person. Used by people who run my-agent on tasks with several coder work units, and by the L1 and coder agents.
