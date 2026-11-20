@@ -463,6 +463,16 @@ class SessionFolderCheck(unittest.TestCase):
                      '`/cd <task location>`', '`/my-agent continue`', 'run the check again'):
             self.assertIn(part, line)
 
+    def test_build_adds_the_cd_rule_before_the_first_group(self):
+        build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
+        lines = build.splitlines()
+        i = next(k for k, l in enumerate(lines) if 'l4-tools-guards/scripts/cd-guard.py" --location "<task location>"' in l)
+        self.assertIn('`.claude/settings.local.json`', lines[i])
+        self.assertIn('`added` or `not added`', lines[i])
+        self.assertIn('info/exclude', lines[i - 1])
+        self.assertLess(i, next(k for k, l in enumerate(lines) if l.startswith('3. Hand out the work units')))
+        self.assertTrue((REPO / 'l4-tools-guards' / 'scripts' / 'cd-guard.py').is_file())
+
 
 if __name__ == '__main__':
     unittest.main()
