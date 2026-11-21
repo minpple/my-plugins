@@ -35,8 +35,17 @@ The `plan.md` path and the work unit name, the sub-question, the source criteria
 ```
 
 - Every item in the note uses one of these two forms. verifier judges a sentence that does not fit them as FAIL.
-- A quote is a short sentence exactly as it appears on a page you actually opened with WebFetch. Do not rewrite or combine quotes.
-- Follow the source criteria (official docs, primary sources, date range). Do not rely on a single source.
+- A quote is a short sentence exactly as it appears on a page you actually opened with WebFetch, read through before you quote it. A search result snippet is not a page you opened. Do not rewrite or combine quotes.
+- Follow the source criteria (official docs, primary sources, date range). Do not rely on a single source. Prefer a primary source (official docs, a standard, original data, a peer-reviewed paper) to a blog post, an aggregator, a forum or an encyclopedia page.
+- A claim is as specific as its page: give a figure with its unit and date, and a version by number, in place of "recently" or "many".
+- When sources disagree, write one item for each source. Attribute each claim to its own source and word it so that its own page supports it (`- The vendor docs state the limit is 100 requests per minute · <URL> · "<quote>"`). Do not write an item that says the sources disagree, and do not pick one silently: a sentence its own page does not support is a FAIL.
+
+## Before you finish
+
+Start this pass when the sub-question is answered, and keep it short: at most one search and one fetch for each item cited to a secondary source.
+
+1. For each item cited to a blog post, an aggregator, a forum or an encyclopedia page, find the primary source behind it (WebSearch, or the link the page cites as its source for that claim), open it and quote from it instead. If you find none, keep the item and add `- Not found: a primary source for <claim>`.
+2. Check each item against the page text you fetched: the quote is word for word on that page, and the claim says no more than the quote supports. Fix the item or remove it.
 
 ## When done
 

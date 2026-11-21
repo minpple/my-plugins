@@ -39,7 +39,7 @@ FIRST_LINES = {
     'reviewer': ['BLOCKER <', 'SHOULD-FIX', 'NITPICK'],
     'gate-analyst': ['DONE', 'PARTIAL'],
     'explorer': ['DONE', 'PARTIAL'],
-    'researcher': ['DONE', 'PARTIAL', 'claim · source URL · quote'],
+    'researcher': ['DONE', 'PARTIAL', 'claim · source URL · quote', '## Before you finish', 'a primary source for <claim>', 'write one item for each source'],
     'writer': ['DONE', 'PARTIAL'],
     'coder': ['DONE', 'PARTIAL'],
 }

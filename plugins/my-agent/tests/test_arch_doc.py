@@ -89,6 +89,12 @@ class ArchDocTest(unittest.TestCase):
         self.assertNotIn('default true)', sec)
         self.assertIn("`timeline.wait.by = 'L1'`", self.text)
 
+    def test_researcher_notes_keep_two_forms_and_say_how_sources_are_checked(self):
+        bullet = next(l for l in self.text.splitlines() if l.startswith('- **Researcher notes: primary sources and disagreement (2026-11-21):**'))
+        for word in ('keeps its two forms', '`- Not found: a primary source for <claim>`', 'one search and one fetch for each secondary-sourced item',
+                     'each claim attributed to its own source', 'picks none silently', 'not from a search snippet', "In the research profile's 6 Merge the writer keeps both"):
+            self.assertIn(word, bullet, word)
+
     def test_decision_log_has_q39_and_q40_once_after_q38(self):
         rows = re.findall(r'^\| (Q\d+) \|', self.text, re.M)
         self.assertEqual(len(rows), len(set(rows)), rows)
@@ -98,9 +104,10 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('capped at 3 rounds', q39)
         self.assertIn('`"autostart": true`', q40)
 
-    def test_status_line_starts_with_v064(self):
+    def test_status_line_starts_with_v065(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.64 (2026-11-21, plugin 0.22.0: remote take at G3 and fixes from task retrospectives'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.65 (2026-11-21, plugin 0.22.1: researcher notes and the findings table'), line[:90])
+        self.assertIn('v0.64 (2026-11-21, plugin 0.22.0: remote take at G3 and fixes from task retrospectives', line)
         self.assertIn('v0.63 (2026-11-21, plugin 0.21.2: session folder guard', line)
         self.assertIn('v0.62 (2026-11-20, plugin 0.21.1: a session moved into a coder worktree', line)
         self.assertIn('v0.61 (2026-11-20, plugin 0.21.0: the chat report of every gate approval', line)
