@@ -20,3 +20,6 @@ plugins/my-agent/monitor/tests/fixtures/projects.txt
 
 # handoff notes
 docs/handoff/
+
+# local python virtualenv
+.venv/
