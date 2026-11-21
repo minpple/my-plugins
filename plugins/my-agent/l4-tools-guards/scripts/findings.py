@@ -9,11 +9,14 @@ review: the counts of the Report tab (all rounds, `Applied after review` lines a
 plan-review, scope-review: the findings of the current file; fixed = `applied` in `## Decisions` (plan-review also a
 run-log `fix … before=G1b` line); a declined finding stays open.
 A plan-review.md that starts with `SKIPPED <reason>` prints `findings: skipped (<reason>)`.
+review also fails when review.md is older than the latest `start:` line of the reviewer in the run-log: the reviewer
+returned its judgment without writing the file, so the file is an earlier run's.
 exit: 0 counted (also with no finding) or skipped, 1 `findings: FAIL <cause>` (file missing or unreadable, no `BLOCKER <n>`
-first line for review, no verdict line for the others), 2 bad arguments.
+first line for review, a review.md older than the latest reviewer call, no verdict line for the others), 2 bad arguments.
 """
 import argparse
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
@@ -28,6 +31,22 @@ VERDICTS = {'plan-review': (ma_schema.PLAN_READY, ma_schema.PLAN_REVISE),
 def fail(cause):
     print(f'findings: FAIL {cause}')
     return 1
+
+
+REVIEWER = 'my-agent:reviewer'
+
+
+def latest_call(log, agent):
+    """(stamp text, epoch seconds) of the last `start:` line of `agent` in the run-log, or None."""
+    try:
+        text = Path(log).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return None
+    stamps = [p[0] for p in map(ma_schema.split_line, text.splitlines()) if p and p[1] == 'start' and p[2].get('agent') == agent]
+    try:
+        return (stamps[-1], time.mktime(time.strptime(stamps[-1], '%Y-%m-%d %H:%M:%S'))) if stamps else None
+    except (ValueError, OverflowError):
+        return None
 
 
 def first_line(text):
@@ -61,6 +80,9 @@ def main(argv=None):
     if args.file == 'review':
         if ma_schema.review_blockers(text) is None:
             return fail(f'{path} does not start with its blocker-count line (BLOCKER <n>)')
+        call = latest_call(task / 'run-log.md', REVIEWER)
+        if call and path.stat().st_mtime < call[1]:
+            return fail(f'{path} is older than the latest reviewer call ({call[0]}): the reviewer wrote no file')
         totals, open_items = ma_schema.review_state(task, text, ma_logline.read(task / 'run-log.md'))
         counts = {sev: (totals[sev]['found'], totals[sev]['fixed'], totals[sev]['open']) for sev in ma_schema.SEVERITIES}
         rounds = totals['rounds']

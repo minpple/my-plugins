@@ -72,6 +72,50 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('L1 answers per gates.md "Delegated approval details"', g3)
         self.assertIn('Popup: `Commit (Recommended)` / `Rework` / `Abort`', g3)
 
+    def test_remote_take(self):
+        """Q41: the dev G3 popup offers a take that brings the remote default branch up to the commit."""
+        dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
+        g3 = dev[dev.index('## G3 in the dev profile'):dev.index('## Upstream check')]
+        self.assertIn('Remote take: read retro.md "Remote update" before this popup', g3)
+        self.assertIn('On a remote take do retro.md "Remote update" now', g3)
+        self.assertNotIn('any push is a separate action', dev)
+        retro = (REPO / 'l1-orchestration' / 'retro.md').read_text(encoding='utf-8')
+        self.assertLess(retro.index('## Remote update'), retro.index('## Retrospective'))
+        remote = retro[retro.index('## Remote update'):retro.index('## Retrospective')]
+        for text in ('git symbolic-ref --short refs/remotes/origin/HEAD', '`Commit and push`',
+                     '`Commit and merge into <default branch>`', '`Commit` stays the recommended take',
+                     'under delegated approval L1 never answers with a remote take',
+                     '`Commit` / `<remote take>` / `Rework: fix all open items` / `Abort`', 'choice=Rework other=1',
+                     'git rev-list --count HEAD..origin/<default branch>', '`git push origin HEAD:<default branch>`',
+                     'Count above 0: do not push', 'Never force a push', 'does not undo the commit', 'merge unit=remote'):
+            self.assertIn(text, remote, text)
+        skill = (REPO / 'skills' / 'my-agent' / 'SKILL.md').read_text(encoding='utf-8')
+        self.assertIn('| `retro.md` | before the dev G3 popup; after G3 `Accept` or `Commit`, before the retrospective | '
+                      'Remote update, Retrospective |', skill)
+        gates = (REPO / 'l1-orchestration' / 'gates.md').read_text(encoding='utf-8')
+        self.assertIn('dev also: retro.md "Remote update"', gates)
+
+    def test_retro_fixes_2026_11_21(self):
+        """From task retrospectives: the review file check, the Rework reason, projects of a check command,
+        coder files outside the task records."""
+        read = lambda *parts: REPO.joinpath(*parts).read_text(encoding='utf-8')  # noqa: E731
+        accept = read('l1-orchestration', 'phases', 'accept.md')
+        self.assertIn('Then run the findings command (gates.md "Gate reports"); on `findings: FAIL` (no `review.md`, or one '
+                      'older than this call) call a new reviewer once.', accept)
+        self.assertIn('G3 Rework: the shortfalls named, with criterion numbers>"', accept)
+        self.assertIn('After the Write, Read `review.md` once', read('l2-design-judge', 'agents', 'reviewer.md'))
+        self.assertIn('never under `<task_dir>/`', read('l2-design-judge', 'agents', 'architect.md'))
+        self.assertIn('none under `<task_dir>/`', read('l2-design-judge', 'agents', 'plan-reviewer.md'))
+        explorer = read('l3-workers', 'agents', 'explorer.md')
+        self.assertIn('  - <project or target>: pass | fail: <failing tests> | cannot run: <reason>', explorer)
+        self.assertIn('several named projects or targets', explorer)
+        define = read('l1-orchestration', 'phases', 'define.md')
+        self.assertIn('`Run only the projects that run here (Recommended)` / `I fix the environment first` / '
+                      '`Judge without this command`', define)
+        self.assertIn('every project or target it names, no fewer and no more', read('l2-design-judge', 'agents', 'verifier.md'))
+        self.assertIn('Back to Execute reasons', read('l2-design-judge', 'agents', 'gate-analyst.md'))
+        self.assertIn('direct-<yymmdd>-<slug>', read('l3-workers', 'blueprint-format.md'))
+
     def test_retrospective_files_judge_miss_item(self):
         retro = (REPO / 'l1-orchestration' / 'retro.md').read_text(encoding='utf-8').split('## Retrospective', 1)[1]
         for text in ('Judge misses', 'add L2', 'not named'):

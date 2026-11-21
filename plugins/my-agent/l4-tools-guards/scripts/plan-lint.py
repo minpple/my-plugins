@@ -5,7 +5,8 @@ usage: plan-lint.py --task TASK_FOLDER
 
 Reads intake.md (`Profile:`), scope.md (if any) and plan.md of the task folder and prints `plan-lint: ok`, or one
 `plan-lint: FAIL <gap>` line per gap (`ma_schema.plan_gaps`): a completion criterion without one of the four check
-tags, and in the dev profile a `[check: command]` criterion that no work unit listing it marks with `(criterion <n>)`.
+tags, in the dev profile a `[check: command]` criterion that no work unit listing it marks with `(criterion <n>)`,
+and a `Files to change` path in the task records folder (a coder cannot write there).
 The G1b hook (`plan-approved-check.py`) runs the same check on the write of the `Approved` line.
 exit: 0 no gap, 1 a gap or plan.md missing, 2 bad arguments.
 """

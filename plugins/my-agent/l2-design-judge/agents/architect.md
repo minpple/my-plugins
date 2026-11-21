@@ -39,6 +39,7 @@ The file starts with the `# Plan: <task-id>` title and a lead paragraph: one or 
    - A coder unit that fetches from the network (reference data, a package outside the installed dependencies) gets one line `- Needs host: <host name>` per host, as a bare DNS name. L1 checks these hosts before G1b, so name every one.
    - When rewriting, units you keep or revise keep their old ID; new units get the next unused number. Never reuse the ID of a discarded unit.
    - In the general and research profiles, writer and researcher result paths are always under `<task_dir>/<task-id>/work/`. L1 copies them to the deliverable location (final location) in `scope.md` after G3. Do not list the final location as a file to change. scope-guard blocks that write.
+   - A coder's `Files to change` are in the task location, never under `<task_dir>/`: scope-guard denies a coder every write there and the plan cannot be approved. What a coder unit finds out (a reproduction, measured numbers, a log summary) goes in its final report; a note file under `work/` is a writer or researcher unit.
    - Units in the same parallel group must not change the same files. If they overlap, split them into different groups.
    - A parallel group that does not use a workflow has 4 units or fewer.
 4. `## Reference files`: files outside the task folder that agents may read, one per line as `` - `relative path` ``. If there are none, `- none`.

@@ -791,7 +791,7 @@ class SkillMdTest(unittest.TestCase):
             self.assertIn('SHOULD-FIX and NITPICK items of `review.md`', part)
         self.assertIn('Verify FAIL x<n>: criterion <n> <one-line reason>', self.section('## E escalation', None, self.gates))
         self.assertIn('then the retrospective', dev)
-        self.assertIn('separate action', dev)
+        self.assertIn('Remote take: read retro.md "Remote update" before this popup', dev)   # Q41: the push is a G3 choice
 
     def test_accept_loop_and_scope_rules(self):
         accept = self.phase('accept')

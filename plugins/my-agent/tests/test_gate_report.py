@@ -452,6 +452,15 @@ class GateReportTest(unittest.TestCase):
         self.assertIn('| Reworks on open review items | 1 |', ma_gate_report.tally_text(lines))
         self.assertNotIn('Reworks on open review items', ma_gate_report.tally_text(lines[:2]))
 
+    def test_back_to_execute_reasons_row(self):
+        lines = [('', 'step', {'n': '5', 'name': 'Execute'}),
+                 ('', 'step', {'n': '5', 'name': 'Execute', 'back': 'Verify FAIL 2'}),
+                 ('', 'step', {'n': '5', 'name': 'Execute', 'back': 'G3 Rework: the total ignores refunds (criterion 3)'}),
+                 ('', 'step', {'n': '5', 'name': 'Execute', 'back': 'a | b'})]
+        out = ma_gate_report.tally_text(lines)
+        self.assertIn('| Back to Execute reasons | Verify FAIL 2; G3 Rework: the total ignores refunds (criterion 3); a \\| b |', out)
+        self.assertNotIn('Back to Execute reasons', ma_gate_report.tally_text(lines[:1]))
+
     def test_check_leaves_out_transcripts_of_an_earlier_task(self):
         self.agent_files('s-test', 'c1')
         self.agent_files('s-test', 'old1')

@@ -380,10 +380,24 @@ def unit_covers(plan_text: str) -> dict:
     return out
 
 
-def plan_gaps(scope_text, plan_text, profile) -> list:
+def in_records(path: str, records) -> bool:
+    """True when a plan's `Files to change` path lies in the task records folder `records` (`<location>/<task_dir>`):
+    an absolute path under it, a relative path that starts with its name, or one written with `<task_dir>`."""
+    if '<task_dir>' in path:
+        return True
+    parts = [p.casefold() for p in Path(path).parts if p != '.']
+    root = [p.casefold() for p in Path(records).parts]
+    if Path(path).is_absolute():
+        return parts[:len(root)] == root
+    return bool(parts) and parts[0] == root[-1]
+
+
+def plan_gaps(scope_text, plan_text, profile, records=None) -> list:
     """What keeps a plan from approval, one line each ([] for none). Formats only; plan-reviewer judges the content.
     Every completion criterion (scope.md, or plan.md without one) ends with one of the four check tags; in the dev
-    profile every `[check: command]` criterion has a `(criterion <n>)` mark in a work unit that lists it."""
+    profile every `[check: command]` criterion has a `(criterion <n>)` mark in a work unit that lists it. With
+    `records` (the task records folder), no `Files to change` path lies in it: only a coder unit has that line, and
+    scope-guard denies a coder every write there."""
     rows = criteria(scope_text) or criteria(plan_text)
     if not rows:
         return ['no numbered completion criteria']
@@ -400,6 +414,10 @@ def plan_gaps(scope_text, plan_text, profile) -> list:
         for n, _text, tag in rows:
             if tag == 'command' and n not in shown:
                 gaps.append(f'criterion {n}: no test to add or check command marked `(criterion {n})` in a work unit that lists it')
+    if records is not None:
+        gaps += [f"{u['id']}: `{path}` is in the task records folder, which a coder cannot write "
+                 '(a `Files to change` path must be in the task location)'
+                 for u in unit_details(plan_text) for path in u['files'] if in_records(path, records)]
     return gaps
 
 

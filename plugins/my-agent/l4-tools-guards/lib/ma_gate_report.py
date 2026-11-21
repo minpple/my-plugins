@@ -213,6 +213,7 @@ def tally_text(lines) -> str:
     profiles = [f'{f.get("from")} → {f.get("to")}' for _, k, f in lines if k == 'profile']
     drafts = sum(1 for k, f in kinds if k == 'revision' and f.get('before'))
     revs = len({f.get('rev') for k, f in kinds if k == 'revision' and not f.get('before') and f.get('rev')})
+    backs = [f['back'] for k, f in kinds if k == 'step' and f.get('back') not in (None, '', '-')]
     out += ['', '## Metrics', '| Item | Value |', '|---|---|',
             f"| Verify runs | {count('start', agent=VERIFIER) + count(INLINE, agent=VERIFIER)} |",
             f'| Judge misses | {judge_misses(lines)} |',
@@ -226,6 +227,7 @@ def tally_text(lines) -> str:
             f'| In-flight revisions | {revs} |',
             f'| Calls raised to opus | {opus} (retries and explicit calls are not told apart) |',
             *([f'| Reworks on open review items | {open_item_reworks(lines)} |'] if open_item_reworks(lines) else []),
+            *([f"| Back to Execute reasons | {_cell('; '.join(backs))} |"] if backs else []),
             *([f'| Plan edits by L1 before approval | {plan_edits} |'] if plan_edits else []),
             *([f'| Delegated answers | {delegated} |'] if delegated else []),
             *([f"| Delegated approval | {', '.join(switches)} |"] if switches else []),

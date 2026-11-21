@@ -98,7 +98,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 | `resume.md` | on `continue` and on `status` | status, continue |
 | `recorder.md` | before the first run-log command or delegation of a session (Intake, with the facts call; `continue` item 4) | Recorder rules, Revision records and archive, Failure handling, Model and effort per call |
 | `gates.md` | before the first gate popup of a session (G1a, G1b, G3, E), when delegated approval is asked for or turns on, and before a deliverable leaves the task folder | Delegated approval details, Check before anything leaves, Gate reports, E escalation |
-| `retro.md` | after G3 `Accept` or `Commit`, before the retrospective | Retrospective |
+| `retro.md` | before the dev G3 popup; after G3 `Accept` or `Commit`, before the retrospective | Remote update, Retrospective |
 | `changes.md` | on a change request, a profile change at the first gate, `Abort`, or `New task in a worktree` (Intake item 1) | In-flight revision, Abort, Task worktree |
 
 ## Arguments

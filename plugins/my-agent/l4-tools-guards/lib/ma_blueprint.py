@@ -25,7 +25,7 @@ FEATURE_KEYS = ('Purpose', 'Tasks', 'Updated')            # required lines of a 
 DECISION_SECTIONS = ('Constraints', 'Non-goals', 'Decisions')
 BACKLOG_TAGS = ('review', 'check', 'next')
 
-TASK_ID = r'\d{6}-[a-z0-9]+(?:-[a-z0-9]+)*'
+TASK_ID = r'(?:direct-)?\d{6}-[a-z0-9]+(?:-[a-z0-9]+)*'   # a task ID, or `direct-<yymmdd>-<slug>` for a change made without a task
 TASK_REF = re.compile(r'\((' + TASK_ID + r')\)\s*$')      # an item line ends with the task that set it
 TASK_LIST = re.compile(r'^' + TASK_ID + r'(?:,\s*' + TASK_ID + r')*$')
 HEAD = re.compile(r'^##\s+(.*\S)\s*$')
