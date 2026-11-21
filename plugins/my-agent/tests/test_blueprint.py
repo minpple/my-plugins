@@ -122,6 +122,17 @@ class BlueprintTest(unittest.TestCase):
         self.assertEqual(r.stdout.splitlines(),
                          [f'blueprint: {loc / "docs" / "blueprint"}', 'ok: features 0, decisions 0, backlog 0'])
 
+    def test_direct_work_reference(self):
+        """A change made without a my-agent task is named `direct-<yymmdd>-<slug>` (blueprint-format.md)."""
+        ref = 'direct-261121-fix-typo'
+        got = self.problems(features=FEATURES.replace('- Tasks: ', f'- Tasks: {ref}, ', 1),
+                            decisions=DECISIONS.replace('(261117-add-login)', f'({ref})', 1),
+                            backlog=BACKLOG.replace('(261117-add-login)', f'({ref})', 1))
+        self.assertEqual(got, [])
+        got = self.problems(decisions=DECISIONS.replace('(261117-add-login)', '(direct-fix-typo)', 1),
+                            backlog=BACKLOG.replace('(261117-add-login)', '(a1b2c3d)', 1))
+        self.assertEqual(len(got), 2)
+
     def test_script_problems(self):
         self.write(backlog='# Backlog\n\n- Reset by mail\n')
         r = self.script()

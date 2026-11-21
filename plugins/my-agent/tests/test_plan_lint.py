@@ -55,6 +55,17 @@ class PlanGapsTest(unittest.TestCase):
         self.assertEqual(ma_schema.plan_gaps('', plan, 'dev'), [])
         self.assertEqual(len(ma_schema.plan_gaps('', plan.replace(' (criterion 1)', ''), 'dev')), 1)
 
+    def test_coder_file_under_the_records_folder_is_a_gap(self):
+        records = Path('/proj/.my-agent')
+        for path in ('.my-agent/261119-plan-gaps/work/repro.md', '/proj/.my-agent/261119-plan-gaps/work/repro.md',
+                     '<task_dir>/<task-id>/work/repro.md', './.MY-AGENT/x/work/log.txt'):
+            plan = PLAN.replace('`tests/test_total.py`\n', f'`tests/test_total.py`, `{path}`\n', 1)
+            self.assertEqual(ma_schema.plan_gaps(SCOPE, plan, 'dev', records),
+                             [f'u1: `{path}` is in the task records folder, which a coder cannot write '
+                              '(a `Files to change` path must be in the task location)'], path)
+        self.assertEqual(ma_schema.plan_gaps(SCOPE, PLAN, 'dev', records), [])
+        self.assertEqual(ma_schema.plan_gaps(SCOPE, PLAN.replace('src/total.py', 'src/.my-agent-notes.py'), 'general', records), [])
+
     def test_dev_command_criterion_needs_a_mark(self):
         gaps = ma_schema.plan_gaps(SCOPE, PLAN.replace(' (criterion 1)', ''), 'dev')
         self.assertEqual(gaps, ['criterion 1: no test to add or check command marked `(criterion 1)` in a work unit that lists it'])

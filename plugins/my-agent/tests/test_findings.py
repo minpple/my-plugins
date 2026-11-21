@@ -1,5 +1,7 @@
 """findings.py: per-severity Found, Fixed and Open counts and the open items of a task's judgment file (criterion 3)."""
 import importlib.util
+import os
+import time
 import tempfile
 import unittest
 from pathlib import Path
@@ -37,6 +39,20 @@ class FindingsTest(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         self.assertTrue((module.__doc__ or '').strip())
+
+    def test_review_older_than_the_latest_reviewer_call_fails(self):
+        self.put('review.md', 'BLOCKER 0\n\n## Findings\n')
+        old = time.mktime(time.strptime('2026-11-20 09:00:00', '%Y-%m-%d %H:%M:%S'))
+        os.utime(self.task / 'review.md', (old, old))
+        self.put('run-log.md', STEP8 + '2026-11-20 10:00:05 start: agent=my-agent:plan-reviewer id=p1\n'
+                               '2026-11-20 08:00:00 start: agent=my-agent:reviewer id=r1\n')
+        self.assertEqual(self.run_f().returncode, 0)   # written after the latest reviewer call
+        self.put('run-log.md', STEP8 + '2026-11-20 08:00:00 start: agent=my-agent:reviewer id=r1\n'
+                               '2026-11-20 10:00:05 start: agent=my-agent:reviewer id=r2\n')
+        r = self.run_f()
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout, f"findings: FAIL {self.task / 'review.md'} is older than the latest reviewer call "
+                                   '(2026-11-20 10:00:05): the reviewer wrote no file\n')
 
     def test_review_one_round(self):
         self.put('review.md', 'BLOCKER 0\n\n## Findings\n- SHOULD-FIX a.py:1 first\n- SHOULD-FIX b.py:2 second → fix it\n'

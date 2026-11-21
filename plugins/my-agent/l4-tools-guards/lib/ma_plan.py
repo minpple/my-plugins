@@ -41,4 +41,5 @@ def gaps(task_dir: Path, plan_text=None) -> list:
     """Plan gaps of a task folder (`ma_schema.plan_gaps`); `plan_text` stands in for plan.md as it would be written."""
     task_dir = Path(task_dir)
     plan = read(task_dir / 'plan.md') if plan_text is None else plan_text
-    return ma_schema.plan_gaps(read(task_dir / 'scope.md'), plan, ma_schema.profile_of(read(task_dir / 'intake.md')))
+    return ma_schema.plan_gaps(read(task_dir / 'scope.md'), plan, ma_schema.profile_of(read(task_dir / 'intake.md')),
+                               records=task_dir.parent)

@@ -1,6 +1,21 @@
-# Retrospective after G3
+# After G3: remote update · retrospective
 
-L1 reads this file after G3 `Accept` (dev profile: `Commit`), before the retrospective (SKILL.md "Procedure files").
+L1 reads this file after G3 `Accept` (dev profile: `Commit`), before the retrospective, and in the dev profile before the G3 popup for "Remote update" (SKILL.md "Procedure files").
+
+## Remote update
+
+Dev profile only. A remote take is a G3 answer that commits like `Commit` and then brings the default branch on `origin` up to this commit, so the person does not type the push.
+
+- **Offer (before the G3 popup):** `git symbolic-ref --short refs/remotes/origin/HEAD` prints `origin/<default branch>`; with no `origin` or no such ref, offer no remote take. Its label is `Commit and push` when the current branch (`git branch --show-current`) is that branch, otherwise `Commit and merge into <default branch>`.
+  - It is the second choice, after `Commit`; `Commit` stays the recommended take, and under delegated approval L1 never answers with a remote take.
+  - With open review items a popup would hold five choices, so the remote take stands in place of plain `Rework`: `Commit` / `<remote take>` / `Rework: fix all open items` / `Abort`. Shortfalls typed in the Other field are the `Rework` answer (`choice=Rework other=1`).
+  - The question says what is sent and where (`origin/<default branch>`). When the project's instructions or blueprint say a push to that branch deploys, say that too.
+- **Update (after the commit, dev.md "G3 in the dev profile" item 4):** one git command per call.
+  1. `git fetch origin <default branch>`, then `git rev-list --count HEAD..origin/<default branch>`.
+  2. Count 0: `git push origin HEAD:<default branch>`. It is a fast-forward to the commit Verify and Review judged, also from another branch, where it is the merge. The G2 permission dialog asks; that is intended. On another branch, then run `git fetch origin <default branch>:<default branch>` so the local branch follows; if git refuses, say so in one line.
+  3. Count above 0: do not push. The default branch has commits this commit lacks, and merging them now would put unjudged code on it. Say the count, that the commit stays local, and that bringing them in is a follow-up task (or the person's own merge).
+  4. Never force a push, and never push to another branch or remote. A denied dialog, a rejected push or a fetch error is reported in one line with its cause; it does not undo the commit.
+  5. Record: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" merge unit=remote files="<short sha> to origin/<default branch>" how="<pushed | not pushed: reason>" by=L1 --data-dir "<data folder>" --task-dir "<task_dir>"`, and say the same in one chat line.
 
 ## Retrospective
 
