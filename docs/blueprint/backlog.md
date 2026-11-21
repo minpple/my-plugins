@@ -6,3 +6,5 @@
 - [review] NITPICK plugins/my-agent/l4-tools-guards/scripts/findings.py:64 `ma_logline.read` returns `[]` for an unreadable run-log, so the Fixed count is understated with no message; the Report tab behaves the same way (261120-g3-findings-auto)
 - [review] NITPICK plugins/my-agent/l4-tools-guards/lib/ma_schema.py:661 `review_state` open items carry a `mark` field that `findings.py` ignores; harmless because `report.py` uses the same tuple shape (261120-g3-findings-auto)
 - [review] NITPICK plugins/my-agent/l4-tools-guards/scripts/findings.py:68 Only plan-review handles a leading `SKIPPED <reason>`; a `scope-review.md` that starts with `SKIPPED` exits 1 with "no verdict line" (261120-g3-findings-auto)
+- [review] NITPICK plugins/my-agent/monitor/web/index.html:1222 For a running task the last bar now ends at the last run-log line (`chart_end`) where it used to grow to the current time; this is as specified and recorded in the maintenance note → no change needed unless the live growth is wanted back (261122-timeline-back-labels)
+- [next] Tag `my-agent-v0.23.1` and push it with the commit, asked for separately after the commit (261122-timeline-back-labels)

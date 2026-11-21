@@ -139,7 +139,13 @@ class ReportTest(unittest.TestCase):
     def test_timeline(self):
         t = self.full['timeline']
         self.assertEqual([s['n'] for s in t['steps']], [1, 2, 3, 4, 5, 7, 5, 7, 8])   # repeats kept, in order
-        self.assertEqual(t['steps'][0], {'n': 1, 'name': 'Intake', 'start': '2026-11-02T09:00:00'})
+        s0 = t['steps'][0]
+        self.assertEqual({k: s0[k] for k in ('n', 'name', 'start', 'end', 'secs')},
+                         {'n': 1, 'name': 'Intake', 'start': '2026-11-02T09:00:00', 'end': '2026-11-02T09:02:00', 'secs': 120})
+        self.assertEqual((s0['left'], s0['width']), (0.0, 4.0))
+        self.assertEqual([b['row'] for b in t['backs']], [3, 5])   # revision in Plan-Review; first Verify, not the second
+        self.assertEqual([b['slot'] for b in t['backs']], [0, 0])
+        self.assertEqual((t['slots'], t['chart_end']), (1, '2026-11-02T09:50:00'))
         self.assertEqual(t['gates'], [{'id': 'G1a', 'at': '2026-11-02T09:05:00'}, {'id': 'G1b', 'at': '2026-11-02T09:20:00'},
                                       {'id': 'G3', 'at': '2026-11-02T09:50:00'}])
         self.assertEqual([(b['from'], b['to'], b['at']) for b in t['backs']],
@@ -507,6 +513,120 @@ class KoCopyTest(unittest.TestCase):
     def test_broken_copy_is_ignored(self):
         d, _src = self.build(lambda task: (task / 'report-ko.json').write_text('{oops', encoding='utf-8'))
         self.assertNotIn('purpose_ko', d['overview'])
+
+
+HEAD = '2026-11-22 %s '
+
+
+class TimelineRowsTest(unittest.TestCase):
+    """Return rows, slots and row ends of `_timeline`, on run-logs built in a temp folder."""
+
+    def tl(self, *rows, status='running'):
+        from monitor import report
+        with tempfile.TemporaryDirectory() as tmp:
+            task = Path(tmp) / 'a-task'
+            task.mkdir()
+            (task / 'intake.md').write_text('Status: active\nProfile: dev\n', encoding='utf-8')
+            (task / 'run-log.md').write_text(''.join(HEAD % t + body + '\n' for t, body in rows), encoding='utf-8')
+            data = report.build_report(Path(tmp), task, {'id': 'a-task', 'profile': 'dev', 'status': status}, [])
+        return data['timeline']
+
+    def check_widths(self, t):
+        from datetime import datetime
+        steps = t['steps']
+        t0 = datetime.fromisoformat(steps[0]['start'])
+        span = max(1, (datetime.fromisoformat(t['chart_end']) - t0).total_seconds())
+        for s in steps:
+            self.assertGreaterEqual(s['secs'], 0)
+            self.assertLessEqual(s['left'] + s['width'], 100 + 1e-9)
+            self.assertLessEqual(s['start'], s['end'])
+            self.assertLessEqual(s['end'], t['chart_end'])
+            self.assertLess(abs(s['width'] - 100 * s['secs'] / span), 2e-3)
+
+    def test_back_row_per_run(self):
+        rows = [('09:00:00', 'step: n=5 name=Execute')]
+        for i in range(3):
+            rows += [(f'09:{10 + i * 10}:00', 'step: n=7 name=Verify'), (f'09:{15 + i * 10}:00', 'step: n=5 name=Execute back="FAIL %d"' % i)]
+        rows += [('09:40:00', 'step: n=7 name=Verify'), ('09:45:00', 'step: n=8 name=Review-Deliver')]
+        t = self.tl(*rows)
+        self.assertEqual([s['n'] for s in t['steps']], [5, 7, 5, 7, 5, 7, 5, 7, 8])
+        self.assertEqual([(b['row'], b['slot']) for b in t['backs']], [(1, 0), (3, 0), (5, 0)])
+        self.assertNotIn(7, [b['row'] for b in t['backs']])
+
+    def test_two_returns_one_row(self):
+        t = self.tl(('09:00:00', 'step: n=7 name=Verify'), ('09:02:00', 'revision: rev=0 to=2 why="x"'),
+                    ('09:03:00', 'step: n=5 name=Execute back="y"'))
+        self.assertEqual([(b['row'], b['slot']) for b in t['backs']], [(0, 0), (0, 1)])
+        self.assertEqual(t['slots'], 2)
+
+    def test_mark_after_bar_at_chart_end(self):
+        t = self.tl(('09:00:00', 'step: n=3 name=Plan'), ('09:10:00', 'step: n=4 name=Plan-Review'),
+                    ('09:20:00', 'revision: rev=0 before=G1b why="r"'))
+        last = t['steps'][-1]
+        self.assertAlmostEqual(last['left'] + last['width'], 100, places=6)
+        self.assertEqual(t['backs'][0]['row'], len(t['steps']) - 1)
+        self.assertGreaterEqual(t['slots'], 1)
+
+    def test_mark_after_short_bar(self):
+        t = self.tl(('09:00:00', 'step: n=5 name=Execute'), ('09:30:00', 'step: n=7 name=Verify'),
+                    ('09:30:03', 'step: n=5 name=Execute back="f"'), ('09:40:00', 'step: n=7 name=Verify'))
+        s = t['steps'][1]
+        self.assertEqual(s['secs'], 3)
+        self.assertTrue(0 < s['width'] < 1)
+        self.assertLessEqual(s['left'] + s['width'], 100 + 1e-9)
+        self.assertEqual(t['backs'][0]['row'], 1)
+
+    def test_revision_returns(self):
+        t = self.tl(('09:00:00', 'step: n=4 name=Plan-Review'), ('09:01:00', 'revision: rev=0 before=G1b why="a"'),
+                    ('09:02:00', 'revision: rev=0 to=1 why="b"'), ('09:03:00', 'revision: rev=0 to=2 why="c"'))
+        self.assertEqual([b['to'] for b in t['backs']], [3, 2, 3])
+        self.assertEqual([(b['row'], b['slot']) for b in t['backs']], [(0, 0), (0, 1), (0, 2)])
+
+    def test_return_before_any_step(self):
+        t = self.tl(('09:00:00', 'revision: rev=0 before=G1b why="a"'),
+                    ('09:01:00', 'step: n=5 name=Execute back="b"'), ('09:02:00', 'step: n=7 name=Verify'))
+        self.assertEqual(len(t['backs']), 2)
+        self.assertTrue(all(b['row'] is None and b['slot'] is None for b in t['backs']))
+        self.assertEqual(t['slots'], 0)
+
+    def test_no_return(self):
+        t = self.tl(('09:00:00', 'step: n=5 name=Execute'), ('09:05:00', 'step: n=7 name=Verify'))
+        self.assertEqual((t['backs'], t['slots']), ([], 0))
+
+    def test_no_steps(self):
+        t = self.tl(('09:00:00', 'ask: gate=G1a q="q" rec=Confirm'), ('09:01:00', 'answer: gate=G1a choice=Confirm'))
+        self.assertEqual((t['steps'], t['chart_end'], t['slots']), ([], None, 0))
+
+    def steps_after_g3(self, second_ask):
+        rows = [('09:00:00', 'step: n=8 name=Review-Deliver'), ('09:10:00', 'ask: gate=G3 q="q" rec=Commit'),
+                ('09:12:00', 'answer: gate=G3 choice=Rework'), ('09:13:00', 'step: n=5 name=Execute back="rework"'),
+                ('09:20:00', 'step: n=7 name=Verify'), ('09:30:00', 'step: n=8 name=Review-Deliver')]
+        if second_ask:
+            rows.append(('09:40:00', 'ask: gate=G3 q="q" rec=Commit'))
+        return self.tl(*rows)
+
+    def test_steps_after_first_g3(self):
+        for second in (True, False):
+            t = self.steps_after_g3(second)
+            self.check_widths(t)
+            self.assertEqual(t['end'], '2026-11-22T09:10:00')
+            self.assertEqual(t['steps'][-1]['end'], '2026-11-22T09:40:00' if second else '2026-11-22T09:30:00')
+            self.assertEqual(t['chart_end'], t['steps'][-1]['end'])
+            self.assertAlmostEqual(t['steps'][-1]['left'] + t['steps'][-1]['width'], 100, places=6)
+
+    def test_running_task_durations(self):
+        t = self.tl(('09:00:00', 'step: n=5 name=Execute'), ('09:10:00', 'step: n=7 name=Verify'), ('09:15:00', 'cost: usd=1.00 session=s'))
+        self.assertEqual(t['steps'][-1]['end'], '2026-11-22T09:15:00')
+        self.assertEqual([s['secs'] for s in t['steps']], [600, 300])
+        self.check_widths(t)
+
+    def test_out_of_order_timestamp(self):
+        t = self.tl(('09:00:00', 'step: n=5 name=Execute'), ('09:20:00', 'step: n=7 name=Verify'),
+                    ('09:10:00', 'step: n=5 name=Execute back="f"'), ('09:30:00', 'step: n=7 name=Verify'))
+        self.assertTrue(all(s['secs'] >= 0 for s in t['steps']))
+        self.assertEqual(t['steps'][1]['secs'], 0)
+        self.check_widths(t)
+
 
 if __name__ == '__main__':
     unittest.main()

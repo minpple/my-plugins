@@ -316,20 +316,20 @@ body.lay-b #p-report, body.lay-c #p-report { display: none; }
 
 /* timeline */
 #p-report .rtl { --lw: 150px; position: relative; font-size: 12px; }
-#p-report .rtl-gates { position: relative; height: 22px; margin-left: var(--lw); }
+#p-report .rtl-gates { position: relative; height: 22px; margin-left: var(--lw); margin-right: var(--room, 0px); }
 #p-report .rtl-chip { position: absolute; top: 2px; transform: translateX(-50%); font: 600 10.5px var(--mono); color: var(--gate); border: 1px solid var(--gate); background: var(--gate-soft); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
 #p-report .rtl-chip.end { transform: translateX(-100%); }
-#p-report .rtl-axis { position: relative; height: 16px; margin-left: var(--lw); border-bottom: 1px solid var(--line); font: 10.5px var(--mono); color: var(--muted); }
+#p-report .rtl-axis { position: relative; height: 16px; margin-left: var(--lw); margin-right: var(--room, 0px); border-bottom: 1px solid var(--line); font: 10.5px var(--mono); color: var(--muted); }
 #p-report .rtl-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 #p-report .rtl-axis span:first-child { transform: none; }
 #p-report .rtl-row { display: grid; grid-template-columns: var(--lw) minmax(0, 1fr); align-items: center; min-height: 30px; border-bottom: 1px dashed var(--line); }
 #p-report .rtl-row .lb { font: 12px var(--mono); padding-right: 8px; line-height: 1.25; }
 #p-report .rtl-row .lb small { display: block; color: var(--muted); font-family: var(--sans); font-size: 10.5px; }
-#p-report .rtl-track { position: relative; height: 30px; }
+#p-report .rtl-track { position: relative; height: 30px; margin-right: var(--room, 0px); }
 #p-report .rtl-bar { position: absolute; top: 8px; height: 14px; border-radius: 4px; background: var(--c, var(--accent)); transform-origin: left; min-width: 4px; }
-#p-report .rtl-marks { position: absolute; top: 22px; bottom: 0; left: var(--lw); right: 0; pointer-events: none; }
+#p-report .rtl-marks { position: absolute; top: 22px; bottom: 0; left: var(--lw); right: var(--room, 0px); pointer-events: none; }
 #p-report .rtl-mark { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--gate); opacity: .5; }
-#p-report .rtl-back { position: absolute; top: 3px; transform: translateX(-50%); font: 600 10px var(--mono); color: var(--surface); background: var(--gate); border-radius: 4px; padding: 0 4px; white-space: nowrap; z-index: 1; }
+#p-report .rtl-back { position: absolute; top: 5px; width: 14px; text-align: center; font: 600 14px/20px var(--mono); color: var(--gate); z-index: 1; }
 #p-report.rp-enter .rtl-bar { animation: rp-grow .8s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
 #p-report.rp-enter .rtl-back { animation: rp-rise .5s backwards; animation-delay: .9s; }
 #p-report.rp-enter .lrow, #p-report.rp-enter .rbanner, #p-report.rp-enter .rcard { animation: rp-rise .4s backwards; animation-delay: calc(var(--i, 0) * 30ms); }
@@ -1213,28 +1213,29 @@ function rpReviewSum(t, count) {
   const n = v => count ? `<span data-count="${v}" data-dec="0">0</span>` : v;
   return ['BLOCKER', 'SHOULD-FIX', 'NITPICK'].map(sev => { const x = t[sev] || {}; return `${sev} ${n(x.found || 0)}/${n(x.fixed || 0)}`; }).join(' &middot; ');
 }
+const rpBackTip = b => L('back to ' + stepCode(b.to), stepCode(b.to) + ' 단계로 되돌아감') + (b.why ? ': ' + b.why : '');
+const rpBackLeft = (s, k) => `calc(${s.left}% + max(${s.width}%, 4px) + ${2 + 16 * k}px)`;
+const rpRoom = n => n ? 16 * n + 8 : 0;
 function rpTimeline(t) {
-  const steps = (t.steps || []).map(s => ({ n: s.n, name: s.name, a: new Date(s.start) }));
+  const steps = (t.steps || []).map(s => ({ n: s.n, name: s.name, a: new Date(s.start), left: s.left, width: s.width, secs: s.secs }));
   if (!steps.length) return NYW('run-log.md');
-  const end = t.end ? new Date(t.end) : new Date();
-  steps.forEach((s, i) => { s.b = i + 1 < steps.length ? steps[i + 1].a : end; });
+  const end = new Date(t.chart_end || t.end || Date.now());
   const t0 = steps[0].a.getTime(), span = Math.max(1, end.getTime() - t0);
   const pct = d => Math.max(0, Math.min(100, 100 * (new Date(d).getTime() - t0) / span));
   const gates = t.gates || [], backs = t.backs || [];
-  let h = '<div class="rtl"><div class="rtl-gates">' + gates.map(g => { const p = pct(g.at);
+  let h = `<div class="rtl" style="--room:${rpRoom(t.slots)}px"><div class="rtl-gates">` + gates.map(g => { const p = pct(g.at);
     return `<span class="rtl-chip${p > 94 ? ' end' : ''}" style="left:${p}%" title="${rpEsc(g.id)} at ${rpHms(new Date(g.at))}">${rpEsc(g.id)}</span>`; }).join('') + '</div>';
   const tz = new Date(t0).getTimezoneOffset() * 60000, ticks = axisHtml(axisTicks(t0 - tz, t0 + span - tz));
   h += `<div class="rtl-axis">${ticks}</div>`;
   steps.forEach((s, i) => {
-    const left = 100 * (s.a.getTime() - t0) / span, w = Math.max(0, 100 * (s.b.getTime() - s.a.getTime()) / span), secs = (s.b - s.a) / 1000;
-    h += `<div class="rtl-row"><div class="lb">${rpEsc(stepCode(s.n))} ${rpEsc(s.name)}<small>${rpHms(s.a)} &middot; ${rpDur(secs)}</small></div><div class="rtl-track">` +
-      `<span class="rtl-bar" style="--i:${i};--c:${RP_COLORS[i % RP_COLORS.length]};left:${left}%;width:${w}%" title="${rpEsc(stepCode(s.n) + ' ' + s.name + ': ' + rpHms(s.a) + ', ' + rpDur(secs))}"></span>` +
-      backs.filter(b => b.from === s.n).map(b => `<span class="rtl-back" style="left:${pct(b.at)}%" title="${rpEsc(b.why)}">&crarr; back to ${rpEsc(stepCode(b.to))}</span>`).join('') + '</div></div>';
+    h += `<div class="rtl-row"><div class="lb">${rpEsc(stepCode(s.n))} ${rpEsc(s.name)}<small>${rpHms(s.a)} &middot; ${rpDur(s.secs)}</small></div><div class="rtl-track">` +
+      `<span class="rtl-bar" style="--i:${i};--c:${RP_COLORS[i % RP_COLORS.length]};left:${s.left}%;width:${s.width}%" title="${rpEsc(stepCode(s.n) + ' ' + s.name + ': ' + rpHms(s.a) + ', ' + rpDur(s.secs))}"></span>` +
+      backs.filter(b => b.row === i).map(b => `<span class="rtl-back" role="img" aria-label="${rpEsc(rpBackTip(b))}" title="${rpEsc(rpBackTip(b))}" style="left:${rpBackLeft(s, b.slot)}">&crarr;</span>`).join('') + '</div></div>';
   });
   h += '<div class="rtl-marks">' + gates.map(g => `<span class="rtl-mark" style="left:calc(${pct(g.at)}% - 1px)"></span>`).join('') + '</div></div>';
   const wt = t.wait;
   h += '<div class="rlegend"><span><i style="background:var(--gate)"></i>' + L('gate mark (G1a, G1b, G3)', '게이트 표시 (G1a, G1b, G3)') + '</span>' +
-    (backs.length ? `<span>&crarr; ${L('back-to point', '되돌아간 지점')}: ${rpEsc(backs[0].why)}</span>` : '') +
+    (backs.some(b => b.row != null) ? `<span>&crarr; ${L('went back to an earlier step', '이전 단계로 되돌아감')}</span>` : '') +
     (wt && wt.by === 'L1' ? `<span>G3 was answered by L1 (delegated approval) at ${rpHm(new Date(wt.until))}.</span>` : '') +
     (wt && wt.by !== 'L1' ? `<span>After the G3 popup opened at ${rpHm(new Date(wt.from))} the person answered at ${rpHm(new Date(wt.until))} (${rpDur((new Date(wt.until) - new Date(wt.from)) / 1000)}, not part of step ${rpEsc(stepCode(wt.step))}).</span>` : '') + '</div>';
   return h;
@@ -1374,7 +1375,7 @@ function rpParts(d, count) {
   } else ub = NYW('plan.md');
   const groups = units ? new Set(units.map(u => u.group).filter(Boolean)).size : 0;
   const steps = tl && tl.steps && tl.steps.length ? tl.steps : null, rewrites = tl ? (tl.backs || []).filter(b => b.to === 3).length : 0;
-  const tsum = steps ? [rpHm(new Date(steps[0].start)) + ' &rarr; ' + rpHm(new Date(tl.end || Date.now())), rpDur((new Date(tl.end || Date.now()) - new Date(steps[0].start)) / 1000), rewrites ? L(`${rewrites} plan rewrite`, `계획 재작성 ${rewrites}회`) : ''].filter(Boolean).join(' &middot; ') : '-';
+  const tsum = steps ? [rpHm(new Date(steps[0].start)) + ' &rarr; ' + rpHm(new Date(tl.chart_end || tl.end || Date.now())), rpDur((new Date(tl.chart_end || tl.end || Date.now()) - new Date(steps[0].start)) / 1000), rewrites ? L(`${rewrites} plan rewrite`, `계획 재작성 ${rewrites}회`) : ''].filter(Boolean).join(' &middot; ') : '-';
   const fu = gr ? '<ul class="fl">' + (gr.improvements || []).map(s => `<li><span class="tag ${s.strength === 'clear' ? 'clear' : ''}">${rpEsc(s.level)} ${rpEsc(s.strength)}</span><span class="one" title="${rpEsc(s.text)}">${rpEsc(s.text)}</span></li>`).join('') + '</ul>' : NYW('gate-report.md');
   const msum = [dec ? L(`${dec.length} decisions`, `결정 ${dec.length}건`) : '', rpReviewSum(d.review_totals), paid.length ? '$' + total.toFixed(2) : ''].filter(Boolean).join(' &middot; ');
   h += '<div class="group">' +

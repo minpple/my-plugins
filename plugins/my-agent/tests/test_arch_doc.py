@@ -104,9 +104,15 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('capped at 3 rounds', q39)
         self.assertIn('`"autostart": true`', q40)
 
-    def test_status_line_starts_with_v066(self):
+    def test_report_tab_names_return_marks(self):
+        self.assertIn('timeline.backs[].row', self.text)
+        self.assertIn('timeline.chart_end', self.text)
+        self.assertIn('went back to an earlier step', self.text)
+
+    def test_status_line_starts_with_v067(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.66 (2026-11-21, plugin 0.23.0: Antigravity as a third host'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.67 (2026-11-22, plugin 0.23.1:'), line[:90])
+        self.assertIn('v0.66 (2026-11-21, plugin 0.23.0: Antigravity as a third host', line)
         self.assertIn('v0.65 (2026-11-21, plugin 0.22.1: researcher notes and the findings table', line)
         self.assertIn('v0.64 (2026-11-21, plugin 0.22.0: remote take at G3 and fixes from task retrospectives', line)
         self.assertIn('v0.63 (2026-11-21, plugin 0.21.2: session folder guard', line)

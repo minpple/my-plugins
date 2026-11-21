@@ -1,5 +1,21 @@
 # Features
 
+## Phase timeline return marks
+- Purpose: Show each return to an earlier step on the monitor's Report tab (and the tray Detail view) as one small ↵ mark on the row it belongs to, with correct row durations and a general legend line. Used by the person who watches my-agent tasks.
+- Where: plugins/my-agent/monitor/monitor/report.py, plugins/my-agent/monitor/web/index.html, plugins/my-agent/docs/build-guide/my-agent-architecture.md (Report tab), plugins/my-agent/maintenance-notes.md
+- Tasks: 261122-timeline-back-labels
+- Updated: 2026-11-22
+
+1. A return mark appears only on the row of the step run the task left, one per return; other rows with the same step number show none [check: command] → report.py:112, :119; index.html:1233; `test_report` `test_back_row_per_run`, `test_timeline`; `test_web_timeline_backs` `test_marks_use_row_not_step_number` (Ran 71 tests OK)
+2. A return mark is a ↵ icon with no text; hovering shows the target step code and the reason, also as the accessible name [check: command] → index.html:1216, :1232; `test_tip_in_node`, `test_mark_is_icon_with_tip`, `test_tip_line_static`, `test_long_reason_keeps_layout` ok (node tests ran)
+3. A mark sits right after its row's bar, outside it, in room kept at the chart's right end; two or more marks on one row sit side by side [check: command] → index.html:1217-1218, :319-332; report.py:136-162; `test_positions_in_node`, `test_positions_static`, `test_room_shared_by_time_area`, `test_mark_after_bar_at_chart_end`, `test_mark_after_short_bar`, `test_two_returns_one_row` ok
+4. The legend explains the arrow in one general line in English and Korean, names no single reason, and has no arrow entry when there is no return [check: command] → index.html:1238; `test_legend_general_line`, `test_no_return` ok
+5. No row shows a negative duration; each duration matches its bar and the chart span covers every row, also for a task whose steps continue after its first G3 popup and for a running task [check: command] → report.py:146-162; index.html:1222, :1231-1232, :1378; `test_steps_after_first_g3`, `test_running_task_durations`, `test_out_of_order_timestamp`, `test_durations_from_data`, `test_summary_follows_chart_end` ok
+6. Returns recorded by an in-flight revision follow the same rules and show their own target step [check: command] → report.py:116-119, :138-141; `test_revision_returns`, `test_tip_in_node` ok
+7. my-agent is 0.23.1 in the three plugin manifests and the `my-agent` rows of both READMEs [check: command] → `grep -n '"version"'` on the three manifests (0.23.1 three times); `grep -n '^| \`my-agent' README.md README-ko.md` (line 9, 0.23.1)
+8. The design document describes the return marks, the legend line and the new report fields, and the maintenance notes have a 2026-11-22 entry naming 0.23.1 [check: file] → my-agent-architecture.md:4, :997; maintenance-notes.md:247; `test_arch_doc` `test_status_line_starts_with_v067`, `test_report_tab_names_return_marks`
+9. The four test suites pass [check: command] → my-agent Ran 1039, monitor Ran 338, root Ran 238, tray Ran 69 tests OK
+
 ## Gate findings table and popup layout
 - Purpose: Make the finding counts and the open items readable at every gate approval (G1a, G1b, G3): a findings table in the chat report and a popup text with one line per part. Used by the person who answers the gates of a my-agent task.
 - Where: plugins/my-agent/l1-orchestration/gates.md ("Gate reports"), plugins/my-agent/l4-tools-guards/scripts/findings.py, plugins/my-agent/l4-tools-guards/lib/ma_schema.py, plugins/my-agent/monitor/monitor/report.py, plugins/my-agent/docs/build-guide/my-agent-architecture.md (4.4)

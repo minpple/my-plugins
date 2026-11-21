@@ -103,22 +103,27 @@ def _cost_from_lines(lines):
 
 
 def _timeline(task_dir, lines):
-    steps, gates, backs, cur = [], [], [], None
+    steps, gates, backs, cur, starts, g3_asks = [], [], [], None, [], []
     g3_ask = g3_answer = wait_step = wait_by = None
     for l in lines:
         if l.kind == 'step' and l.f.get('n'):
             n = _int(l.f['n'])
             if l.f.get('back'):
-                backs.append({'from': cur, 'to': 5, 'at': _iso(l.ts), 'why': l.f['back']})
+                backs.append({'from': cur, 'to': 5, 'at': _iso(l.ts), 'why': l.f['back'], 'row': len(steps) - 1 if steps else None})
             steps.append({'n': n, 'name': l.f.get('name', ''), 'start': _iso(l.ts)})
+            starts.append(l.ts)
             cur = n
         elif l.kind == 'revision' and (l.f.get('before') == ma_schema.PLAN_EDIT_GATE or l.f.get('to') in REVISION_TO):
             to = 3 if l.f.get('before') == ma_schema.PLAN_EDIT_GATE else REVISION_TO[l.f['to']]
-            backs.append({'from': cur, 'to': to, 'at': _iso(l.ts), 'why': l.f.get('why', '')})
-        elif l.kind == 'ask' and l.f.get('gate') in GATE_MARKS and not any(g['id'] == l.f['gate'] for g in gates):
-            gates.append({'id': l.f['gate'], 'at': _iso(l.ts)})
+            backs.append({'from': cur, 'to': to, 'at': _iso(l.ts), 'why': l.f.get('why', ''),
+                          'row': len(steps) - 1 if steps else None})
+        elif l.kind == 'ask' and l.f.get('gate') in GATE_MARKS:
             if l.f['gate'] == 'G3':
-                g3_ask, wait_step = l.ts, cur
+                g3_asks.append(l.ts)
+            if not any(g['id'] == l.f['gate'] for g in gates):
+                gates.append({'id': l.f['gate'], 'at': _iso(l.ts)})
+                if l.f['gate'] == 'G3':
+                    g3_ask, wait_step = l.ts, cur
         elif l.kind == 'answer' and l.f.get('gate') == 'G3' and g3_ask is not None:
             g3_answer, wait_by = l.ts, l.f.get('by')
     end = g3_ask or (lines[-1].ts if lines else None)
@@ -128,7 +133,33 @@ def _timeline(task_dir, lines):
     wait = {'step': wait_step, 'from': _iso(g3_ask), 'until': _iso(g3_answer)} if g3_ask and g3_answer else None
     if wait and wait_by == ma_schema.ANSWERED_BY_L1:
         wait['by'] = 'L1'
-    return {'end': _iso(end) if end else None, 'steps': steps, 'gates': gates, 'backs': backs, 'wait': wait, 'cost': cost}
+    chart_end = _rows(steps, starts, g3_asks, lines[-1].ts if lines else None)
+    slots = {}
+    for b in backs:
+        b['slot'] = None
+        if b['row'] is not None:
+            b['slot'] = slots[b['row']] = slots.get(b['row'], -1) + 1
+    return {'end': _iso(end) if end else None, 'chart_end': chart_end, 'slots': max(slots.values(), default=-1) + 1,
+            'steps': steps, 'gates': gates, 'backs': backs, 'wait': wait, 'cost': cost}
+
+
+def _rows(steps, starts, g3_asks, last):
+    """Add end, secs, left and width to every row; return the chart end (ISO), the latest row end, or None without rows.
+    A row ends at the next row's start; the last row at the latest G3 ask at or after its start, else at the last
+    run-log line. A row never ends before it starts."""
+    if not steps:
+        return None
+    ends = [max(starts[i], starts[i + 1]) for i in range(len(steps) - 1)]
+    tail = [t for t in g3_asks if t >= starts[-1]]
+    ends.append(max(starts[-1], max(tail) if tail else (last or starts[-1])))
+    t0 = starts[0]
+    top = max(ends)
+    span = max(1.0, (top - t0).total_seconds())
+    for s, a, b in zip(steps, starts, ends):
+        left = round(100 * (a - t0).total_seconds() / span, 3)
+        right = round(100 * (b - t0).total_seconds() / span, 3)
+        s.update(end=_iso(b), secs=int((b - a).total_seconds()), left=left, width=round(right - left, 3))
+    return _iso(top)
 
 
 def _short(text):
