@@ -98,9 +98,10 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('capped at 3 rounds', q39)
         self.assertIn('`"autostart": true`', q40)
 
-    def test_status_line_starts_with_v063(self):
+    def test_status_line_starts_with_v064(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.63 (2026-11-21, plugin 0.21.2: session folder guard'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.64 (2026-11-21, plugin 0.22.0: remote take at G3 and fixes from task retrospectives'), line[:90])
+        self.assertIn('v0.63 (2026-11-21, plugin 0.21.2: session folder guard', line)
         self.assertIn('v0.62 (2026-11-20, plugin 0.21.1: a session moved into a coder worktree', line)
         self.assertIn('v0.61 (2026-11-20, plugin 0.21.0: the chat report of every gate approval', line)
         self.assertIn('v0.60 (2026-11-20, plugin 0.20.0: step letters', line)
