@@ -26,8 +26,10 @@ MODELS = ('opus', 'sonnet', 'haiku', 'fable')   # the families of ma_schema.FAMI
 CODEX_MODELS = (
     'gpt-6-luna', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6.1-sol', 'gpt-6.1-terra',
 )
-INLINE = 'inline'   # a model value valid on both hosts: L1 runs the role in the main session
+ANTIGRAVITY_MODELS = ('inherit', 'pro', 'flash', 'flash_lite')
+INLINE = 'inline'   # a model value valid on all hosts: L1 runs the role in the main session
 CODEX_KEY = 'codex'
+ANTIGRAVITY_KEY = 'antigravity'
 STANDARD = 'standard'
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 
@@ -65,6 +67,11 @@ def codex_definitions(defs) -> dict:
     return {a: dict(d, model='-', effort='-') for a, d in defs.items()}
 
 
+def antigravity_definitions(defs) -> dict:
+    """`defs` with the Antigravity no-argument values (`-`, `-`): installed agents inherit the session model."""
+    return {a: dict(d, model='-', effort='-') for a, d in defs.items()}
+
+
 def _check_entry(where, entry, models=MODELS):
     if not isinstance(entry, dict):
         raise ModelsError(f'{where}: agent entry is not a dictionary')
@@ -83,7 +90,10 @@ def validate(data, agents=None) -> dict:
         raise ModelsError('the file is not a JSON object')
     for profile, presets in data.items():
         if profile == CODEX_KEY:
-            _validate_codex(presets, agents)
+            _validate_host_section(CODEX_KEY, presets, agents, CODEX_MODELS)
+            continue
+        if profile == ANTIGRAVITY_KEY:
+            _validate_host_section(ANTIGRAVITY_KEY, presets, agents, ANTIGRAVITY_MODELS)
             continue
         if profile not in PROFILES:
             raise ModelsError(f'unknown profile "{profile}" (profiles: {", ".join(PROFILES)})')
@@ -102,29 +112,34 @@ def validate(data, agents=None) -> dict:
     return data
 
 
-def _validate_codex(section, agents):
+def _validate_host_section(key, section, agents, models):
     if not isinstance(section, dict):
-        raise ModelsError(f'{CODEX_KEY}: section is not a dictionary')
+        raise ModelsError(f'{key}: section is not a dictionary')
     for profile, presets in section.items():
         if profile not in PROFILES:
-            raise ModelsError(f'{CODEX_KEY}: unknown profile "{profile}" (profiles: {", ".join(PROFILES)})')
+            raise ModelsError(f'{key}: unknown profile "{profile}" (profiles: {", ".join(PROFILES)})')
         if not isinstance(presets, dict):
-            raise ModelsError(f'{CODEX_KEY}/{profile}: profile is not a dictionary')
+            raise ModelsError(f'{key}/{profile}: profile is not a dictionary')
         for preset, entries in presets.items():
             if not isinstance(entries, dict):
-                raise ModelsError(f'{CODEX_KEY}/{profile}/{preset}: preset is not a dictionary')
+                raise ModelsError(f'{key}/{profile}/{preset}: preset is not a dictionary')
             for agent, entry in entries.items():
                 if agent == 'main':
-                    raise ModelsError(f'{CODEX_KEY}/{profile}/{preset}: unknown agent "main" '
+                    raise ModelsError(f'{key}/{profile}/{preset}: unknown agent "main" '
                                       '(the main session has no entry)')
                 if agent not in agents:
-                    raise ModelsError(f'{CODEX_KEY}/{profile}/{preset}: unknown agent "{agent}"')
-                _check_entry(f'{CODEX_KEY}/{profile}/{preset}/{agent}', entry, CODEX_MODELS)
+                    raise ModelsError(f'{key}/{profile}/{preset}: unknown agent "{agent}"')
+                _check_entry(f'{key}/{profile}/{preset}/{agent}', entry, models)
 
 
 def codex_section(data) -> dict:
     """The `codex` section of the loaded file ({} when there is none)."""
     return (data or {}).get(CODEX_KEY) or {}
+
+
+def antigravity_section(data) -> dict:
+    """The `antigravity` section of the loaded file ({} when there is none)."""
+    return (data or {}).get(ANTIGRAVITY_KEY) or {}
 
 
 def load(data_dir, agents=None):
@@ -207,11 +222,11 @@ def summary(defs, values) -> str:
     return ', '.join(parts)
 
 
-def parse_plan(text, defs, codex=False) -> tuple:
+def parse_plan(text, defs, codex=False, antigravity=False) -> tuple:
     """(preset name, {agent: (model, effort)}) from the `## Models` section of a plan.md. A model or effort cell
     that is empty or `-` keeps the definition value, as does an agent missing from the table.
-    Raises ModelsError when the section, the `Preset:` line or a value is not usable. `codex`: the model cells are
-    Codex models (`defs` then holds the `-` no-argument values)."""
+    Raises ModelsError when the section, the `Preset:` line or a value is not usable. `codex`/`antigravity`: the
+    model cells are Codex or Antigravity models (`defs` then holds the `-` no-argument values)."""
     lines = ma_schema.section_lines(text, 'Models')
     if lines is None:
         raise ModelsError('plan.md has no ## Models section')
@@ -236,7 +251,8 @@ def parse_plan(text, defs, codex=False) -> tuple:
         if model == INLINE and effort not in ('', '-'):
             raise ModelsError(f'plan.md ## Models/{agent}: an inline role takes no effort (it runs in the main session)')
         entry = {k: v for k, v in (('model', model), ('effort', effort)) if v not in ('', '-')}
-        _check_entry(f'plan.md ## Models/{agent}', entry, CODEX_MODELS if codex else MODELS)
+        allowed = ANTIGRAVITY_MODELS if antigravity else (CODEX_MODELS if codex else MODELS)
+        _check_entry(f'plan.md ## Models/{agent}', entry, allowed)
         entries[agent] = entry
     if name is None:
         raise ModelsError('plan.md ## Models has no "Preset:" line')

@@ -6,7 +6,7 @@ minpple의 Claude Code 플러그인 마켓플레이스입니다.
 
 | 플러그인 | 버전 | 설명 |
 |---|---|---|
-| `my-agent` | 0.22.1 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
+| `my-agent` | 0.23.0 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
 | `my-agent-tray` | 0.1.6 | my-agent 모니터용 macOS 메뉴바 앱 (선택; my-agent 0.5.0 이상 필요) |
 
 ## 요구 사항
@@ -17,6 +17,7 @@ minpple의 Claude Code 플러그인 마켓플레이스입니다.
 - macOS: 모니터의 창 열기에 필요. macOS 27.0.1에서 테스트했습니다. 다른 플랫폼에서는 모니터가 표준 브라우저 열기 도구로 탭을 열지만 시험하지 않았습니다. Linux와 Windows는 시험하지 않았습니다: hook이 `python3`를 부릅니다.
 - 선택, 메뉴바 앱(`my-agent-tray` 플러그인)에만: macOS 12 이상의 Command Line Tools(`swiftc`). Xcode는 필요 없습니다. Swift 6.3.3으로 테스트했고, 더 낮은 Swift 버전은 시험하지 않았습니다.
 - 선택, Codex에서 my-agent를 쓰려면: 플러그인을 지원하는 Codex CLI. codex-cli 0.166.0으로 테스트했고, 다른 버전은 시험하지 않았습니다.
+- 선택, Antigravity에서 my-agent를 쓰려면: 플러그인을 지원하는 Antigravity CLI(`agy`).
 
 그 밖에 설치하는 것은 없습니다.
 
@@ -50,6 +51,21 @@ codex plugin add my-agent@my-plugins
 - 작업을 시작할 때 Intake가 `~/.codex/agents/`의 my-agent 에이전트 열 개를 점검하고, 없거나 오래되었으면 설치하기 전에 물어봅니다(`build-codex.py --install-agents`). my-agent 버전 주석이 없는 파일은 덮어쓰지 않습니다. 새 에이전트는 새 Codex 세션에서 보입니다.
 - `/my-agent:monitor`는 Codex에서 스킬 `my-agent:monitor`이며, Codex가 목록에 올립니다.
 - Codex에서 다른 점: coder worktree 없음, 백그라운드 시작 없음, 플러그인 설정이 전달되지 않음. Codex에는 자체 G2 권한 대화상자가 없습니다. 위험한 작업은 호출을 멈추고, my-agent가 자기 팝업으로 묻고, `Allow once` 뒤에 그 호출 하나만 통과시킵니다. 모델 프리셋은 `agent-models.json`의 `codex` 섹션으로 Codex에서도 적용되고, 에이전트의 `tools`와 `maxTurns`는 쓸 수 없습니다. `plugins/my-agent/l1-orchestration/hosts.md`가 이름을 하나씩 대응시키고, `plugins/my-agent/docs/build-guide/my-agent-architecture.md`의 4.14절에 제한이 정리되어 있습니다.
+
+## Antigravity에서 쓰기
+
+my-agent는 Antigravity(`agy`)에서도 돕니다. 이 저장소의 로컬 클론에서 플러그인을 설치하고, 열 개의 Antigravity 서브에이전트 정의를 `~/.gemini/config/agents/`에 설치합니다:
+
+```bash
+git clone https://github.com/minpple/my-plugins ~/dev/my-plugins
+agy plugin install ~/dev/my-plugins/plugins/my-agent
+python3 ~/dev/my-plugins/plugins/my-agent/l4-tools-guards/scripts/build-antigravity.py --install-agents
+```
+
+- `plugins/my-agent/.antigravity-plugin/plugin.json`, `plugins/my-agent/hooks.json`, 그리고 `plugins/my-agent/antigravity/agents/`의 에이전트 열 개는 `build-antigravity.py --write`로 생성합니다.
+- 세션이 시작될 때 `session-notice.py`가 플러그인 폴더(`$PLUGIN_ROOT`), 데이터 폴더, 작업 폴더, 세션 ID(`$ANTIGRAVITY_CONVERSATION_ID`)를 시스템 메시지로 주입하고 `plugins/my-agent/l1-orchestration/hosts-antigravity.md`를 안내합니다.
+- 가드 훅(`scope-guard.py`, `plan-approved-check.py`, `verdict-fresh-check.py`)은 Antigravity의 camelCase `PreToolUse` 입력을 변환해 네이티브 결정(`allow`, `deny`, `force_ask`)을 반환합니다.
+- 모델 프리셋은 `agent-models.json`의 `antigravity` 섹션(`inherit`, `pro`, `flash`, `flash_lite`, 또는 `inline`)으로 적용됩니다. Antigravity에는 `SubagentStart`, `SubagentStop`, `PermissionRequest` 훅 이벤트가 없으므로, 서브에이전트 호출은 `PreToolUse`에서 `subagent-log.py call`이 기록하고 G2 확인은 네이티브 `force_ask`로 처리합니다.
 
 ## my-agent
 

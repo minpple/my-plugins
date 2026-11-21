@@ -1,0 +1,10 @@
+{
+  "name": "my-agent",
+  "version": "0.23.0",
+  "description": "HITL multi-agent orchestration skill with level-based agents and guard hooks",
+  "author": {
+    "name": "minpple"
+  },
+  "homepage": "https://minpple.github.io/my-plugins/",
+  "repository": "https://github.com/minpple/my-plugins"
+}

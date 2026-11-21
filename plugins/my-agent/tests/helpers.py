@@ -66,10 +66,14 @@ def events(task_dir):
     return build_events(read_lines(Path(task_dir) / 'run-log.md'))
 
 
+_STRIP_HOST_ENV = ('ANTIGRAVITY_AGENT', 'ANTIGRAVITY_CONVERSATION_ID', 'PLUGIN_ROOT', 'PLUGIN_DATA')
+
+
 def run_script(path, *args, payload=None, cwd=None, env=None, drop=()) -> subprocess.CompletedProcess:
     """`drop`: names removed from the child environment after the merge."""
     stdin = payload if isinstance(payload, str) or payload is None else json.dumps(payload)
-    child = {k: v for k, v in dict(os.environ, **(env or {})).items() if k not in drop}
+    base = {k: v for k, v in os.environ.items() if k not in _STRIP_HOST_ENV}
+    child = {k: v for k, v in dict(base, **(env or {})).items() if k not in drop}
     return subprocess.run([sys.executable, str(path), *args], input=stdin, capture_output=True, text=True,
                           cwd=cwd, env=child, timeout=30)
 

@@ -94,10 +94,12 @@ def do_answer(inp, active):
 
 def main(argv) -> int:
     active = None
+    agy = False
     try:
         inp = json.loads(sys.stdin.read() or '{}')
         if not isinstance(inp, dict):
             return 0
+        agy = ma_host.hook_host(inp) == 'antigravity'
         inp = ma_host.record_input(inp)
         active = ma_active.find_active(inp.get('cwd') or os.getcwd())
         if active is None or not ma_active.owns(active, inp):
@@ -106,6 +108,9 @@ def main(argv) -> int:
     except BaseException as exc:   # a record hook never fails the session
         if active is not None:
             ma_logline.log_error(active, f"permission-log {argv[1:] or ''}", exc)
+    finally:
+        if agy:
+            print('{}')
     return 0
 
 

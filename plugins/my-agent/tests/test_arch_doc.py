@@ -98,15 +98,16 @@ class ArchDocTest(unittest.TestCase):
     def test_decision_log_has_q39_and_q40_once_after_q38(self):
         rows = re.findall(r'^\| (Q\d+) \|', self.text, re.M)
         self.assertEqual(len(rows), len(set(rows)), rows)
-        self.assertEqual(rows[-5:], ['Q38', 'Q39', 'Q40', 'Q41', 'Q42'])
+        self.assertEqual(rows[-5:], ['Q39', 'Q40', 'Q41', 'Q42', 'Q43'])
         q39 = next(l for l in self.text.splitlines() if l.startswith('| Q39 |'))
         q40 = next(l for l in self.text.splitlines() if l.startswith('| Q40 |'))
         self.assertIn('capped at 3 rounds', q39)
         self.assertIn('`"autostart": true`', q40)
 
-    def test_status_line_starts_with_v065(self):
+    def test_status_line_starts_with_v066(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.65 (2026-11-21, plugin 0.22.1: researcher notes and the findings table'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.66 (2026-11-21, plugin 0.23.0: Antigravity as a third host'), line[:90])
+        self.assertIn('v0.65 (2026-11-21, plugin 0.22.1: researcher notes and the findings table', line)
         self.assertIn('v0.64 (2026-11-21, plugin 0.22.0: remote take at G3 and fixes from task retrospectives', line)
         self.assertIn('v0.63 (2026-11-21, plugin 0.21.2: session folder guard', line)
         self.assertIn('v0.62 (2026-11-20, plugin 0.21.1: a session moved into a coder worktree', line)
@@ -145,7 +146,7 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('first non-empty line of the result file', self.text)
 
     def test_host_layer_notes_grant_share_and_paths_only_key(self):
-        sec = self.text[self.text.index('### 4.14 Host layer'):self.text.index('## 5. Out of scope')]
+        sec = self.section('### 4.14 Host layer', '### 4.15 ')
         self.assertIn('one share per asking hook', sec)
         self.assertIn('paths only', sec)
         self.assertIn('not the patch text', sec)
@@ -174,7 +175,7 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('scope-guard', sec[sec.index('**Inline roles'):])
 
     def test_host_section_has_g2_row_and_listed_main_skill(self):
-        sec = self.section('### 4.14 ', '\n---')
+        sec = self.section('### 4.14 ', '### 4.15 ')
         row = [l for l in sec.splitlines() if l.startswith('| G2 permission dialog')]
         self.assertEqual(len(row), 1)
         self.assertIn('exit 2', row[0])
@@ -336,7 +337,7 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('2026-10-31', rows[0])
 
     def test_host_layer_section(self):
-        section = self.section('### 4.14 ', '## 5. ')
+        section = self.section('### 4.14 ', '### 4.15 ')
         self.assertIn('Host layer', section.splitlines()[0])
         for text in ('l1-orchestration/hosts.md', 'ma_host.py'):
             self.assertIn(text, section)
@@ -351,8 +352,29 @@ class ArchDocTest(unittest.TestCase):
         self.assertNotIn('my_agent' + '_<role>', section)
         self.assertNotIn('not used: the main session', differences)
 
+    def test_antigravity_host_layer_section(self):
+        section = self.section('### 4.15 ', '## 5. ')
+        self.assertIn('Host layer (Antigravity) [proposed]', section.splitlines()[0])
+        for text in ('l1-orchestration/hosts-antigravity.md', '`rules/AGENTS.md`', 'ma_host.py', 'build-antigravity.py --write',
+                     '`.antigravity-plugin/plugin.json`', '`hooks.json` at the plugin root', '--install-agents',
+                     '`Antigravity agents: installed 10 (<version>)`', '`{"decision":"force_ask","reason":…}`',
+                     'No task has been run in Antigravity from Intake to G3', '`agy plugin validate --strict plugins/my-agent`'):
+            self.assertIn(text, section)
+        for head in ('**Host differences**', '**Limitations**', '**Not verified**'):
+            self.assertIn(head, section)
+        self.assertLess(section.index('**Limitations**'), section.index('**Not verified**'))
+        limits = section[section.index('**Limitations**'):section.index('**Not verified**')]
+        for text in ('No `SubagentStart`, `SubagentStop` or `PermissionRequest` event', 'Usage and cost are not read',
+                     '`WebFetch` in an agent\'s `tools` becomes `search_web`'):
+            self.assertIn(text, limits)
+        for word in ('fallback', 'workaround'):
+            self.assertNotIn(word, section.lower())
+        self.assertIn('Antigravity CLI (`agy`) as a third host (4.15)', self.text.splitlines()[4])
+        q43 = next(l for l in self.text.splitlines() if l.startswith('| Q43 |'))
+        self.assertIn('stays `[proposed]` until a task has run end to end in Antigravity', q43)
+
     def test_host_differences_name_the_question_tool(self):
-        section = self.section('### 4.14 ', '## 5. ')
+        section = self.section('### 4.14 ', '### 4.15 ')
         differences = section[section.index('**Host differences**'):]
         self.assertIn('`request_user_input`', differences)
         self.assertIn('`default_mode_request_user_input`', differences)

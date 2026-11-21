@@ -157,11 +157,13 @@ def do_stop(inp, active):
 
 def main(argv) -> int:
     active = None
+    agy = False
+    mode = argv[1] if len(argv) > 1 else ''
     try:
-        mode = argv[1] if len(argv) > 1 else ''
         inp = json.loads(sys.stdin.read() or '{}')
         if not isinstance(inp, dict):
             return 0
+        agy = ma_host.hook_host(inp) == 'antigravity'
         inp = ma_host.record_input(inp)
         active = ma_active.find_active(inp.get('cwd') or os.getcwd())
         if active is None:
@@ -176,6 +178,9 @@ def main(argv) -> int:
     except BaseException as exc:   # a record hook never fails the session
         if active is not None:
             ma_logline.log_error(active, f"subagent-log {argv[1:] or ''}", exc)
+    finally:
+        if agy and mode == 'call':
+            print('{"decision":"allow"}')
     return 0
 
 

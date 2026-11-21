@@ -32,9 +32,22 @@ import ma_schema
 
 CLAUDE_PREFIX = 'my-agent:'
 CODEX_PREFIX = 'my-agent-'
+AGY_PREFIX = 'my-agent-'
 FILE_TOOL = 'apply_patch'
 SPAWN_TOOL = 'collaborationspawn_agent'
 CODEX_TOOLS = (FILE_TOOL, SPAWN_TOOL)
+AGY_SPAWN_TOOL = 'invoke_subagent'
+AGY_WORKFLOW_TOOL = 'run_workflow'
+AGY_BASH_TOOL = 'run_command'
+AGY_EDIT_TOOLS = ('edit_file', 'replace_file_content', 'multi_replace_file_content')
+AGY_WRITE_TOOLS = ('write_file', 'write_to_file')
+AGY_READ_TOOLS = ('read_file', 'view_file')
+AGY_GREP_TOOL = 'grep_search'
+AGY_GLOB_TOOL = 'find_by_name'
+AGY_WEB_SEARCH_TOOL = 'search_web'
+AGY_WEB_FETCH_TOOL = 'read_url_content'
+_AGY_INPUT_KEYS = ('toolCall', 'conversationId', 'hookEventName', 'artifactDirectoryPath')
+_AGY_ENV = ('ANTIGRAVITY_AGENT', 'ANTIGRAVITY_CONVERSATION_ID')
 
 _HEADER = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+)$')
 _MOVE = re.compile(r'^\*\*\* Move to: (.+)$')
@@ -66,6 +79,133 @@ def is_codex(inp) -> bool:
         return False
     agent = inp.get('agent_type')
     return inp.get('tool_name') in CODEX_TOOLS or (isinstance(agent, str) and agent.startswith(CODEX_PREFIX))
+
+
+def is_antigravity(inp) -> bool:
+    """True when `inp` has Antigravity's camelCase hook payload fields."""
+    return isinstance(inp, dict) and any(k in inp for k in _AGY_INPUT_KEYS)
+
+
+def _adapt_antigravity_tool(tool: str, args: dict, strict: bool = True) -> tuple:
+    """Map an Antigravity toolCall `(name, args)` to a Claude-shaped `(tool_name, tool_input)` pair."""
+    if tool == AGY_BASH_TOOL:
+        cmd = args.get('CommandLine')
+        if strict and not isinstance(cmd, str):
+            raise ValueError('run_command input has no CommandLine text')
+        return 'Bash', {'command': cmd if isinstance(cmd, str) else ''}
+    if tool == 'edit_file':
+        path = args.get('Path')
+        if strict and not isinstance(path, str):
+            raise ValueError('edit_file input has no Path text')
+        ti = {'file_path': path if isinstance(path, str) else ''}
+        if isinstance(args.get('Target'), str):
+            ti['old_string'] = args['Target']
+        if isinstance(args.get('Replacement'), str):
+            ti['new_string'] = args['Replacement']
+        return 'Edit', ti
+    if tool == 'replace_file_content':
+        path = args.get('TargetFile')
+        if strict and not isinstance(path, str):
+            raise ValueError('replace_file_content input has no TargetFile text')
+        ti = {'file_path': path if isinstance(path, str) else ''}
+        if isinstance(args.get('TargetContent'), str):
+            ti['old_string'] = args['TargetContent']
+        if isinstance(args.get('ReplacementContent'), str):
+            ti['new_string'] = args['ReplacementContent']
+        return 'Edit', ti
+    if tool == 'multi_replace_file_content':
+        path = args.get('TargetFile')
+        if strict and not isinstance(path, str):
+            raise ValueError('multi_replace_file_content input has no TargetFile text')
+        return 'Edit', {'file_path': path if isinstance(path, str) else ''}
+    if tool == 'write_file':
+        path = args.get('Path')
+        if strict and not isinstance(path, str):
+            raise ValueError('write_file input has no Path text')
+        return 'Write', {'file_path': path if isinstance(path, str) else '',
+                         'content': args.get('Content') if isinstance(args.get('Content'), str) else ''}
+    if tool == 'write_to_file':
+        path = args.get('TargetFile')
+        if strict and not isinstance(path, str):
+            raise ValueError('write_to_file input has no TargetFile text')
+        return 'Write', {'file_path': path if isinstance(path, str) else '',
+                         'content': args.get('CodeContent') if isinstance(args.get('CodeContent'), str) else ''}
+    if tool == 'read_file':
+        path = args.get('Path')
+        if strict and not isinstance(path, str):
+            raise ValueError('read_file input has no Path text')
+        return 'Read', {'file_path': path if isinstance(path, str) else ''}
+    if tool == 'view_file':
+        path = args.get('AbsolutePath')
+        if strict and not isinstance(path, str):
+            raise ValueError('view_file input has no AbsolutePath text')
+        return 'Read', {'file_path': path if isinstance(path, str) else ''}
+    if tool == AGY_GREP_TOOL:
+        return 'Grep', {'path': args.get('SearchPath') or '.', 'pattern': args.get('Query') or ''}
+    if tool == AGY_GLOB_TOOL:
+        return 'Glob', {'path': args.get('SearchDirectory') or '.', 'pattern': args.get('Pattern') or ''}
+    if tool == AGY_WEB_SEARCH_TOOL:
+        return 'WebSearch', {'query': args.get('query') or ''}
+    if tool == AGY_WEB_FETCH_TOOL:
+        return 'WebFetch', {'url': args.get('Url') or ''}
+    if tool == AGY_SPAWN_TOOL:
+        agent = args.get('TypeName')
+        if strict and (not isinstance(agent, str) or not agent):
+            raise ValueError('invoke_subagent input has no TypeName text')
+        ti = {
+            'subagent_type': claude_agent(agent) if isinstance(agent, str) else '',
+            'prompt': args.get('Prompt') if isinstance(args.get('Prompt'), str) else '',
+            'description': args.get('Role') if isinstance(args.get('Role'), str) else '',
+            'run_in_background': True,
+        }
+        model = args.get('Model')
+        if isinstance(model, str) and model and model != 'inherit':
+            ti['model'] = model
+        if args.get('Workspace') in ('branch', 'share'):
+            ti['isolation'] = 'worktree'
+        return 'Agent', ti
+    if tool == AGY_WORKFLOW_TOOL:
+        return 'Workflow', dict(args)
+    if tool == 'ask_question':
+        return 'AskUserQuestion', dict(args)
+    if tool == 'send_message':
+        return 'SendMessage', dict(args)
+    return tool, dict(args)
+
+
+def _adapt_antigravity(inp: dict, strict: bool = True) -> dict:
+    """Claude-shaped copy of an Antigravity hook input dict."""
+    out = dict(inp, _host='antigravity')
+    for src, dst in (('conversationId', 'session_id'), ('hookEventName', 'hook_event_name'),
+                     ('transcriptPath', 'transcript_path'), ('artifactDirectoryPath', 'artifact_directory_path'),
+                     ('modelName', 'model_name')):
+        if src in inp and dst not in out:
+            out[dst] = inp[src]
+    agent = inp.get('agent_type') if isinstance(inp.get('agent_type'), str) else inp.get('agentType')
+    if isinstance(agent, str) and agent:
+        out['agent_type'] = claude_agent(agent)
+    aid = inp.get('agent_id') if isinstance(inp.get('agent_id'), str) else inp.get('agentId')
+    if isinstance(aid, str) and aid:
+        out['agent_id'] = aid
+    tc = inp.get('toolCall')
+    if tc is not None:
+        if not isinstance(tc, dict) or not isinstance(tc.get('name'), str):
+            if strict:
+                raise ValueError('Antigravity hook input has invalid toolCall object')
+            return out
+        args = tc.get('args')
+        if args is None:
+            args = {}
+        elif not isinstance(args, dict):
+            if strict:
+                raise ValueError('Antigravity toolCall has non-object args')
+            args = {}
+        tname, ti = _adapt_antigravity_tool(tc['name'], args, strict=strict)
+        out['tool_name'] = tname
+        out['tool_input'] = ti
+    elif strict:
+        raise ValueError('Antigravity hook input has no toolCall object')
+    return out
 
 
 def patch_calls(text: str) -> list:
@@ -153,9 +293,12 @@ def _adapt(inp: dict) -> Call:
 
 
 def parse(raw: str) -> Call:
-    """Hook input text -> Call. Invalid JSON raises; a Claude input (or any non-Codex object) passes unchanged."""
+    """Hook input text -> Call. Invalid JSON raises; a Claude input (or any non-Codex/non-Antigravity object) passes unchanged."""
     inp = json.loads(raw)
-    if hook_host(inp) == 'codex':
+    host = hook_host(inp)
+    if host == 'antigravity':
+        return Call('antigravity', [_adapt_antigravity(inp, strict=True)], False)
+    if host == 'codex':
         mark_hook(inp)
     if not is_codex(inp):
         return Call('claude', [inp], False)
@@ -177,8 +320,26 @@ def stronger(a: Optional[dict], b: Optional[dict]) -> Optional[dict]:
 
 
 def emit(call: Call, out: Optional[dict]) -> int:
-    """Write the decision in the host's form; returns the exit code. A Codex ask is exit 2 and one G2 answer releases
-    one call (`ma_g2`); a Codex main-session Bash input is not reshaped, so its host comes from `hook_host`."""
+    """Write the decision in the host's form; returns the exit code. Antigravity PreToolUse hooks always receive JSON
+    (`allow`, `deny` or `force_ask`). A Codex ask is exit 2 and one G2 answer releases one call (`ma_g2`)."""
+    if call.host == 'antigravity' or (call.inps and hook_host(call.inps[0]) == 'antigravity'):
+        if not out:
+            print('{"decision":"allow"}')
+            return 0
+        d = decision(out)
+        h = out.get('hookSpecificOutput') if isinstance(out, dict) else None
+        reason = (h.get('permissionDecisionReason') if isinstance(h, dict) else None) or out.get('systemMessage') or ''
+        if d == 'deny':
+            print(json.dumps({'decision': 'deny', 'reason': reason or 'blocked'}, ensure_ascii=False))
+            return 0
+        if d == 'ask':
+            print(json.dumps({'decision': 'force_ask', 'reason': reason or 'confirmation required'}, ensure_ascii=False))
+            return 0
+        res = {'decision': 'allow'}
+        if reason:
+            res['reason'] = reason
+        print(json.dumps(res, ensure_ascii=False))
+        return 0
     if not out:
         return 0
     if decision(out) == 'ask' and (call.host == 'codex' or (call.inps and hook_host(call.inps[0]) == 'codex')):
@@ -193,9 +354,11 @@ def emit(call: Call, out: Optional[dict]) -> int:
 
 def scratch_base(inp=None) -> Path:
     """Scratchpad base: `<base>/<project slug>/<session_id>/scratchpad`. Claude Code keeps it under
-    /tmp/claude-<uid>; for Codex it is `my-agent-codex` in the OS temp folder."""
+    /tmp/claude-<uid>; for Codex it is `my-agent-codex` in the OS temp folder; for Antigravity `my-agent-antigravity`."""
     if isinstance(inp, dict) and inp.get('_host') == 'codex':
         return Path(tempfile.gettempdir()).resolve() / 'my-agent-codex'
+    if isinstance(inp, dict) and inp.get('_host') == 'antigravity':
+        return Path(tempfile.gettempdir()).resolve() / 'my-agent-antigravity'
     return Path('/tmp').resolve() / f'claude-{os.getuid()}'
 
 
@@ -298,13 +461,19 @@ _CLAUDE_ENV = ('CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_PROJECT_DIR', 'CL
 
 
 def hook_host(inp) -> str:
-    """`codex` or `claude` for a hook input: $MA_HOST (tests), a Codex-shaped input (tool or agent name, `turn_id`),
-    else Codex when the plugin root is set and no Claude Code variable is (SessionStart carries no marker)."""
+    """`antigravity`, `codex` or `claude` for a hook input: $MA_HOST (tests), an Antigravity camelCase payload,
+    a Codex-shaped input (tool or agent name, `turn_id`), $PLUGIN_ROOT (Antigravity), else Codex when
+    $CLAUDE_PLUGIN_ROOT is set and no Claude Code variable is."""
     forced = os.environ.get('MA_HOST')
-    if forced in ('claude', 'codex'):
+    if forced in ('claude', 'codex', 'antigravity'):
         return forced
+    if is_antigravity(inp):
+        return 'antigravity'
     if is_codex(inp) or (isinstance(inp, dict) and isinstance(inp.get('turn_id'), str)):
         return 'codex'
+    if (os.environ.get('PLUGIN_ROOT') and not os.environ.get('CLAUDE_PLUGIN_ROOT')
+            and not any(os.environ.get(k) for k in _CLAUDE_ENV) and not os.environ.get('CODEX_THREAD_ID')):
+        return 'antigravity'
     if os.environ.get('CLAUDE_PLUGIN_ROOT') and not any(os.environ.get(k) for k in _CLAUDE_ENV):
         return 'codex'
     return 'claude'
@@ -365,9 +534,14 @@ def health_message(problems) -> str:
 
 def record_input(inp):
     """Claude-shaped copy of a record hook's input (`call`, `start`, `stop`, `ask`, `answer`, SessionStart). On
-    Codex the hook is marked, `my-agent-<role>` becomes `my-agent:<role>` and the spawn tool `collaborationspawn_agent`
-    becomes `Agent`; Claude input is returned as it is."""
-    if not isinstance(inp, dict) or hook_host(inp) != 'codex':
+    Antigravity camelCase fields and `toolCall` are adapted; on Codex the hook is marked, `my-agent-<role>` becomes
+    `my-agent:<role>` and `collaborationspawn_agent` becomes `Agent`; Claude input is returned as it is."""
+    if not isinstance(inp, dict):
+        return inp
+    host = hook_host(inp)
+    if host == 'antigravity':
+        return _adapt_antigravity(inp, strict=False)
+    if host != 'codex':
         return inp
     mark_hook(inp)
     out = dict(inp, _host='codex')
@@ -386,25 +560,31 @@ def record_input(inp):
 # --- session id, plugin root and plugin settings per host ---
 
 def env_host() -> str:
-    """`codex` or `claude` for a script run from the model's shell: $MA_HOST (tests), else Codex when its thread
-    variable is set and Claude's session variable is not."""
+    """`antigravity`, `codex` or `claude` for a script run from the model's shell: $MA_HOST (tests), else
+    Claude when its variables are set, Codex when $CODEX_THREAD_ID is set, Antigravity when $ANTIGRAVITY_AGENT
+    or $ANTIGRAVITY_CONVERSATION_ID is set."""
     forced = os.environ.get('MA_HOST')
-    if forced in ('claude', 'codex'):
+    if forced in ('claude', 'codex', 'antigravity'):
         return forced
     if os.environ.get('CLAUDE_CODE_SESSION_ID') or os.environ.get('CLAUDECODE'):
         return 'claude'
-    return 'codex' if os.environ.get('CODEX_THREAD_ID') else 'claude'
+    if os.environ.get('CODEX_THREAD_ID'):
+        return 'codex'
+    if any(os.environ.get(k) for k in _AGY_ENV):
+        return 'antigravity'
+    return 'claude'
 
 
 def session_id() -> Optional[str]:
-    """The session id from the environment: $CLAUDE_CODE_SESSION_ID, else Codex's $CODEX_THREAD_ID (the findings
-    do not list a Codex shell variable; the thread id is the session id of the Codex record), else None."""
-    return os.environ.get('CLAUDE_CODE_SESSION_ID') or os.environ.get('CODEX_THREAD_ID') or None
+    """The session id from the environment: $CLAUDE_CODE_SESSION_ID, else Codex's $CODEX_THREAD_ID, else
+    Antigravity's $ANTIGRAVITY_CONVERSATION_ID, else None."""
+    return (os.environ.get('CLAUDE_CODE_SESSION_ID') or os.environ.get('CODEX_THREAD_ID')
+            or os.environ.get('ANTIGRAVITY_CONVERSATION_ID') or None)
 
 
 def plugin_root(default) -> Path:
-    """$CLAUDE_PLUGIN_ROOT (Codex sets it too, findings "Env and plugin root"), else `default`."""
-    return Path(os.environ.get('CLAUDE_PLUGIN_ROOT') or default)
+    """$CLAUDE_PLUGIN_ROOT (Claude/Codex), else $PLUGIN_ROOT (Antigravity), else `default`."""
+    return Path(os.environ.get('CLAUDE_PLUGIN_ROOT') or os.environ.get('PLUGIN_ROOT') or default)
 
 
 def plugin_option(env_name: str) -> Optional[str]:
@@ -414,12 +594,17 @@ def plugin_option(env_name: str) -> Optional[str]:
 
 
 def main_family(model) -> str:
-    """The model the main session is expected to run, by the host its model id belongs to: `opus` for Claude,
-    the Codex default for a Codex id (D4: no per-role mapping)."""
+    """The model the main session is expected to run, by the host its model id belongs to: the Gemini id for
+    Antigravity, the Codex default for a Codex id (D4: no per-role mapping), else `opus` for Claude."""
+    agy = ma_schema.antigravity_family(model)
+    if agy:
+        return agy
     return ma_schema.CODEX_DEFAULT if ma_schema.codex_family(model) else 'opus'
 
 
 def main_mismatch(model) -> bool:
     """True when `model` is not the expected main model of its host."""
+    if ma_schema.antigravity_family(model):
+        return False
     codex = ma_schema.codex_family(model)
     return codex != ma_schema.CODEX_DEFAULT if codex else ma_schema.family(model) != 'opus'

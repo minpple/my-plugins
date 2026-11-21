@@ -102,7 +102,12 @@ def scratch_base(inp=None) -> Path:
 def in_scratchpad(p: Path, session_id, inp=None) -> bool:
     """True when `p` is under this session's scratchpad `<base>/<project slug>/<session_id>/scratchpad` or its
     `tasks` folder beside it (the output files of background commands). Any slug
-    matches (it comes from the launch folder, which the hook input does not carry); the session id is unique."""
+    matches (it comes from the launch folder, which the hook input does not carry); the session id is unique.
+    On Antigravity, `<artifactDirectoryPath>/scratch` is also allowed."""
+    if isinstance(inp, dict) and inp.get('_host') == 'antigravity':
+        art = inp.get('artifact_directory_path')
+        if isinstance(art, str) and art and under(p, Path(art).expanduser().resolve() / 'scratch'):
+            return True
     if not isinstance(session_id, str) or session_id in ('', '.', '..') or '/' in session_id or not hasattr(os, 'getuid'):
         return False
     try:
@@ -283,6 +288,15 @@ def judge(inp) -> Optional[dict]:
 def main() -> int:
     raw = sys.stdin.read()
     if 'my-agent:' not in raw and ma_host.CODEX_PREFIX not in raw:
+        if os.environ.get('MA_HOST') == 'antigravity':
+            print('{"decision":"allow"}')
+        elif '"toolCall"' in raw:
+            import json
+            try:
+                if ma_host.hook_host(json.loads(raw)) == 'antigravity':
+                    print('{"decision":"allow"}')
+            except ValueError:
+                pass
         return 0
     try:
         call = ma_host.parse(raw)

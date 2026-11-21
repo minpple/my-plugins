@@ -18,13 +18,13 @@ There is no build step (Python standard library + static HTML). Exception: the S
 - Keep `plugins/my-agent/skills/my-agent/SKILL.md` under 12,500 characters: it holds the core rules and the arguments only, and the procedures are in `plugins/my-agent/l1-orchestration/` (`new-task.md`, `resume.md`, `recorder.md`, `gates.md`, `retro.md`, `changes.md`). Every file L1 reads in one go (those procedure files, the phase and profile files, `hosts.md`) stays under 11,500 characters, about 5,000 tokens at the density measured on Codex (`test_skill_md` checks both limits). The text runs about 2.6 characters per token on Opus 5.5 (11,678 characters measured as 4,481 tokens on 2026-11-10), not 4.
 - `plugins/my-agent/maintenance-notes.md`: when you change something, add it to the matching section with the date.
 - Version: each plugin has its own version. When you raise one, change all these places of that plugin together, in the same commit. All these values must always match.
-  - my-agent: `"version"` in `plugins/my-agent/.claude-plugin/plugin.json` and in `plugins/my-agent/.codex-plugin/plugin.json` (`build-codex.py` generates the Codex one from the Claude one, so regenerate it after raising the version), and the `my-agent` rows of the plugin tables in `README.md` and `README-ko.md`
+  - my-agent: `"version"` in `plugins/my-agent/.claude-plugin/plugin.json`, in `plugins/my-agent/.codex-plugin/plugin.json` and in `plugins/my-agent/.antigravity-plugin/plugin.json` (`build-codex.py --write` and `build-antigravity.py --write` generate the Codex and Antigravity ones from the Claude one, so run both after raising the version, and after a merge that raised it), and the `my-agent` rows of the plugin tables in `README.md` and `README-ko.md`
   - my-agent-tray: `"version"` in `plugins/my-agent-tray/.claude-plugin/plugin.json`, and the `my-agent-tray` rows of the plugin tables in `README.md` and `README-ko.md`
 
   Check that the values show the same version for each plugin:
 
   ```sh
-  grep -n '"version"' plugins/my-agent/.claude-plugin/plugin.json plugins/my-agent/.codex-plugin/plugin.json plugins/my-agent-tray/.claude-plugin/plugin.json
+  grep -n '"version"' plugins/my-agent/.claude-plugin/plugin.json plugins/my-agent/.codex-plugin/plugin.json plugins/my-agent/.antigravity-plugin/plugin.json plugins/my-agent-tray/.claude-plugin/plugin.json
   grep -n '^| `my-agent' README.md README-ko.md
   ```
 

@@ -1,0 +1,65 @@
+{
+  "my-agent": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 l4-tools-guards/hooks/scope-guard.py",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "invoke_subagent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 l4-tools-guards/hooks/subagent-log.py call",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "invoke_subagent|run_workflow|edit_file|replace_file_content|multi_replace_file_content|write_file|write_to_file|run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 l4-tools-guards/hooks/plan-approved-check.py",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "run_command|edit_file|replace_file_content|multi_replace_file_content|write_file|write_to_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 l4-tools-guards/hooks/verdict-fresh-check.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 l4-tools-guards/hooks/permission-log.py answer",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python3 l4-tools-guards/hooks/session-notice.py",
+        "timeout": 10
+      }
+    ]
+  }
+}

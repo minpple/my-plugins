@@ -415,7 +415,7 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
       <h1 id="hero-title">일은 에이전트가,<br>승인은 사람이.</h1>
       <p class="lead">my-agent는 요청을 네 단계로 진행하면서 각 작업을 맡은 에이전트에게 나눠 주고, 정해진 관문에서 멈춰 사람의 결정을 받습니다. 질문은 모두 팝업으로 묻고, 모든 단계는 기록으로 남습니다.</p>
       <div class="row"><a class="cta" href="#detail">작동 방식 보기</a><a class="cta tint" href="architecture.html">아키텍처</a></div>
-      <p class="meta">버전 0.12.0 (<code>plugins/my-agent/.claude-plugin/plugin.json</code>)<br>Codex에서도 일부 제한과 함께 동작 (개요 › Codex 지원)</p>
+      <p class="meta">버전 0.12.0 (<code>plugins/my-agent/.claude-plugin/plugin.json</code>)<br>Codex에서도 일부 제한과 함께 동작 (개요 › Codex 지원). Antigravity에도 설치되지만 끝까지 돌려 본 적은 없음 (개요 › Antigravity 지원)</p>
     </div>
     <div class="group" role="group" aria-labelledby="glance-h">
       <div class="group-h"><span id="glance-h">한눈에 보기</span><span>my-agent 0.12.0</span></div>
@@ -723,6 +723,9 @@ claude plugin install my-agent@my-plugins</pre>
     ['Codex 지원',
      `<p>my-agent는 Codex에서도 돕니다. 규칙은 같은 Claude Code 문서 그대로이고, 이름 대응표(<code>l1-orchestration/hosts.md</code>), 게이트 hook용 코드 어댑터 하나(<code>l4-tools-guards/lib/ma_host.py</code>), 생성되는 Codex 파일이 차이를 맡습니다. 게이트 질문은 Codex의 질문 도구로 하고, <code>my-agent:monitor</code>는 Codex 스킬로 목록에 올라옵니다. 메인 스킬도 <code>skills/my-agent/SKILL.md</code>에서 <code>my-agent:my-agent</code>로 목록에 올라옵니다. 세션을 시작할 때 my-agent hook이 Codex에 플러그인, 데이터, 작업 폴더를 알려 주는 한 줄을 줍니다. Codex에는 권한 대화상자가 없으므로 위험한 작업은 호출을 멈추고(exit 2), my-agent가 자기 G2 팝업(<code>Allow once</code> / <code>Deny</code>)으로 묻고, <code>Allow once</code> 뒤에 같은 호출 하나만 통과합니다. Codex는 에이전트 정의를 플러그인이 아니라 <code>~/.codex/agents/</code>에서 불러옵니다. 작업을 시작할 때 Intake가 그곳의 my-agent 역할 아홉 개를 점검하고, 없거나 오래되었으면 <code>my-agent-&lt;role&gt;</code>로 설치하기 전에 물어봅니다(<code>build-codex.py --install-agents</code>). my-agent 버전 주석이 없는 파일은 덮어쓰지 않고, 새 에이전트는 새 Codex 세션에서 보입니다. 설치되기 전에는 Codex가 그 이름을 거부하고 서브에이전트 시작·종료 기록과 역할 기반 점검이 적용되지 않습니다. 모델 프리셋은 <code>agent-models.json</code>의 <code>codex</code> 섹션으로 Codex에서도 적용됩니다. Codex에는 coder worktree와 백그라운드 시작이 없고, 에이전트의 <code>tools</code>와 <code>maxTurns</code>는 쓸 수 없습니다.</p>` +
      src('plugins/my-agent/docs/build-guide/my-agent-architecture.md, plugins/my-agent/l1-orchestration/hosts.md, README-ko.md')],
+    ['Antigravity 지원',
+     `<p>my-agent는 Antigravity(<code>agy</code>)에도 설치됩니다. 방식은 Codex와 같습니다. 이름 대응표(<code>l1-orchestration/hosts-antigravity.md</code>), 같은 코드 어댑터(<code>l4-tools-guards/lib/ma_host.py</code>), 생성되는 파일(<code>build-antigravity.py</code>: Antigravity manifest, 플러그인 루트의 <code>hooks.json</code>, 에이전트 열 개)이 차이를 맡습니다. Antigravity만 읽는 규칙 파일(<code>rules/AGENTS.md</code>)이 세션을 이름 대응표로 보내므로 스킬 문서는 바뀌지 않습니다. Antigravity는 에이전트 정의를 <code>~/.gemini/config/agents/</code>에서 불러옵니다. Intake가 그곳의 my-agent 역할 열 개를 점검하고 설치하기 전에 물어봅니다(<code>build-antigravity.py --install-agents</code>). 게이트 hook의 ask는 Antigravity 자체의 일회성 확인(<code>force_ask</code>)이 됩니다. 모델 프리셋은 <code>agent-models.json</code>의 <code>antigravity</code> 섹션으로 적용됩니다. Antigravity에는 서브에이전트 시작·종료 이벤트와 권한 요청 이벤트가 없어서 그 run-log 줄은 기록되지 않고, 토큰과 비용도 읽지 않습니다. 0.23.0 기준으로 <code>agy plugin validate --strict</code>와 단위 테스트로만 확인했고, Antigravity에서 작업 하나를 끝까지 돌려 본 적은 아직 없습니다.</p>` +
+     src('plugins/my-agent/docs/build-guide/my-agent-architecture.md (4.15), plugins/my-agent/l1-orchestration/hosts-antigravity.md, README-ko.md')],
     ['왜 4개씩 나눴나',
      `<p>설계 문서에 따르면, 사람이 이 시스템의 유지보수에 직접 참여하므로 한 번에 기억하는 단위가 4개 안팎이라는 Cowan의 이론을 구조 전체에 적용했습니다. 레벨 4개, 레벨별 구성 요소 4개, 진행 단계(phase) 4개, 게이트 4종(G1a·G1b를 G1 하나로 세어 G1·G2·G3·E; 3.2에서는 다섯 종류로 나눠 적음), 팝업 선택지 최대 4개입니다. 문서는 이 이론이 사람의 기억에 관한 것이지 에이전트 성능의 근거는 아니라고 밝혀 둡니다.</p>` +
      src('plugins/my-agent/docs/build-guide/my-agent-architecture.md')]

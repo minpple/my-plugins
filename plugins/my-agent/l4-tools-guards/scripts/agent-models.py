@@ -43,27 +43,36 @@ def render(header, defs, values, width=6) -> str:
     return '\n'.join(lines)
 
 
-def _codex() -> bool:
-    return ma_host.env_host() == 'codex'
+def _host() -> str:
+    return ma_host.env_host()
 
 
 def show(args) -> str:
+    host = _host()
     defs = ma_models.definitions()
-    if _codex():
+    if host == 'codex':
         defs = ma_models.codex_definitions(defs)
+    elif host == 'antigravity':
+        defs = ma_models.antigravity_definitions(defs)
     if args.plan:
         try:
             text = Path(args.plan).read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError) as exc:
             raise ma_models.ModelsError(f'cannot read {args.plan}: {exc}')
-        name, values = ma_models.parse_plan(text, defs, codex=_codex())
-        return render(f'preset: {name} (plan.md ## Models)', defs, values, 10 if _codex() else 6)
+        name, values = ma_models.parse_plan(text, defs, codex=(host == 'codex'), antigravity=(host == 'antigravity'))
+        width = 10 if host in ('codex', 'antigravity') else 6
+        return render(f'preset: {name} (plan.md ## Models)', defs, values, width)
     path, data = ma_models.load(ma_data.data_dir(args.data_dir), defs)
     profile = _profile(args.profile, data)
-    if _codex():
+    if host == 'codex':
         data = ma_models.codex_section(data)
         values = ma_models.resolve(data, profile, args.preset, defs)
         where = f'file {path}, codex section' if data.get(profile) else 'no codex section: no override'
+        return render(f'preset: {profile}/{args.preset} ({where})', defs, values, 10)
+    if host == 'antigravity':
+        data = ma_models.antigravity_section(data)
+        values = ma_models.resolve(data, profile, args.preset, defs)
+        where = f'file {path}, antigravity section' if data.get(profile) else 'no antigravity section: no override'
         return render(f'preset: {profile}/{args.preset} ({where})', defs, values, 10)
     values = ma_models.resolve(data, profile, args.preset, defs)
     where = f'file {path}' if (data or {}).get(profile) else 'no file: definition values'
@@ -77,13 +86,18 @@ def _profile(name, data):
 
 
 def presets(args) -> str:
+    host = _host()
     defs = ma_models.definitions()
-    if _codex():
+    if host == 'codex':
         defs = ma_models.codex_definitions(defs)
+    elif host == 'antigravity':
+        defs = ma_models.antigravity_definitions(defs)
     _, data = ma_models.load(ma_data.data_dir(args.data_dir), defs)
     profile = _profile(args.profile, data)
-    if _codex():
+    if host == 'codex':
         data = ma_models.codex_section(data)
+    elif host == 'antigravity':
+        data = ma_models.antigravity_section(data)
     names = ma_models.preset_names(data, profile)
     if not names:
         return 'none'

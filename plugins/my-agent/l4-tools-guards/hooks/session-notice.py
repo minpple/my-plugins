@@ -35,10 +35,22 @@ FOLDERS = ('my-agent on Codex: plugin folder {root} (read ${{CLAUDE_PLUGIN_ROOT}
            'Before the first my-agent question, read l1-orchestration/hosts.md in that plugin folder; '
            'ask the person only with request_user_input.')
 
+AGY_FOLDERS = ('my-agent on Antigravity: plugin folder {root} (read ${{CLAUDE_PLUGIN_ROOT}} in the skill text as '
+               'this folder), data folder {data} (${{user_config.data_dir}}), task folder {task} '
+               '(${{user_config.task_dir}}), session {session} ($CLAUDE_CODE_SESSION_ID). Before the first my-agent '
+               'question, read l1-orchestration/hosts-antigravity.md in that plugin folder; '
+               'ask the person only with ask_question.')
+
 
 def folder_line() -> str:
     root = ma_host.plugin_root(Path(__file__).resolve().parents[2])
     return FOLDERS.format(root=root, data=ma_data.data_dir(None), task=ma_data.task_dir(None))
+
+
+def agy_folder_line(session: str) -> str:
+    root = ma_host.plugin_root(Path(__file__).resolve().parents[2])
+    return AGY_FOLDERS.format(root=root, data=ma_data.data_dir(None), task=ma_data.task_dir(None),
+                              session=session or 'none')
 
 
 def main() -> int:
@@ -46,10 +58,17 @@ def main() -> int:
         inp = json.loads(sys.stdin.read() or '{}')
         if not isinstance(inp, dict):
             return 0
-        codex = ma_host.hook_host(inp) == 'codex'
+        host = ma_host.hook_host(inp)
         inp = ma_host.record_input(inp)
-        line = folder_line() if codex else None
         active = ma_active.find_active(inp.get('cwd') or os.getcwd())
+        if host == 'antigravity':
+            line = agy_folder_line(inp.get('session_id') or '')
+            if active is not None:
+                text = NOTICE if ma_active.owns(active, inp) else OTHER
+                line = line + ' ' + text.format(task=active.task, phase=active.phase or '-')
+            print(json.dumps({'injectSteps': [{'systemMessage': {'systemMessage': line}}]}, ensure_ascii=False))
+            return 0
+        line = folder_line() if host == 'codex' else None
         if active is None:
             if line:
                 print(line)

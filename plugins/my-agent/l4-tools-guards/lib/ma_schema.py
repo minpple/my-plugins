@@ -82,6 +82,16 @@ def codex_family(model):
     return m.group(1) if m else None
 
 
+# Antigravity model ids (Gemini families and tier names); not part of FAMILY (Claude) or CODEX_FAMILY (Codex).
+ANTIGRAVITY_FAMILY = re.compile(r'(gemini-[a-z0-9._-]+)', re.I)
+
+
+def antigravity_family(model):
+    """`gemini-4-neon` / `gemini-3-pro` → the lowercased Gemini id, else None."""
+    m = ANTIGRAVITY_FAMILY.search(model or '')
+    return m.group(1).lower() if m else None
+
+
 # --- run-log lines (4.7.2): `<YYYY-MM-DD HH:MM:SS> <kind>: <key=value ...>` ---
 
 LINE_RE = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([a-z][a-z0-9-]*):(?:\s+(.*))?$')

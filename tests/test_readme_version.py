@@ -18,9 +18,9 @@ def install_section(text: str) -> str:
 
 
 def manifest_versions(plugin_dir: Path) -> dict:
-    """Map each manifest a plugin folder ships (Claude always, Codex when present) to its version."""
+    """Map each manifest a plugin folder ships (Claude always, Codex/Antigravity when present) to its version."""
     found = {}
-    for sub in ('.claude-plugin', '.codex-plugin'):
+    for sub in ('.claude-plugin', '.codex-plugin', '.antigravity-plugin'):
         path = plugin_dir / sub / 'plugin.json'
         if path.is_file():
             found[str(path.relative_to(plugin_dir))] = json.loads(path.read_text(encoding='utf-8'))['version']
