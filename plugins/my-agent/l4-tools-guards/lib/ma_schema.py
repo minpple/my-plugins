@@ -657,9 +657,13 @@ def review_rounds(task_dir, review):
 
 
 def review_fix_whats(pairs):
-    """The `what` of run-log `fix` lines after the last `step: n=8` that are Review fixes (no `before=`, no `Scope change:`);
-    `pairs` are the parsed run-log (kind, fields) pairs."""
-    last = max((i for i, (kind, f) in enumerate(pairs) if kind == 'step' and f.get('n') == '8'), default=-1)
+    """The `what` of run-log `fix` lines after the last `step: n=8` and the last reviewer `start:` line that are Review
+    fixes (no `before=`, no `Scope change:`); `pairs` are the parsed run-log (kind, fields) pairs. A fix made before
+    the latest reviewer call belongs to the round before it."""
+    pairs = list(pairs)
+    last = max((i for i, (kind, f) in enumerate(pairs) if (kind == 'step' and f.get('n') == '8')
+                or (kind == 'start' and str(f.get('agent') or '').endswith(('my-agent:reviewer', 'my-agent-reviewer')))),
+               default=-1)
     return [f.get('what') or '' for kind, f in pairs[last + 1:]
             if kind == 'fix' and not f.get('before') and not (f.get('what') or '').startswith('Scope change:')]
 
@@ -697,8 +701,17 @@ def plan_review_fixes(pairs):
     return [m.groups() for m in matches if m]
 
 
+def pairs_of_round(pairs, role='plan-reviewer'):
+    """The run-log pairs after the last `start:` line of the judge `role` (its current round); every pair when the
+    log has no such line. A `fix` line of an earlier round names a finding of that round's file, not of this one."""
+    pairs = list(pairs)
+    last = max((i for i, (kind, f) in enumerate(pairs)
+                if kind == 'start' and str(f.get('agent') or '').endswith(role)), default=-1)
+    return pairs[last + 1:]
+
+
 def judged_counts(text, pairs=()):
-    """(found, fixed, open findings) of a plan-review.md or scope-review.md text. `found` and `fixed` are per severity.
+    """(found, fixed, open findings) of one plan-review.md or scope-review.md text. `found` and `fixed` are per severity.
     A finding is fixed when it has an `applied` outcome in `## Decisions` or when a run-log `fix … before=G1b` line
     (`pairs`; plan-review only) names it; a declined finding stays open."""
     decided = {(sev, where) for sev, where, outcome in plan_review_decisions(text) if outcome == 'applied'}
@@ -714,3 +727,47 @@ def judged_counts(text, pairs=()):
         else:
             open_items.append(item)
     return found, fixed, open_items
+
+
+REVISION_ARCHIVE = re.compile(r'-rev\d+(?:-profile)?(?:-[b-z])?$')   # Revise this task, profile change: an earlier revision ends
+
+
+def judged_rounds(task_dir, name, current):
+    """The texts of the rounds of `name` (plan-review.md or scope-review.md) in the current revision, oldest first:
+    the archived copies made after the latest revision or profile-change archive, one per `Run:` (a later copy
+    replaces an earlier one), then `current`, the text of the file itself."""
+    folders = sorted(p for p in Path(task_dir).glob('archive/*') if p.is_dir())
+    cut = max((i for i, p in enumerate(folders) if REVISION_ARCHIVE.search(p.name)), default=-1)
+    runs = {}
+    for i, text in enumerate([_read_text(p / name) for p in folders[cut + 1:]] + [current]):
+        if text is not None and text.strip():
+            run = run_number(text)
+            runs[('none', i) if run is None else ('run', run)] = text
+    if current is None:
+        return []
+    now = run_number(current)
+    older = [text for (kind, n), text in sorted(runs.items(), key=lambda kv: (kv[0][0] == 'none', kv[0][1]))
+             if text != current and (kind == 'none' or now is None or n < now)]
+    return older + [current]
+
+
+def judged_state(task_dir, name, current, pairs=()):
+    """(totals, open findings of the latest round) of plan-review.md or scope-review.md over the rounds of the current
+    revision, in the shape of `review_state`. A finding with the severity and place of one in an earlier round is the
+    same finding listed again and is counted once; open is what the latest round leaves open (`judged_counts`, with
+    the `fix` lines of that round only), so a finding of an earlier round counts as fixed."""
+    rounds = judged_rounds(task_dir, name, current)
+    found = {sev: 0 for sev in SEVERITIES}
+    seen = set()
+    for text in rounds:
+        this = [(f[0], f[1]) for f in review_findings(text)]
+        for key in this:
+            found[key[0]] += key not in seen
+        seen |= set(this)
+    _found, _fixed, open_items = judged_counts(current, pairs_of_round(pairs))
+    totals = {}
+    for sev in SEVERITIES:
+        n_open = min(found[sev], sum(1 for f in open_items if f[0] == sev))
+        totals[sev] = {'found': found[sev], 'fixed': found[sev] - n_open, 'open': n_open}
+    totals['rounds'] = len(rounds)
+    return totals, open_items

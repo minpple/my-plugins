@@ -7,7 +7,8 @@ Makes `<task folder>/archive/<yymmdd-HHMMSS>-<NAME>/` (the time comes from the c
 already exists gets `-b`, `-c` … appended), copies into it and compares every copied file byte for byte with its
 source. Without --only it copies the whole task folder except `archive/` (the "Archive" of recorder.md, for
 `rev<N>-draft`, `rev<N>`, `rev<N>-profile`); with --only it copies the named files of the task folder that exist
-(Back to Execute: `--name run<N> --only verify.md review.md changed-files.md`). File times are kept, as `cp -p` does.
+(Back to Execute and a Review-only rerun: `--name run<N> --only verify.md review.md changed-files.md`; a Scope Review
+`REVISE`: `--name scope-run<N> --only scope-review.md`). File times are kept, as `cp -p` does.
 Prints one line, the folder relative to the task folder (`archive/261116-002752-rev0-draft`), which is the value of
 `archive=` on the run-log line.
 exit: 0 copied and equal; 1 nothing to archive (no named file exists), the folder is not written; 2 bad arguments

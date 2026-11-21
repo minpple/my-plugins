@@ -197,8 +197,10 @@ def _plan_reviews(task_dir, lines):
         return None
     pairs = [(l.kind, l.f) for l in lines]
     out = []
-    for parsed, text in sorted(runs.values(), key=lambda r: (r[0]['run'] is None, r[0]['run'] or 0)):
-        found, fixed, _open = ma_schema.judged_counts(text, pairs)
+    ordered = sorted(runs.values(), key=lambda r: (r[0]['run'] is None, r[0]['run'] or 0))
+    for parsed, text in ordered:
+        # the latest run takes only the `fix` lines written after its plan-reviewer call (as findings.py does)
+        found, fixed, _open = ma_schema.judged_counts(text, ma_schema.pairs_of_round(pairs) if text is ordered[-1][1] else pairs)
         out.append({'run': parsed['run'], 'verdict': parsed['verdict'], 'blockers': parsed['blockers'],
                     'should_fix': parsed['should_fix'], 'nitpicks': parsed['nitpicks'], 'found': found, 'fixed': fixed})
     return out

@@ -3,11 +3,12 @@
 
 usage: findings.py --task TASK_FOLDER --file review|plan-review|scope-review
 
-Prints `findings: <file name>` (review adds ` (<n> round[s])`), the table `| Severity | Found | Fixed | Open |`, the line
+Prints `findings: <file name> (<n> round[s])`, the table `| Severity | Found | Fixed | Open |`, the line
 `BLOCKER <n> · SHOULD-FIX <n> · NITPICK <n> (open)` and the open items (`- <severity> <where> <text>`, or `- none`).
 review: the counts of the Report tab (all rounds, `Applied after review` lines and Review `fix` lines of the run-log).
-plan-review, scope-review: the findings of the current file; fixed = `applied` in `## Decisions` (plan-review also a
-run-log `fix … before=G1b` line); a declined finding stays open.
+plan-review, scope-review: all rounds of the current revision (the archived copies, one per `Run:`, then the file).
+Open is what the latest round leaves open: not `applied` in `## Decisions` and (plan-review) not named by a run-log
+`fix … before=G1b` line written after the latest plan-reviewer call; a declined finding stays open. Fixed is the rest.
 A plan-review.md that starts with `SKIPPED <reason>` prints `findings: skipped (<reason>)`.
 review also fails when review.md is older than the latest `start:` line of the reviewer in the run-log: the reviewer
 returned its judgment without writing the file, so the file is an earlier run's.
@@ -53,6 +54,15 @@ def first_line(text):
     return next((l.strip() for l in text.splitlines() if l.strip()), '')
 
 
+def header(name, totals):
+    rounds = totals['rounds']
+    return f'findings: {name} ({rounds} round{"" if rounds == 1 else "s"})'
+
+
+def tally(totals):
+    return {sev: (totals[sev]['found'], totals[sev]['fixed'], totals[sev]['open']) for sev in ma_schema.SEVERITIES}
+
+
 def output(header, counts, open_items):
     """`counts` is {severity: (found, fixed, open)}; `open_items` are (severity, where, text, mark)."""
     out = [header, '| Severity | Found | Fixed | Open |', '|---|---|---|---|']
@@ -84,18 +94,15 @@ def main(argv=None):
         if call and path.stat().st_mtime < call[1]:
             return fail(f'{path} is older than the latest reviewer call ({call[0]}): the reviewer wrote no file')
         totals, open_items = ma_schema.review_state(task, text, ma_logline.read(task / 'run-log.md'))
-        counts = {sev: (totals[sev]['found'], totals[sev]['fixed'], totals[sev]['open']) for sev in ma_schema.SEVERITIES}
-        rounds = totals['rounds']
-        return output(f'findings: {name} ({rounds} round{"" if rounds == 1 else "s"})', counts, open_items)
+        return output(header(name, totals), tally(totals), open_items)
     if args.file == 'plan-review' and ma_schema.plan_review_skipped(first):
         print(f'findings: skipped ({first[len(ma_schema.PLAN_SKIPPED):].strip()})')
         return 0
     if not first.startswith(VERDICTS[args.file]):
         return fail(f'{path} has no verdict line ({" or ".join(VERDICTS[args.file])})')
     pairs = ma_logline.read(task / 'run-log.md') if args.file == 'plan-review' else []
-    found, fixed, open_items = ma_schema.judged_counts(text, pairs)
-    counts = {sev: (found[sev], fixed[sev], found[sev] - fixed[sev]) for sev in ma_schema.SEVERITIES}
-    return output(f'findings: {name}', counts, open_items)
+    totals, open_items = ma_schema.judged_state(task, name, text, pairs)
+    return output(header(name, totals), tally(totals), open_items)
 
 
 if __name__ == '__main__':
