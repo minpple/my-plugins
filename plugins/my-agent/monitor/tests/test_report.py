@@ -251,9 +251,13 @@ class ReportTest(unittest.TestCase):
             log.write_text(log.read_text(encoding='utf-8') +
                            '2026-11-05 10:40:00 fix: what="Plan Review NITPICK plan.md:50 heading" files=plan.md before=G1b\n', encoding='utf-8')
             counts, _opens = self.findings(task, 'plan-review')
-            entry = report.build_report(PROJECT, task, info, [])['plan_review'][-1]
-        self.assertEqual({s: c[:2] for s, c in counts.items()}, {s: (entry['found'][s], entry['fixed'][s]) for s in ma_schema.SEVERITIES})
-        self.assertEqual((counts['SHOULD-FIX'][:2], counts['NITPICK'][:2]), ((1, 1), (1, 1)))
+            runs = report.build_report(PROJECT, task, info, [])['plan_review']
+        # findings.py counts every run: found is the sum over the runs, open is what the latest run leaves open
+        self.assertGreater(len(runs), 1)
+        self.assertEqual({s: c[0] for s, c in counts.items()}, {s: sum(r['found'][s] for r in runs) for s in ma_schema.SEVERITIES})
+        self.assertEqual({s: c[2] for s, c in counts.items()},
+                         {s: runs[-1]['found'][s] - runs[-1]['fixed'][s] for s in ma_schema.SEVERITIES})
+        self.assertEqual((runs[-1]['found']['SHOULD-FIX'], runs[-1]['fixed']['SHOULD-FIX'], counts['NITPICK']), (1, 1, (1, 1, 0)))
         counts, opens = self.findings(PROJECT / 'docs' / 'agent' / ROUNDS, 'plan-review')   # without the fix line: the nitpick is declined
         self.assertEqual((counts['NITPICK'], opens), ((1, 0, 1), ['NITPICK plan.md:50 A heading could be shorter.']))
 

@@ -95,14 +95,54 @@ class FindingsTest(unittest.TestCase):
         self.put('scope-review.md', body.format(v='READY FOR CONFIRMATION'))
         r = self.run_f('scope-review')
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout, 'findings: scope-review.md\n' + table([(0, 0, 0), (2, 1, 1), (1, 0, 1)]) +
+        self.assertEqual(r.stdout, 'findings: scope-review.md (1 round)\n' + table([(0, 0, 0), (2, 1, 1), (1, 0, 1)]) +
                          'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 1 (open)\n- SHOULD-FIX plan.md:20 two\n- NITPICK plan.md:30 three\n')
         self.put('plan-review.md', body.format(v='READY FOR APPROVAL'))
         self.put('run-log.md', '2026-11-20 10:00:00 fix: what="Plan Review NITPICK plan.md:30 three" files=plan.md before=G1b\n')
         r = self.run_f('plan-review')
-        self.assertEqual(r.stdout, 'findings: plan-review.md\n' + table([(0, 0, 0), (2, 1, 1), (1, 1, 0)]) +
+        self.assertEqual(r.stdout, 'findings: plan-review.md (1 round)\n' + table([(0, 0, 0), (2, 1, 1), (1, 1, 0)]) +
                          'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 0 (open)\n- SHOULD-FIX plan.md:20 two\n')
         self.assertIn('| NITPICK | 1 | 0 | 1 |', self.run_f('scope-review').stdout)   # the run-log fix is plan-review only
+
+    def test_plan_review_rounds(self):
+        """A second round counts the first: its findings are found and fixed; open is what the latest round leaves."""
+        self.put('archive/261120-100000-rev0-draft/plan-review.md',
+                 'REVISE\nRun: 1\n\n## Findings\n- BLOCKER plan.md:41 no unit\n- SHOULD-FIX plan.md:50 vague\n\n## Decisions\n')
+        self.put('archive/261120-100500-rev0-draft/plan-review.md',   # the same run archived again: counted once
+                 'REVISE\nRun: 1\n\n## Findings\n- BLOCKER plan.md:41 no unit\n- SHOULD-FIX plan.md:50 vague\n\n## Decisions\n'
+                 '- BLOCKER plan.md:41 no unit → applied by architect\n')
+        self.put('plan-review.md', 'READY FOR APPROVAL\nRun: 2\n\n## Findings\n- SHOULD-FIX plan.md:50 vague\n'
+                                   '- NITPICK plan.md:41 wording\n- NITPICK plan.md:60 typo\n\n## Decisions\n')
+        fix = '2026-11-20 10:0{m}:00 fix: what="Plan Review NITPICK plan.md:{line} x" files=plan.md before=G1b\n'
+        start = '2026-11-20 10:05:00 start: agent=my-agent:plan-reviewer id=p{n}\n'
+        # the fix line of round 1 names plan.md:41, where round 2 has another finding: it does not fix that one
+        self.put('run-log.md', start.format(n=1) + fix.format(m=1, line=41) + start.format(n=2) + fix.format(m=7, line=60))
+        r = self.run_f('plan-review')
+        self.assertEqual(r.stdout, 'findings: plan-review.md (2 rounds)\n' + table([(1, 1, 0), (1, 0, 1), (2, 1, 1)]) +
+                         'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 1 (open)\n- SHOULD-FIX plan.md:50 vague\n- NITPICK plan.md:41 wording\n')
+
+    def test_scope_review_rounds_and_revision_cut(self):
+        self.put('archive/261120-090000-scope-run1/scope-review.md', 'REVISE\nRun: 1\n\n## Findings\n- BLOCKER scope.md:5 old revision\n')
+        self.put('archive/261120-093000-rev1/scope-review.md', 'READY FOR CONFIRMATION\nRun: 2\n\n## Findings\n- NITPICK scope.md:9 old\n')
+        self.put('archive/261120-100000-scope-run1/scope-review.md',
+                 'REVISE\nRun: 1\n\n## Findings\n- BLOCKER scope.md:12 no measure\n- BLOCKER scope.md:14 no user\n')
+        self.put('scope-review.md', 'READY FOR CONFIRMATION\nRun: 2\n\n## Findings\n- NITPICK scope.md:20 term\n\n'
+                                    '## Decisions\n- NITPICK scope.md:20 term → applied by L1\n')
+        r = self.run_f('scope-review')   # the rounds before the `-rev1` archive belong to the revision before
+        self.assertEqual(r.stdout, 'findings: scope-review.md (2 rounds)\n' + table([(2, 2, 0), (0, 0, 0), (1, 1, 0)]) +
+                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 0 (open)\n- none\n')
+
+    def test_review_fix_line_before_the_latest_reviewer_call(self):
+        """A Review `fix` line written before the latest reviewer call fixed the round before, not a finding of this one."""
+        self.put('archive/261120-101500-run1/review.md', 'BLOCKER 1\n\n## Findings\n- BLOCKER a.py:3 null\n')
+        self.put('review.md', 'BLOCKER 0\n\n## Findings\n- NITPICK a.py:9 name (new)\n')
+        self.put('run-log.md', STEP8 + '2026-11-20 10:10:00 fix: what="null check a.py" files=a.py\n'
+                               '2026-11-20 10:20:00 start: agent=my-agent:reviewer id=r2\n')
+        now = time.time() + 5
+        os.utime(self.task / 'review.md', (now, now))
+        r = self.run_f()
+        self.assertEqual(r.stdout, 'findings: review.md (2 rounds)\n' + table([(1, 1, 0), (0, 0, 0), (1, 0, 1)]) +
+                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 1 (open)\n- NITPICK a.py:9 name\n')
 
     def test_skipped_plan_review(self):
         self.put('plan-review.md', 'SKIPPED small task\n')
