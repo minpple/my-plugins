@@ -1,5 +1,24 @@
 # Features
 
+## Shorter L2 agent definitions
+- Purpose: The six L2 agent definitions (architect, plan-reviewer, scope-reviewer, verifier, reviewer, gate-analyst) are shorter and state each rule once, so each subagent call costs fewer tokens while every task step has the same outcome; a rule-by-rule record shows nothing was lost. Used by the maintainer of my-agent and by the subagents that read a definition on every call.
+- Where: plugins/my-agent/l2-design-judge/agents/, plugins/my-agent/codex/agents/, plugins/my-agent/antigravity/agents/, plugins/my-agent/docs/build-guide/my-agent-architecture.md (4.5 "Layout of the L2 definitions", status entry v0.71), plugins/my-agent/tests/test_agents.py, plugins/my-agent/tests/test_profiles.py, plugins/my-agent/tests/test_arch_doc.py, plugins/my-agent/maintenance-notes.md
+- Tasks: 261122-reduce-agent-prompt-size
+- Updated: 2026-11-22
+
+1. A table gives the characters before (990e2f1) and after for each of the ten definitions and the skill file, with tokens at 2.6 characters per token and the saving per file and in total; unedited files show as unchanged [check: file] → task folder `work/size-record.md:7-21` (L2 total 42,922 → 41,962, saved 960, 2.2%; all eleven 71,666 → 70,706, 1.3%); equals `work/size-check.py` output
+2. The record lists every removed or merged rule and every dropped reason next to the place that still states it or the code that enforces it; the no-tag exemption is listed with its reason [check: file] → `work/size-record.md:35-62` (26 rows); `ma_schema.py:441-460`, `plan-lint.py:31-33`, `plan-approved-check.py:97-106`
+3. In the architect definition no bullet among the listed places (work units and their label, result-path and coder-file sub-bullets, models, existing work, dev test notation, dev worktree, general combining writer unit) states more than one rule [check: file] → `architect.md:38-51, :60-70, :79-81, :98-105`; record rows 6-12, 17, 18
+4. The plan-reviewer definition no longer restates the three format rules the plan lint and the G1b approval hook enforce (check tag on every criterion, criterion mark in a dev unit, no coder file in the task records folder), and drops the no-tag exemption; the plan's-copy tag check, the coverage judgment, the General check commands and the other format rules stay [check: file] → `plan-reviewer.md:48-53, :78-81`; `ma_schema.py:445-460`
+5. The architecture document says the lint and the approval hook enforce the three format rules and that plan-reviewer judges only what code cannot [check: file] → my-agent-architecture.md:317, :503, :243, :1773, :1783
+6. A rule repeated from the common part or the same in all three profiles is stated once in each L2 definition; a rule shared by two profiles stays in both unless stated in a form limited to those two; each definition keeps its three profile sections; the per-profile saving is reported [check: file] → `size-record.md:9-20` (L2 per-profile sections saved 714 characters, 6.3%); `test_judges_cover_every_profile`
+7. No edited definition is longer than before and the six L2 definitions together are shorter [check: command] → `python3 .my-agent/261122-reduce-agent-prompt-size/work/size-check.py` exit 0
+8. A test changed only when it pinned wording of a removed restatement or the newest status entry; the record lists each changed test [check: file] → `test_agents.py:262-269, :335-344`; `test_profiles.py:107`; `test_arch_doc.py:169-172` (pins v0.71 / 0.25.1); `size-record.md:68-73`
+9. The four suites pass [check: command] → plugin Ran 1244, monitor Ran 328, root Ran 110, tray Ran 69 tests OK
+10. The Codex and Antigravity builds and the architecture page pass their checks [check: command] → `build-codex.py --check` and `build-antigravity.py --check` exit 0; `tools/build-docs.py --check` up to date
+11. my-agent is 0.25.1 in the three manifests and both README rows [check: command] → `grep -n '"version"'` (0.25.1 three times), README.md:9, README-ko.md:9
+12. The maintenance notes have a dated entry and the architecture document has the status entry and the layout description (common rules once, per-profile sections only the differences) [check: file] → maintenance-notes.md:116; my-agent-architecture.md:4, :479
+
 ## Settled and stand-alone popups
 - Purpose: Fewer needless popups after Intake and popups that can be answered from the popup alone, with a G3 recommendation that matches the open review items. Used by the person who answers the questions of a my-agent task.
 - Where: plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/l1-orchestration/new-task.md, plugins/my-agent/l1-orchestration/gates.md, plugins/my-agent/l1-orchestration/phases/define.md, plugins/my-agent/l1-orchestration/profiles/research.md, plugins/my-agent/l1-orchestration/recorder.md, plugins/my-agent/l4-tools-guards/scripts/intake.py, plugins/my-agent/docs/build-guide/my-agent-architecture.md (278-281)

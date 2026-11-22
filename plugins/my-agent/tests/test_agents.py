@@ -264,8 +264,9 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('it carries each criterion\'s check tag (`[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`) unchanged', arch)
         rev = (REPO / 'l2-design-judge' / 'agents' / 'plan-reviewer.md').read_text(encoding='utf-8')
         self.assertIn('**Check tags:**', rev)
-        self.assertIn('a missing tag or a value other than the four is a BLOCKER', rev)
-        self.assertIn('carry no tag at all', rev)
+        self.assertIn("the plan's own copy of the criteria carries each criterion's check tag unchanged", rev)
+        self.assertNotIn('a missing tag or a value other than the four is a BLOCKER', rev)  # enforced by ma_schema.plan_gaps
+        self.assertNotIn('carry no tag at all', rev)  # the code has no such exemption
 
     def _agent(self, name):
         for rel in MANIFEST:
@@ -336,8 +337,8 @@ class AgentsTest(unittest.TestCase):
         p = self._agent('plan-reviewer')
         dev = p.split('### Dev (dev)')[1].split('## When done')[0]
         self.assertIn('**Test coverage:**', dev)
-        self.assertIn('every `[check: command]` criterion has at least one test to add tagged with its number', dev)
         self.assertIn('A criterion with neither is a BLOCKER', dev)
+        self.assertNotIn('tagged with its number, in a unit that carries that criterion', dev)  # the lint's mark check
         self.assertIn('every exception case in the scope has a test to add tagged with it', dev)
         self.assertIn('An existing test that asserts behavior the plan changes', dev)
         self.assertEqual(dev.split('**Test coverage:**')[1].split('**Worktree:**')[0].count('SHOULD-FIX'), 3)

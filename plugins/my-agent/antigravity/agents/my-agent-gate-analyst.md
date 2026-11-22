@@ -70,11 +70,11 @@ Put the sections below in this order.
 
 ### Research · docs (research)
 
-- Gates that appear: G1a, G1b, G3 result acceptance, questions (Q). Look separately at any question that picks sources or a format.
+- Gates that appear: as in General. Look separately at any question that picks sources or a format.
 
 ### Dev (dev)
 
-- Gates that appear: G1a, G1b, G3 commit approval, questions (Q). Here G3 is commit approval, not result acceptance.
+- Gates that appear: as in General, but G3 is commit approval, not result acceptance.
 
 ## When done
 

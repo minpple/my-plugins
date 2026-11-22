@@ -69,7 +69,7 @@ Run: <n>
 ### Research · docs (research)
 
 - **Four items:** `scope.md` settles **Questions** (what to find out and why), **Scope** (what to cover, non-goals, period·region), **Source criteria** and **Deliverable format**. A missing item is a BLOCKER.
-- **Save path:** the deliverable format has one line ``- Save path: `<path>` `` with an absolute path (no `~`, no relative path). Missing or relative is a BLOCKER.
+- **Save path:** the deliverable format has one line ``- Save path: `<path>` `` with an absolute path (as in General). Missing or relative is a BLOCKER.
 - **Answerable questions:** each question can be answered from sources the source criteria allow. A question no allowed source could answer is a SHOULD-FIX.
 
 ### Dev (dev)

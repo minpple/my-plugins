@@ -168,7 +168,8 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.70 (2026-11-22, plugin 0.25.0:'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.71 (2026-11-22, plugin 0.25.1:'), line[:90])
+        self.assertIn('v0.70 (2026-11-22, plugin 0.25.0:', line)
         self.assertIn('v0.69 (2026-11-22, plugin 0.24.0:', line)
         self.assertIn('v0.68 (2026-11-22, plugin 0.23.2:', line)
         self.assertIn('v0.67 (2026-11-22, plugin 0.23.1: Phase timeline return marks and the duration fix', line)

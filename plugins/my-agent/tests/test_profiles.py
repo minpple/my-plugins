@@ -104,7 +104,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('G3 Rework: the shortfalls named, with criterion numbers>"', accept)
         self.assertIn('After the Write, Read `review.md` once', read('l2-design-judge', 'agents', 'reviewer.md'))
         self.assertIn('never under `<task_dir>/`', read('l2-design-judge', 'agents', 'architect.md'))
-        self.assertIn('none under `<task_dir>/`', read('l2-design-judge', 'agents', 'plan-reviewer.md'))
+        self.assertNotIn('none under `<task_dir>/`', read('l2-design-judge', 'agents', 'plan-reviewer.md'))  # plan_gaps enforces it
         explorer = read('l3-workers', 'agents', 'explorer.md')
         self.assertIn('  - <project or target>: pass | fail: <failing tests> | cannot run: <reason>', explorer)
         self.assertIn('several named projects or targets', explorer)

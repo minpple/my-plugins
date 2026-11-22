@@ -50,7 +50,7 @@ BLOCKER <n>
 
 - Result summary and quality: completeness (blanks, TODOs), consistency (terms, numbers), format (the form the `## Mock-up` in `plan.md` shows), typos.
 - A fact the deliverable takes from a researcher note under `work/` says the same as the note. A fact that differs from its note, or a web fact with no note behind it, is a SHOULD-FIX.
-- Code changed in place (the map rows outside `work/` and `deliverable/`) gets the dev section's code review. Its check commands are cited from `verify.md` `## Commands run`; a check command the plan names with no line there is a BLOCKER.
+- Code changed in place (the map rows outside `work/` and `deliverable/`) gets the dev section's code review. A check command the plan names with no line in `verify.md` `## Commands run` is a BLOCKER.
 
 ### Research · docs (research)
 
