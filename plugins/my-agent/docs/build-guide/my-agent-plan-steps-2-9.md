@@ -165,7 +165,7 @@
 
   | name | model | effort | tools | maxTurns |
   |---|---|---|---|---|
-  | architect | opus | high | `Read, Grep, Glob, Write` | — |
+  | architect | opus | high | `Read, Grep, Glob, Edit, Write` | — |
   | plan-reviewer | sonnet | high | `Read, Grep, Glob, Write` | — |
   | verifier | opus | high | `Read, Grep, Glob, Bash, WebFetch, Write` | — |
   | reviewer | sonnet | high | `Read, Grep, Glob, Bash, Write` | — |

@@ -29,6 +29,10 @@
 - A size cut of an agent definition never drops a rule: a rule is moved, merged with an identical one or reworded shorter with the same meaning, and a reason is dropped only when the agent's action stays the same; each cut is listed in a record next to the place or code that still states it (261122-reduce-agent-prompt-size)
 - Each L2 definition keeps a General, a Research and a Dev section, and the headings, profile headings and verdict lines that tests, scripts and the architecture page generator read stay as they are (261122-reduce-agent-prompt-size)
 
+- Only the architect gets the Edit tool and the scope-guard refusal for unresolvable plan changes applies to the architect's plan file only; other L2 agents, L3 agents and L1 are judged as before, and a Write of the whole plan is judged as before (261122-architect-edit-tool)
+- Who changes the plan does not change: a small change before approval is an L1 edit (2 task files or fewer, about 10 lines), anything else goes back to the architect; only L1 writes the approval line and the `Prototype: requested` line, and the `## Revisions` lines stay as they are (261122-architect-edit-tool)
+- The architect definition stays at or under 10,981 decoded characters, pinned by `test_architect_edit_rule_and_size` (261122-architect-edit-tool)
+
 ## Non-goals
 - The four L3 definitions, the skill file and the L1 orchestration files are measured but not edited for size, and the survey's /compact advice is not adopted (261122-reduce-agent-prompt-size)
 - The agent installers for Codex and Antigravity (`--install-agents`) are not run by a task; the person is told to run them (261122-reduce-agent-prompt-size)
@@ -47,8 +51,10 @@
 - Notes are not used for the blueprint update or the retrospective (261117-notepads-learnings-handoff)
 - The repository does not name other tools or their features (261117-notepads-learnings-handoff)
 - The write guard does not judge the contents of a script file that an interpreter runs; only inline code on the command line or in a heredoc is read, and the design document and the guard's description state the limit (261122-triage-open-feedback)
+- The guard does not work out the text after an Antigravity `multi_replace_file_content` call from its parts; the call is refused instead (261122-architect-edit-tool)
 
 ## Decisions
+- scope-guard refuses an architect change to its own plan file when it cannot work out the text after the change (no replacement text reaches the guard, empty text, text not in the file exactly as given, or in the file more than once without `replace_all` being exactly true); the architect changes an existing plan with Edit and writes with Write only the first draft or a full rewrite; the person chose version 0.25.2 at Scope; architecture 4.12 (261122-architect-edit-tool)
 - Handoff between work units: L1 stores the notes part of the coder final report in the single file `coder-notes.md` in the task folder and passes its path only to later coder calls. Alternatives not taken: the coder writing the file itself (conflicts with the write guard, and a worktree coder cannot write to the task folder), one notes file per unit — architecture document Q31 (261117-notepads-learnings-handoff)
 - Notes are written and read during the task. This differs from the blueprint and the retrospective, which are written after the task ends (261117-notepads-learnings-handoff)
 - The notes part is stored up to 10 lines not counting blank lines; beyond that, the first 10 lines and one truncation line are stored. Notes are treated as data, and the plan wins when it conflicts with a note (261117-notepads-learnings-handoff)
@@ -58,7 +64,7 @@
 - Text that arrives already formatted (the log item `step 5 · Execute`, the gate-tally steps cell) is converted on the web page only (`stepTx`, `stepsText`); `events.py`, `report.py`, `ma_gate_report.py` and the gate-tally files stay numeric — chosen at Plan Review (261120-tray-step-letters)
 - The feature pages' walkthrough nodes keep the phase digit (two nodes per phase show the same digit); only the phase and step sentence uses the letters — chosen at Plan Review (261120-tray-step-letters)
 - Rule-file excerpts and the design-doc flow text on the architecture page stay numeric, so a card can read `Step 3A · 5. Execute` — they are rule and design text (261120-tray-step-letters)
-- Every plugin version raise adds a new entry at the start of the architecture document status line, and `test_arch_doc` pins it (now `v0.70`, plugin 0.25.0) — Scope change at Execute (261120-tray-step-letters)
+- Every plugin version raise adds a new entry at the start of the architecture document status line, and `test_arch_doc` pins it (now `v0.72`, plugin 0.25.2) — Scope change at Execute (261120-tray-step-letters)
 - Under delegated approval L1 answers G3: `Rework: fix all open items` while a SHOULD-FIX or NITPICK item is open, the take choice when none is; the G3 fix loop is capped at 3 rounds, then E — the person chose 3 at Scope; architecture document Q39 (261120-g3-findings-auto)
 - An open risk at G3 does not stop L1's take under delegated approval; L1 lists the open risks in the chat — the person chose this at Scope (261120-g3-findings-auto)
 - The monitor's `autostart` is off by default: only JSON `true` starts it at task start or resume and at the tray app's start; the monitor skill and Open Monitor always start it; broken JSON or any other value counts as no value — architecture document Q40 (261120-g3-findings-auto)

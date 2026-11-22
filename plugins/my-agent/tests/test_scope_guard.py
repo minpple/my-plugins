@@ -152,7 +152,7 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertFalse(self.denied('my-agent:verifier', 'Write', {'file_path': str(self.T / 'verify.md')}))
         self.assertTrue(self.denied('my-agent:verifier', 'Write', {'file_path': str(self.T / 'review.md')}))
         self.assertFalse(self.denied('my-agent:reviewer', 'Write', {'file_path': str(self.T / 'review.md')}))
-        self.assertFalse(self.denied('my-agent:architect', 'Write', {'file_path': str(self.T / 'plan.md')}))
+        self.assertFalse(self.denied('my-agent:architect', 'Write', {'file_path': str(self.T / 'plan.md'), 'content': 'x'}))
         self.assertTrue(self.denied('my-agent:architect', 'Write', {'file_path': str(self.L / 'src/a.py')}))
         self.assertFalse(self.denied('my-agent:plan-reviewer', 'Write', {'file_path': str(self.T / 'plan-review.md')}))
         self.assertFalse(self.denied('my-agent:scope-reviewer', 'Write', {'file_path': str(self.T / 'scope-review.md')}))
@@ -425,9 +425,92 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertFalse(write('# Plan v2\n\nPrototype: requested\n\n## Prototype\n\nneeded\n\n## Approval\n'))
         plan.write_text('# Plan\n\n## Prototype\n\nPrototype: requested\n\n## Approval\n')
         self.assertFalse(write('# Plan v2\n\n## Prototype\n\nPrototype: requested\n\n## Approval\n'))
-        self.assertTrue(self.denied('my-agent:architect', 'Edit',
-                                    {'file_path': str(plan), 'old_string': '## Approval\n',
-                                     'new_string': '## Approval\n- Approved 2026-10-25 10:00 G1b\n'}))
+        self.assertEqual(self.why('my-agent:architect', 'Edit',
+                                  {'file_path': str(plan), 'old_string': '## Approval\n',
+                                   'new_string': '## Approval\n- Approved 2026-10-25 10:00 G1b\n'}),
+                         'scope-guard: Only L1 writes the approval line of plan.md (G1b).')
+        plan.write_text('# Plan\n\n## Prototype\n\nneeded\n\n## Approval\n')
+        self.assertEqual(self.why('my-agent:architect', 'Edit',
+                                  {'file_path': str(plan), 'old_string': 'needed\n',
+                                   'new_string': 'needed\nPrototype: requested\n'}),
+                         'scope-guard: Only L1 writes the `Prototype: requested` line of plan.md (G1b).')
+
+    def why(self, agent, tool, tool_input, **kw):
+        """The deny reason of a call, or None when it passes."""
+        r = self.hook(agent, tool, tool_input, **kw)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason'] if r.stdout else None
+
+    def edit(self, old, new, path=None, agent='my-agent:architect', **extra):
+        return self.why(agent, 'Edit', dict({'file_path': str(path or self.T / 'plan.md'), 'old_string': old,
+                                             'new_string': new}, **extra))
+
+    PLAN = '# Plan\n\n## Work units\n\n- Status: pending\n- Status: pending\n\n## Approval\n\n'
+
+    def test_architect_edit_own_plan_only(self):
+        (self.T / 'plan.md').write_text(self.PLAN)
+        self.assertIsNone(self.edit('## Work units', '## Work units\n'))
+        src, scope = self.L / 'src' / 'a.py', self.T / 'scope.md'
+        src.write_text('x\n')
+        scope.write_text('x\n')
+        for p in (src, scope):
+            with self.subTest(path=p.name):
+                self.assertIn('Outside the write scope of architect', self.edit('x', 'y', path=p))
+
+    def test_architect_edit_text_not_in_plan(self):
+        (self.T / 'plan.md').write_text(self.PLAN)
+        self.assertEqual(self.edit('## Work units:', '## Work units'),
+                         'scope-guard: Cannot work out plan.md after this change (the text to replace is not in plan.md '
+                         'exactly as given). Give the exact text to replace, or write the whole file with Write.')
+
+    def test_architect_edit_missing_plan(self):
+        self.assertFalse((self.T / 'plan.md').exists())
+        self.assertIn('not in plan.md exactly as given', self.edit('## Work units', 'x'))
+
+    def test_architect_edit_empty_old(self):
+        want = ('scope-guard: Cannot work out plan.md after this change (the text to replace is empty). '
+                'Give the exact text to replace, or write the whole file with Write.')
+        self.assertEqual(self.edit('', 'x'), want)
+        (self.T / 'plan.md').write_text(self.PLAN)
+        self.assertEqual(self.edit('', 'x'), want)
+
+    def test_architect_edit_ambiguous(self):
+        (self.T / 'plan.md').write_text(self.PLAN)
+        self.assertEqual(self.edit('- Status: pending', '- Status: done'),
+                         'scope-guard: Cannot work out plan.md after this change (the text to replace is in plan.md 2 '
+                         'times). Give a longer text that occurs once, or write the whole file with Write.')
+
+    def test_architect_edit_no_text_shape(self):
+        (self.T / 'plan.md').write_text(self.PLAN)
+        why = self.why('my-agent:architect', 'Edit', {'file_path': str(self.T / 'plan.md')})
+        self.assertEqual(why, 'scope-guard: Cannot work out plan.md after this change (no text to replace reaches the '
+                              'guard). Change one exact text with Edit, or write the whole file with Write.')
+        self.assertEqual(self.why('my-agent:architect', 'Edit', {'file_path': str(self.T / 'plan.md'),
+                                                                 'old_string': 'x', 'new_string': None}), why)
+
+    def test_architect_edit_same_text_allowed(self):
+        (self.T / 'plan.md').write_text(self.PLAN)
+        self.assertIsNone(self.edit('## Work units', '## Work units'))
+
+    def test_architect_edit_replace_all(self):
+        (self.T / 'plan.md').write_text(self.PLAN)
+        self.assertIsNone(self.edit('- Status: pending', '- Status: done', replace_all=True))
+        (self.T / 'plan.md').write_text('# Plan\n\n## Approval\n\n- todo\n- todo\n')
+        self.assertEqual(self.edit('- todo', '- Approved 2026-11-23 00:11 G1b', replace_all=True),
+                         'scope-guard: Only L1 writes the approval line of plan.md (G1b).')
+
+    def test_architect_edit_replace_all_only_true(self):
+        (self.T / 'plan.md').write_text(self.PLAN)
+        for value in ('false', 'true', 1, None):
+            self.assertEqual(self.edit('- Status: pending', '- Status: done', replace_all=value),
+                             'scope-guard: Cannot work out plan.md after this change (the text to replace is in plan.md 2 '
+                             'times). Give a longer text that occurs once, or write the whole file with Write.')
+
+    def test_plan_edit_by_other_roles_as_before(self):
+        (self.T / 'plan.md').write_text(self.PLAN)
+        self.assertIn('Outside the write scope of plan-reviewer', self.edit('nope', 'x', agent='my-agent:plan-reviewer'))
+        r = self.hook(None, 'Edit', {'file_path': str(self.T / 'plan.md'), 'old_string': 'nope', 'new_string': 'x'})
+        self.assertEqual((r.returncode, r.stdout), (0, ''))
 
     def test_architect_keeps_revisions(self):
         """A2: a rewrite after a revision must carry `## Revisions` over unchanged."""
@@ -441,6 +524,8 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertFalse(write(f'# Plan v2\n\n## Existing work\n\n| a | keep | b |\n\n## Approval\n\n## Revisions\n\n{rev}\n'))
         self.assertTrue(self.denied('my-agent:architect', 'Edit',
                                     {'file_path': str(plan), 'old_string': rev, 'new_string': ''}))
+        self.assertIn('## Revisions', self.why('my-agent:architect', 'Edit', {
+            'file_path': str(plan), 'old_string': 'criterion 3', 'new_string': 'criterion 4'}))
         plan.write_text('# Plan\n\n## Approval\n')
         self.assertFalse(write('# Plan v2\n\n## Approval\n'))
 

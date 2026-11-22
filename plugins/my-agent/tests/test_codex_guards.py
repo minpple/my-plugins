@@ -130,6 +130,55 @@ class ScopeGuardCodexTest(Base):
                                tool_input={'command': 'cat /etc/hosts'}))
         self.assertEqual((r.returncode, r.stdout), (0, ''))
 
+    PLAN = '# Plan\n\n## Work units\n\n- Status: pending\n\n## Models\n\nstandard\n'
+
+    def architect(self, *body):
+        (self.T / 'plan.md').write_text(self.PLAN, encoding='utf-8')
+        return self.scope(self.worker_file(patch(*body), agent='my-agent-architect'))
+
+    def test_architect_patch_own_plan_only(self):
+        plan = f'*** Update File: {self.T}/plan.md'
+        r = self.architect(plan, '@@', ' ## Work units', '-', '+- note')
+        self.assertEqual((r.returncode, r.stdout), (0, ''), r.stderr)
+        r = self.architect('*** Update File: src/a.py', '@@', '-a', '+b')
+        self.assertEqual((r.returncode, r.stdout), (2, ''))
+        self.assertIn('Outside the write scope of architect', r.stderr)
+
+    def test_architect_patch_delete_plan_denied(self):
+        r = self.architect(f'*** Delete File: {self.T}/plan.md')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('no text to replace reaches the guard', r.stderr)
+
+    def test_architect_patch_hunks(self):
+        plan = f'*** Update File: {self.T}/plan.md'
+        r = self.architect(plan, '@@', '-- Status: pending', '+- Status: done', '@@', '-standard', '+custom')
+        self.assertEqual((r.returncode, r.stdout), (0, ''), r.stderr)
+        r = self.architect(plan, '@@', '-- Status: pending', '+- Status: done', '@@', '-nowhere', '+custom')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('not in plan.md exactly as given', r.stderr)
+
+    def test_architect_patch_plan_and_other_file(self):
+        r = self.architect(f'*** Update File: {self.T}/plan.md', '@@', '-standard', '+custom',
+                           '*** Add File: src/x.txt', '+x')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('Outside the write scope of architect', r.stderr)
+
+    def test_architect_patch_move_denied(self):
+        r = self.architect(f'*** Update File: {self.T}/plan.md', f'*** Move to: {self.T}/plan2.md',
+                           '@@', '-standard', '+custom')
+        self.assertEqual(r.returncode, 2)
+
+    def test_architect_patch_insert_only_hunk_denied(self):
+        r = self.architect(f'*** Update File: {self.T}/plan.md', '@@', '+- added')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('the text to replace is empty', r.stderr)
+
+    def test_architect_patch_lenient_match_denied(self):
+        r = self.architect(f'*** Update File: {self.T}/plan.md', '@@', ' ## Models ', ' ', '-standard', '+custom')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('not in plan.md exactly as given', r.stderr)
+        self.assertIn('Write', r.stderr)
+
     def test_claude_active_with_codex_call_has_no_task_denies_like_claude(self):
         (self.L / '.my-agent' / '.active').unlink()
         r = self.scope(fixture('hook-pre-tool-use-worker-bash.json'))

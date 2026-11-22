@@ -21,7 +21,7 @@ MANIFEST = [
 ]
 TABLE = {   # name: (model, effort, tools, maxTurns)
     'scope-reviewer': ('sonnet', 'high', 'Read, Grep, Glob, Write', None),
-    'architect': ('opus', 'high', 'Read, Grep, Glob, Write', None),
+    'architect': ('opus', 'high', 'Read, Grep, Glob, Edit, Write', None),
     'plan-reviewer': ('sonnet', 'high', 'Read, Grep, Glob, Write', None),
     'verifier': ('opus', 'high', 'Read, Grep, Glob, Bash, WebFetch, Write', None),
     'reviewer': ('sonnet', 'high', 'Read, Grep, Glob, Bash, Write', None),
@@ -466,6 +466,26 @@ class AgentsTest(unittest.TestCase):
         """#66 (criterion 11)."""
         self.assertRuleLine(REPO / 'l2-design-judge' / 'agents' / 'architect.md',
                             'List a generated file under the work unit that changes its source.')
+
+    def test_architect_edit_rule_and_size(self):
+        """The architect has Edit and one rule line that says when to use Edit and when Write (criterion 5)."""
+        path = REPO / 'l2-design-judge' / 'agents' / 'architect.md'
+        text = path.read_text(encoding='utf-8')
+        self.assertLessEqual(len(text), 10981)
+        fm, body = split(path)
+        self.assertIn('Edit', fm['tools'].split(', '))
+        self.assertTrue(any('change an existing plan with Edit' in line and 'a full rewrite, yourself with Write' in line
+                            for line in body.splitlines()))
+
+    def test_architect_tools_match_docs(self):
+        """The architect's tools in 4.5 and in the plan-steps doc follow TABLE (criterion 6)."""
+        docs = REPO / 'docs' / 'build-guide'
+        arch = (docs / 'my-agent-architecture.md').read_text(encoding='utf-8')
+        row = next(l for l in arch.splitlines() if l.startswith('| L2 | `my-agent:architect`'))
+        self.assertIn(f"| {TABLE['architect'][2]} (its own plan file only) |", row)
+        steps = (docs / 'my-agent-plan-steps-2-9.md').read_text(encoding='utf-8')
+        row = next(l for l in steps.splitlines() if l.lstrip().startswith('| architect | opus |'))
+        self.assertIn(f"`{TABLE['architect'][2]}`", row)
 
 
 if __name__ == '__main__':

@@ -255,13 +255,29 @@ def check(inp: dict, role: str, active) -> Optional[str]:
 
 def plan_write_problem(ti: dict, path: Path) -> Optional[str]:
     """Deny reason when the architect's write would add L1's `Approved` or `Prototype: requested` line, or drop or
-    change a `## Revisions` line (the rewrite must carry that section over as it is, 4.8.1)."""
+    change a `## Revisions` line (the rewrite must carry that section over as it is, 4.8.1). An Edit is judged on the
+    text after the change; it is refused when the guard cannot work that text out: no text to replace reaches it, the
+    text is empty, is not in the file exactly as given (a missing file too), or is in it more than once without
+    `replace_all` (4.12 "The architect's plan edits")."""
     before = ma_plan.read(path)
     if 'content' in ti:
         after = ti['content']
     else:
-        old, new = ti.get('old_string', ''), ti.get('new_string', '')
-        after = before.replace(old, new) if ti.get('replace_all') else before.replace(old, new, 1)
+        old, new = ti.get('old_string'), ti.get('new_string')
+        cannot = 'Cannot work out plan.md after this change'
+        if not isinstance(old, str) or not isinstance(new, str):
+            return f'{cannot} (no text to replace reaches the guard). Change one exact text with Edit, or write the whole file with Write.'
+        if old == '':
+            return f'{cannot} (the text to replace is empty). Give the exact text to replace, or write the whole file with Write.'
+        every = ti.get('replace_all') is True
+        found = before.count(old)
+        if found == 0:
+            return (f'{cannot} (the text to replace is not in plan.md exactly as given). Give the exact text to replace, '
+                    'or write the whole file with Write.')
+        if found > 1 and not every:
+            return (f'{cannot} (the text to replace is in plan.md {found} times). Give a longer text that occurs once, '
+                    'or write the whole file with Write.')
+        after = before.replace(old, new) if every else before.replace(old, new, 1)
     for has, what in ((ma_plan.approved_text, 'approval line'), (ma_plan.prototype_text, '`Prototype: requested` line')):
         if has(after) and not has(before):
             return f'Only L1 writes the {what} of plan.md (G1b).'

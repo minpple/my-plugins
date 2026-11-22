@@ -256,6 +256,34 @@ class AntigravityHooksEndToEndTest(unittest.TestCase):
         self.assertEqual(out['decision'], 'deny')
         self.assertIn('Secret paths', out['reason'])
 
+    def architect_call(self, tool, args):
+        p = agy_payload('PreToolUse', tool, args, cwd=self.proj, agent_type='my-agent-architect', agent_id='sub-1')
+        r = run_hook('scope-guard.py', None, p, self.proj, env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return json.loads(r.stdout)
+
+    def test_scope_guard_architect_single_replace_tools(self):
+        plan = self.task / 'plan.md'
+        plan.write_text('# Plan\n\n## Work units\n', encoding='utf-8')
+        other = self.proj / 'src.py'
+        other.write_text('x\n', encoding='utf-8')
+        forms = (('replace_file_content', 'TargetFile', 'TargetContent', 'ReplacementContent'),
+                 ('edit_file', 'Path', 'Target', 'Replacement'))
+        for tool, path_key, old_key, new_key in forms:
+            with self.subTest(tool=tool):
+                out = self.architect_call(tool, {path_key: str(plan), old_key: '## Work units', new_key: '## Units'})
+                self.assertNotEqual(out['decision'], 'deny', out)
+                out = self.architect_call(tool, {path_key: str(other), old_key: 'x', new_key: 'y'})
+                self.assertEqual(out['decision'], 'deny')
+                self.assertIn('Outside the write scope', out['reason'])
+
+    def test_scope_guard_architect_multi_replace_denied(self):
+        plan = self.task / 'plan.md'
+        plan.write_text('# Plan\n\n## Work units\n', encoding='utf-8')
+        out = self.architect_call('multi_replace_file_content', {'TargetFile': str(plan), 'ReplacementChunks': []})
+        self.assertEqual(out['decision'], 'deny')
+        self.assertIn('Write', out['reason'])
+
     def test_plan_approved_check_denies_coder_and_asks_outside_write(self):
         coder_call = agy_payload('PreToolUse', 'invoke_subagent',
                                  {'TypeName': 'my-agent-coder', 'Prompt': 'code'}, cwd=self.proj)
