@@ -142,6 +142,37 @@ class ReportParsersTest(unittest.TestCase):
         self.assertEqual((ma_schema.review_blockers(None), ma_schema.review_findings(''), ma_schema.review_applied(None)),
                          (None, [], []))
 
+    def test_finding_applied_range_and_folder(self):
+        applied = ma_schema.finding_applied
+        rng = 'work/final.md:28-30'
+        self.assertTrue(applied(rng, ['fixed (work/final.md:29)']))
+        self.assertTrue(applied(rng, ['fixed (work/final.md)']))
+        self.assertTrue(applied(rng, ['fixed (work/final.md:28-30)']))
+        self.assertTrue(applied('/p/work/final.md:28-30', ['fixed (work/final.md:30)']))
+        self.assertFalse(applied(rng, ['fixed (work/final.md:31)']))
+        self.assertFalse(applied(rng, ['fixed (work/final.md:28-29)']))
+        self.assertFalse(applied(rng, ['fixed (work/other.md:29)']))
+        folder = 'tests/fixtures/x/'
+        self.assertTrue(applied(folder, ['fixed (tests/fixtures/x/a.json)']))
+        self.assertTrue(applied(folder, ['fixed (tests/fixtures/x)']))
+        self.assertTrue(applied(folder, ['fixed (tests/fixtures/x/)']))
+        self.assertTrue(applied('tests/fixtures/x', ['fixed (tests/fixtures/x/sub/b.json:4)']))
+        self.assertTrue(applied('/p/tests/fixtures/x', ['fixed (tests/fixtures/x/a.json)']))
+        self.assertFalse(applied(folder, ['fixed (tests/fixtures/y/a.json)']))
+        self.assertFalse(applied(folder, ['fixed (tests/fixtures/xy)']))
+        deep = 'plugins/my-agent/tests/'
+        self.assertFalse(applied(deep, ['fixed (tests/other.py)']))
+        self.assertFalse(applied(deep, ['fixed (plugins/other/tests/x.py)']))
+        self.assertTrue(applied(deep, ['fixed (plugins/my-agent/tests)']))
+        self.assertTrue(applied(deep, ['fixed (plugins/my-agent/tests/)']))
+        self.assertTrue(applied(deep, ['fixed (my-agent/tests/)']))
+        self.assertTrue(applied(deep, ['fixed (plugins/my-agent/tests/x.py:3)']))
+        self.assertTrue(applied(deep, ['fixed (my-agent/tests/x.py)']))
+        self.assertFalse(applied('general', ['fixed (work/final.md:29) and tests/fixtures/x/a.json']))
+        self.assertFalse(applied('general', ['fixed general']))
+        self.assertEqual(ma_schema.PATH_TOKEN.findall('see work/final.md:28-30 and tests/fixtures/x/ and docs/a'),
+                         ['work/final.md:28-30', 'tests/fixtures/x/', 'docs/a'])
+
     def test_plan_review(self):
         text = ('REVISE\nRun: 1\n\n## Findings\n- BLOCKER plan.md:1 a\n- SHOULD-FIX plan.md:2 b\n- SHOULD-FIX x c\n'
                 '- NITPICK y d\n\n## Run 1 resolution\n- R1 BLOCKER done\n')
@@ -168,6 +199,12 @@ class ReportParsersTest(unittest.TestCase):
                                     'files': ['P/a.md', 'P/b.py'], 'criteria': [1, 2, 4, 6, 7, 8]})
         self.assertEqual((units[1]['files'], units[1]['criteria'], units[1]['group']), (['P/c.py', 'P/d.py'], [3], None))
         self.assertEqual((ma_schema.unit_details(None), ma_schema.criterion_numbers(None)), ([], []))
+
+    def test_unit_details_nested_bullet_with_two_paths(self):
+        text = ('## Work units\n### u1 Docs\n- Files to change:\n  - `README.md` and `README-ko.md`: same row\n'
+                '  - `docs/a.md`, `docs/b.md`\n  - `docs/c.md`: new\n- Completion criteria: 1\n- Status: done\n## Approval\n')
+        self.assertEqual(ma_schema.unit_details(text)[0]['files'],
+                         ['README.md', 'README-ko.md', 'docs/a.md', 'docs/b.md', 'docs/c.md'])
 
     def test_background_purpose_labeled(self):
         text = ('# Scope\n\n## Purpose and users\n\nBackground: The export command writes one file per run\n'

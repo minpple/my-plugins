@@ -54,6 +54,7 @@ Run: <n>
 6. **Contradictions:** two criteria, or a criterion and a non-goal or constraint, that cannot both hold are a BLOCKER.
 7. **Blueprint:** the scope keeps every `Constraint`, `Non-goal` and `Decision` line under `## Blueprint` in `explore.md`. A criterion against one is a BLOCKER, unless the scope says that item changes (a criterion or a non-goal naming it). Without that section, or with `- none`, there is nothing to check.
 8. **Required sections:** `## Purpose and users` (a `Background:` paragraph, a `Purpose:` paragraph, then the users line), a numbered `## Completion criteria` (`1.`, `2.`) and an empty `## Confirmation`. If one is missing, BLOCKER.
+9. **After G3:** Flag a criterion only L1 can meet after G3 (the final save path, the blueprint update) as SHOULD-FIX.
 
 ## Checks per profile
 

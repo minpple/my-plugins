@@ -14,6 +14,7 @@ Write the document for the one work unit you are given: a draft, a synthesis not
 - Do not call other agents.
 - Before you write a negative claim (`none`, `only X`, `no other`), search the files it covers with Grep and cite the search (pattern and files) next to the claim.
 - Once `plan.md` has an `Approved` line, drop the `To confirm` lines copied from the plan's Mock-up and write the approved value.
+- Never invent a task ID: leave a line the passed files give no source for as it is, and name it in your report.
 - Do not add content that is not in the scope. Keep the sources of sourced claims as they are.
 - Write working files and reports in English; keep the headings and marker lines of the file formats as they are.
 - Write `work/` notes in English. Write the deliverable in the language of the request in `intake.md`, even when it sits under `work/`: the combined deliverable file, a document a single writer unit produces (no combining step), and `prototype/index.html`.

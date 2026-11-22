@@ -1,4 +1,5 @@
 """lib/ma_bash: which paths a Bash command writes, reads, or copies from (architecture 4.4 "what is blocked")."""
+import shlex
 import unittest
 from pathlib import Path
 
@@ -477,6 +478,394 @@ class ReadPathsNotFilesTest(unittest.TestCase):
                 ("cat /etc/hosts", [hosts])):
             with self.subTest(cmd=cmd):
                 self.assertEqual([str(p) for p in ma_bash.read_paths(cmd, cwd)], want)
+
+
+def Q(code):
+    return shlex.quote(code)
+
+
+def iw(cmd):
+    """interpreter_writes, checked to give what the inner reader gives: its catch-all must not hide a crash."""
+    got = ma_bash._interpreter_writes(cmd, CWD)
+    assert ma_bash.interpreter_writes(cmd, CWD) == got
+    return got
+
+
+class InterpreterWritesTest(unittest.TestCase):
+    """`interpreter_writes` reads the inline code of python, node, ruby and perl (architecture 4.12 "Inline interpreter
+    code"); only scope-guard calls it. A table row is (code, the files it writes under /p, or None)."""
+
+    def rows(self, head, table):
+        for code, names in table:
+            with self.subTest(code=code):
+                want = names if names is None else [P(n if n.startswith('/') else f'/p/{n}') for n in names]
+                self.assertEqual(iw(head + Q(code)), want)
+
+    def py(self, table):
+        self.rows('python3 -c ', table)
+
+    def node(self, table):
+        self.rows('node -e ', [("const fs = require('fs'); " + c, n) for c, n in table])
+
+    def rb(self, table):
+        self.rows('ruby -e ', table)
+
+    def pl(self, table):
+        self.rows('perl -e ', table)
+
+    def test_interpreter_inline_writes_table(self):
+        table = [
+            ('python3 -c ' + Q("open('o.txt','w')"), [P('/p/o.txt')]),
+            ('python3 -c ' + Q("open('o.txt',mode='a')"), [P('/p/o.txt')]),
+            ('python3 -c ' + Q("open('a.txt')"), []),
+            ('python3 -c ' + Q("open('a','rb')"), []),
+            ('python3 -c ' + Q("import json; json.load(open('a.json'))"), []),
+            ('python3 -c ' + Q("import os; os.remove('a'); os.rename('b','c')"), [P('/p/a'), P('/p/b'), P('/p/c')]),
+            ('python3 -c ' + Q("import shutil; shutil.rmtree('build')"), [P('/p/build')]),
+            ('python3 -c ' + Q("from pathlib import Path; Path('x.md').write_text('y')"), [P('/p/x.md')]),
+            ('python3 -c ' + Q("'a'.replace('a','b')"), []),
+            ('python3 -c ' + Q("print(1)"), []),
+            ('python3 -c ' + Q("open('/dev/null','w')"), []),
+            ('node -e ' + Q("require('fs').writeFileSync('o','x')"), [P('/p/o')]),
+            ('node -e ' + Q("console.log(1)"), []),
+            ('ruby -e ' + Q("File.write('o','x')"), [P('/p/o')]),
+            ('ruby -e ' + Q("FileUtils.rm_rf 'd'"), [P('/p/d')]),
+            ('ruby -e ' + Q('puts "File.write is a method"'), []),
+            ('perl -e ' + Q("open(my $f, '>', 'o')"), [P('/p/o')]),
+            ('perl -e ' + Q("open(F, '>>log.txt')"), [P('/p/log.txt')]),
+            ('perl -e ' + Q("open(F, '<', 'a')"), []),
+            ('perl -e ' + Q("unlink 'a'"), [P('/p/a')]),
+            ('perl -ne ' + Q("print if /open failed/"), []),
+            ('cd sub && python3 -c ' + Q("open('o','w')"), [P('/p/sub/o')]),
+            ('ls -la', []),
+        ]
+        for cmd, expected in table:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(iw(cmd), expected)
+
+    def test_interpreter_python_write_forms(self):
+        self.py([
+            ("open('o','w')", ['o']), ("open('o','a')", ['o']), ("open('o','x')", ['o']), ("open('o','r+')", ['o']),
+            ("open('o','wb')", ['o']), ("open('o',mode='w')", ['o']), ("open(file='o',mode='w')", ['o']),
+            ("open('o')", []), ("open('o','r')", []), ("open('o',mode='r')", []), ("open(p)", []),
+            ("with open('o','w') as f:\n    f.write('x')", ['o']),
+            ("open('/tmp/x','w')", ['/tmp/x']), ("open('~/x','w')", ['~/x']),
+            ("import io\nio.open('o','w')", ['o']),
+            ("import codecs\ncodecs.open('o','w','utf-8')", ['o']),
+            ("import os\nos.open('o', os.O_WRONLY)", ['o']), ("import os\nos.open('o', os.O_RDWR)", ['o']),
+            ("import os\nos.open('o', os.O_CREAT | os.O_APPEND)", ['o']),
+            ("import os\nos.open('o', os.O_TRUNC)", ['o']), ("import os\nos.open('o', os.O_RDONLY)", []),
+            ("import os\nos.open('o', f)", None),
+        ])
+        for name in ('remove', 'unlink', 'rmdir', 'removedirs', 'mkdir', 'makedirs', 'mkfifo'):
+            self.py([(f"import os\nos.{name}('a')", ['a'])])
+        self.py([
+            ("import os\nos.truncate('a', 0)", ['a']),
+            ("import os\nos.rename('a','b')", ['a', 'b']), ("import os\nos.renames('a','b')", ['a', 'b']),
+            ("import os\nos.replace('a','b')", ['a', 'b']),
+            ("import os\nos.symlink('a','b')", ['b']), ("import os\nos.link('a','b')", ['b']),
+        ])
+        for name in ('copy', 'copy2', 'copyfile', 'copytree'):
+            self.py([(f"import shutil\nshutil.{name}('a','b')", ['b'])])
+        self.py([
+            ("import shutil\nshutil.move('a','b')", ['a', 'b']), ("import shutil\nshutil.rmtree('a')", ['a']),
+        ])
+        head = 'from pathlib import Path\n'
+        for name, args in (('write_text', "'y'"), ('write_bytes', "b'y'"), ('touch', ''), ('mkdir', ''),
+                           ('unlink', ''), ('rmdir', ''), ('symlink_to', "'t'"), ('hardlink_to', "'t'")):
+            self.py([(f"{head}Path('x').{name}({args})", ['x'])])
+        self.py([
+            (head + "Path('x').rename('y')", ['x', 'y']), (head + "Path('x').replace('y')", ['x', 'y']),
+            (head + "Path('x').open('w')", ['x']), (head + "Path('x').open('rb')", []), (head + "Path('x').open()", []),
+            (head + "Path('x').read_text()", []), ("import pathlib\npathlib.Path('x').touch()", ['x']),
+            (head + "Path('a', 'b').touch()", ['a/b']),
+        ])
+
+    def test_interpreter_python_aliases_and_receivers(self):
+        self.py([
+            ("import os as o\no.remove('a')", ['a']), ("from os import remove\nremove('a')", ['a']),
+            ("from os import remove as rm\nrm('a')", ['a']), ("from pathlib import Path as P\nP('x').touch()", ['x']),
+            ("import shutil as sh\nsh.rmtree('a')", ['a']), ("from shutil import rmtree\nrmtree('a')", ['a']),
+            ("from os import *\nremove('a')", ['a']), ("from pathlib import *\nPath('x').touch()", ['x']),
+            ("import os.path\nos.remove('a')", ['a']),
+            ("p.touch()", None), ("x.write_text('y')", None),
+            ("from pathlib import Path\nPath('a').parent.mkdir()", None),
+            ("from pathlib import Path\nPath(p).write_text('y')", None),
+            ("from pathlib import Path\np = Path('a')\np.unlink()", None),
+            ("'a'.replace('a','b')", []), ("s.rename('x')", []), ("f.open('w')", []), ("os.path.join('a', 'b')", []),
+        ])
+
+    def test_interpreter_python_names_in_text_are_not_calls(self):
+        self.py([
+            ("print(\"open('o','w')\")", []), ("# open('o','w')\nprint(1)", []), ("x = 'os.remove'", []),
+            ("'''open('o','w')'''", []),
+        ])
+
+    def test_interpreter_python_unparsable_code(self):
+        self.py([("open('o','w'", None), ("print(1", []), ("import os\nos.remove('a'", None), ("def (", []),
+                 ("print 'x'", [])])
+
+    def test_interpreter_chdir_with_a_write_is_none(self):
+        self.py([("import os\nos.chdir('d')\nopen('o','w')", None), ("import os\nos.chdir('d')", []),
+                 ("from os import chdir\nchdir('d')\nopen('o','w')", None)])
+        self.node([("process.chdir('d'); fs.writeFileSync('o','x')", None), ("process.chdir('d')", [])])
+        self.rb([("Dir.chdir('d'); File.write('o','x')", None), ("Dir.chdir('d')", [])])
+        self.pl([("chdir 'd'; unlink 'a'", None), ("chdir 'd'", [])])
+
+    def test_interpreter_devices_are_no_write(self):
+        self.py([("open('/dev/null','w')", []), ("open('/dev/stdout','w')", []), ("open('/dev/stderr','a')", []),
+                 ("open('/dev/null','w'); open('o','w')", ['o'])])
+        self.node([("fs.writeFileSync('/dev/null','x')", []), ("fs.writeFileSync('/dev/stdout','x')", [])])
+        self.rb([("File.write('/dev/null','x')", []), ("File.write('/dev/stderr','x')", [])])
+        self.pl([("open(F, '>', '/dev/null')", []), ("open(F, '>/dev/stdout')", [])])
+
+    def test_interpreter_node_write_forms(self):
+        for name in ('writeFile', 'writeFileSync', 'appendFile', 'appendFileSync', 'createWriteStream'):
+            self.node([(f"fs.{name}('o','x')", ['o'])])
+        for name in ('mkdir', 'mkdirSync', 'mkdtemp', 'mkdtempSync', 'rm', 'rmSync', 'rmdir', 'rmdirSync', 'unlink',
+                     'unlinkSync', 'truncate', 'truncateSync'):
+            self.node([(f"fs.{name}('a')", ['a'])])
+        for name in ('rename', 'renameSync'):
+            self.node([(f"fs.{name}('a','b')", ['a', 'b'])])
+        for name in ('copyFile', 'copyFileSync', 'cp', 'cpSync', 'symlink', 'symlinkSync', 'link', 'linkSync'):
+            self.node([(f"fs.{name}('a','b')", ['b'])])
+        self.node([
+            ("fs.openSync('o','w')", ['o']), ("fs.open('o','a', cb)", ['o']), ("fs.openSync('o','r+')", ['o']),
+            ("fs.openSync('o','r')", []), ("fs.openSync('o')", []), ("fs.openSync('o', m)", None),
+            ("fs.promises.writeFile('o','x')", ['o']), ("await fs.rm('a', {recursive: true})", ['a']),
+            ("fs.writeFileSync(`o`, 'x')", ['o']), ("fs.writeFileSync(`o${x}`, 'x')", None),
+            ("fs.readFileSync('a')", []), ("fs.existsSync('a')", []),
+        ])
+        for head, code, want in (("import fs from 'fs';", "fs.writeFileSync('o','x')", 'o'),
+                                 ("import {writeFileSync} from 'node:fs';", "writeFileSync('o','x')", 'o'),
+                                 ("const {rm} = require('node:fs');", "rm('a')", 'a'),
+                                 ("const fsp = require('fs/promises');", "fsp.writeFile('o','x')", 'o'),
+                                 ("import * as fsp from 'node:fs/promises';", "fsp.writeFile('o','x')", 'o')):
+            with self.subTest(code=head + code):
+                self.assertEqual(iw('node -e ' + Q(head + code)), [P('/p/' + want)])
+
+    def test_interpreter_node_needs_the_fs_module(self):
+        for code in ("db.writeFile('o','x')", "console.log(1)", "const path = require('path'); fs.rmSync('a')"):
+            with self.subTest(code=code):
+                self.assertEqual(iw('node -e ' + Q(code)), [])
+        self.node([("console.log(\"fs.writeFileSync('o','x')\")", []), ("// fs.rmSync('a')", []),
+                   ("/* fs.rmSync('a') */ 1", []), ("fs.writeFileSync('o', 'fs.rmSync(\"a\")')", ['o'])])
+
+    def test_interpreter_node_option_forms(self):
+        for opts in ('-p', '--eval', '--print', '-pe', '-e', '-r path -e', '--input-type=module -e'):
+            with self.subTest(opts=opts):
+                self.assertEqual(iw(f"node {opts} " + Q("require('fs').rmSync('a')")), [P('/p/a')])
+        self.assertEqual(iw('node --eval=' + Q("require('fs').rmSync('a')")), [P('/p/a')])
+
+    def test_interpreter_ruby_write_forms(self):
+        for cls, name in (('File', 'write'), ('File', 'binwrite'), ('IO', 'write'), ('IO', 'binwrite')):
+            self.rb([(f"{cls}.{name}('o','x')", ['o']), (f"{cls}.{name} 'o', 'x'", ['o'])])
+        for name in ('delete', 'unlink'):
+            self.rb([(f"File.{name}('a')", ['a']), (f"File.{name} 'a'", ['a']), (f"File.{name}('a','b')", ['a', 'b'])])
+        self.rb([
+            ("File.open('o','w')", ['o']), ("File.new('o','a')", ['o']), ("File.open('o','r+')", ['o']),
+            ("File.open('o')", []), ("File.open('o','r')", []), ("File.open('a', m)", None),
+            ("File.open('o', 'w') { |f| f.puts 1 }", ['o']), ("File.open 'o', 'w' do |f| f.puts 1 end", ['o']),
+            ("File.open('o', mode: 'w')", ['o']), ("File.read('a')", []),
+            ("File.rename('a','b')", ['a', 'b']), ("File.symlink('a','b')", ['b']), ("File.link('a','b')", ['b']),
+            ("File.truncate('a', 0)", ['a']),
+            ("Dir.mkdir('a')", ['a']), ("Dir.rmdir('a')", ['a']), ("Dir.delete('a')", ['a']),
+            ("Dir.unlink('a')", ['a']), ("Dir.glob('a')", []),
+        ])
+        for name in ('rm', 'rm_f', 'rm_r', 'rm_rf', 'rmtree', 'remove', 'remove_dir', 'remove_file', 'rmdir', 'mkdir',
+                     'mkdir_p', 'makedirs', 'mkpath', 'touch'):
+            self.rb([(f"FileUtils.{name} 'a'", ['a']), (f"FileUtils.{name}('a')", ['a'])])
+        for name in ('mv', 'move'):
+            self.rb([(f"FileUtils.{name} 'a', 'b'", ['a', 'b'])])
+        for name in ('cp', 'copy', 'cp_r', 'copy_file', 'install', 'ln', 'ln_s', 'ln_sf', 'symlink'):
+            self.rb([(f"FileUtils.{name} 'a', 'b'", ['b'])])
+
+    def test_interpreter_ruby_names_in_text_are_not_calls(self):
+        self.rb([('puts "File.write is a method"', []), ("# File.write('o','x')\nputs 1", []),
+                 ("puts 'FileUtils.rm_rf d' if line =~ /File.write/", []), ("x = :write", []),
+                 ("File.write('o','x') # File.delete('a')", ['o'])])
+
+    def test_interpreter_ruby_several_e_options_are_joined(self):
+        self.assertEqual(iw('ruby -e ' + Q('x = 1') + ' -e ' + Q("File.write('o','x')")), [P('/p/o')])
+        self.assertEqual(iw('ruby -ne ' + Q("File.write('o','x')")), [P('/p/o')])
+        self.assertEqual(iw('ruby -w -I lib -rjson -e ' + Q("File.write('o','x')")), [P('/p/o')])
+
+    def test_interpreter_perl_write_forms(self):
+        self.pl([
+            ("open(my $f, '>', 'o')", ['o']), ("open(F, '>>log.txt')", ['log.txt']), ("open F, '>o' or die", ['o']),
+            ("open(my $f, '+<', 'o')", ['o']), ("open(my $f, '+>', 'o')", ['o']), ("open(my $f, '>>', 'o')", ['o']),
+            ("open(my $f, '>:utf8', 'o')", ['o']), ("open(F, '+>>o')", ['o']), ("open(F, '> o')", ['o']),
+            ("open(F, '<', 'a')", []), ("open(F, 'a')", []), ("open(F, '<a')", []), ("open(F, '-|', 'ls')", []),
+            ('open(F, ">log")', ['log']),
+            ("sysopen(F, 'o', O_WRONLY|O_CREAT)", ['o']), ("sysopen(F, 'o', O_RDONLY)", []),
+            ("sysopen(F, 'o', $fl)", None),
+            ("unlink 'a'", ['a']), ("unlink('a','b')", ['a', 'b']), ("rename('a','b')", ['a', 'b']),
+            ("mkdir 'd'", ['d']), ("rmdir 'd'", ['d']), ("link('a','b')", ['b']), ("symlink('a','b')", ['b']),
+            ("truncate('a', 0)", ['a']),
+            ("use File::Copy; copy('a','b')", ['b']), ("use File::Copy; cp('a','b')", ['b']),
+            ("use File::Copy; move('a','b')", ['a', 'b']), ("use File::Copy; mv('a','b')", ['a', 'b']),
+            ("copy('a','b')", []), ("move('a','b')", []),
+            ("use File::Path qw(make_path); make_path('a/b')", ['a/b']), ("use File::Path; mkpath('a')", ['a']),
+            ("use File::Path; remove_tree('a')", ['a']), ("use File::Path; rmtree('a')", ['a']),
+            ("use File::Path; make_path('a', 'b', {mode => 0711})", ['a', 'b']),
+            ('print "open(F, \'>x\')\\n"', []), ("# unlink 'a'\nprint 1", []), ("$h{unlink} = 1", []),
+            ("$fh->open('>x')", []), ("print if /unlink 'a'/", []), ("print if m{open(F, '>x')}", []),
+        ])
+        self.assertEqual(iw('perl -MFile::Copy -e ' + Q("copy('a','b')")), [P('/p/b')])
+        self.assertEqual(iw('perl -MFile::Path=make_path -e ' + Q("make_path('a')")), [P('/p/a')])
+
+    def test_interpreter_perl_option_clusters(self):
+        for opts in ('-e', '-E', '-ne', '-lne', '-lane', '-pe', '-0777ne', '-Mre -e', '-Ilib/e -e', '-I lib -e',
+                     '-F: -lane', '-wle', '-CS -e'):
+            with self.subTest(opts=opts):
+                self.assertEqual(iw(f"perl {opts} " + Q("unlink 'a'")), [P('/p/a')])
+        self.assertEqual(iw('perl -e ' + Q('1') + ' -e ' + Q("unlink 'a'")), [P('/p/a')])
+
+    def test_interpreter_python_option_forms(self):
+        code = Q("open('o','w')")
+        for head in ('python3 -c', 'python -c', 'python3.12 -c', '/usr/bin/python3 -c', 'python3 -u -c', 'python3 -Sc',
+                     'python3 -W ignore -c', 'python3 -X dev -c', 'python3 -I -B -c'):
+            with self.subTest(head=head):
+                self.assertEqual(iw(f'{head} {code}'), [P('/p/o')])
+        self.assertEqual(iw('python3 -c' + code), [P('/p/o')])
+        self.assertEqual(iw('python3 -c'), [])
+
+    def test_interpreter_heredoc_code(self):
+        body = "open('o.txt','w').write('x')"
+        for head in ("python3 - <<'EOF'", "python3 <<'EOF'", "python3 <<EOF", "python3 <<\"EOF\"", "python <<EOF",
+                     "sudo python3 - <<'EOF'", "env FOO=1 python3 - <<'EOF'"):
+            with self.subTest(head=head):
+                self.assertEqual(iw(f"{head}\n{body}\nEOF"), [P('/p/o.txt')])
+        self.assertEqual(iw("node <<EOF\nrequire('fs').writeFileSync('o','x')\nEOF"), [P('/p/o')])
+        self.assertEqual(iw("node - <<'EOF'\nrequire('fs').writeFileSync('o','x')\nEOF"), [P('/p/o')])
+        self.assertEqual(iw("ruby <<EOF\nFile.write('o','x')\nEOF"), [P('/p/o')])
+        self.assertEqual(iw("perl <<'EOF'\nunlink 'a';\nEOF"), [P('/p/a')])
+        self.assertEqual(iw("python3 <<-'EOF'\n\topen('o','w')\n\tEOF"), [P('/p/o')])
+        self.assertEqual(iw("cd sub && python3 - <<'EOF'\nopen('o','w')\nEOF"), [P('/p/sub/o')])
+        self.assertEqual(iw("python3 - <<'A'\nopen('a','w')\nA\npython3 - <<'B'\nopen('b','w')\nB"),
+                         [P('/p/a'), P('/p/b')])
+        self.assertEqual(iw("cat <<'A' && python3 - <<'B'\nopen('a','w')\nA\nopen('b','w')\nB"), [P('/p/b')])
+        self.assertEqual(iw("python3 - <<'EOF' > out.log\nopen('x','w')\nEOF"), [P('/p/x')])
+        # the same heredoc fed to something else is text
+        for cmd in ("cat <<'EOF'\nopen('x','w')\nEOF", "cat <<'EOF' | python3 -\nopen('x','w')\nEOF",
+                    "cat > f.py <<'EOF'\nopen('x','w')\nEOF", "python3 - <<'EOF'\nprint(1)\nEOF",
+                    "python3 -c 'print(1)' <<'EOF'\nopen('x','w')\nEOF", "python3 tool.py <<'EOF'\nopen('x','w')\nEOF",
+                    "python3 -m pkg <<'EOF'\nopen('x','w')\nEOF", "python3 - < in.py"):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(iw(cmd), [])
+        # what the heredoc handling cannot follow fails closed, as write_targets does
+        self.assertIsNone(iw("python3 - <<EOF\n$(printenv)\nEOF"))
+        self.assertIsNone(iw("python3 - <<'EOF'\nopen('x','w')"))
+
+    def test_interpreter_behind_prefix_words(self):
+        code = 'python3 -c ' + Q("open('o','w')")
+        for prefix in ('sudo', 'sudo -u root', 'sudo -i', 'doas', 'env', 'env -i', 'env FOO=1', 'command', 'time',
+                       'nohup', 'nice', 'nice -n 5', 'exec', 'builtin', 'timeout 5', 'timeout -s KILL 5', 'xargs',
+                       'xargs -n 1', 'xargs -t', 'setsid', 'FOO=1 sudo env nohup'):
+            with self.subTest(prefix=prefix):
+                self.assertEqual(iw(f'{prefix} {code}'), [P('/p/o')])
+        for spliced in ("p'y'thon3 -c ", 'pyth\\on3 -c ', '"python3" -c ', "py''thon3 -c "):
+            with self.subTest(spliced=spliced):
+                self.assertEqual(iw(spliced + Q("open('o','w')")), [P('/p/o')])
+        self.assertEqual(iw('bash -c ' + Q(code)), [P('/p/o')])
+        self.assertEqual(iw('eval ' + Q(code)), [P('/p/o')])
+        self.assertEqual(iw('sh -c ' + Q('cd sub && ' + code)), [P('/p/o'), P('/p/sub/o')])   # a `cd` in a string
+        # xargs with a replace option: the code text can change
+        for replace in ('-I{}', '-I {}', '-i', '-i{}', '--replace', '--replace={}', '-tI {}', '-n1 -I {}'):
+            with self.subTest(replace=replace):
+                self.assertIsNone(iw(f'xargs {replace} python3 -c ' + Q("open('{}','w')")))
+        self.assertIsNone(iw('echo a | xargs -I{} node -e ' + Q("require('fs').rmSync('{}')")))
+        self.assertIsNone(iw('xargs -I{} python3 -c ' + Q("print(1)")))
+        self.assertEqual(iw('xargs -I{} python3 tool.py {}'), [])
+        self.assertEqual(iw('xargs -I{} echo {}'), [])
+        self.assertEqual(iw('sudo -i python3 -c ' + Q('print(1)')), [])
+        self.assertEqual(iw('env -i python3 -c ' + Q('print(1)')), [])
+
+    def test_interpreter_non_literal_paths_are_refused(self):
+        self.py([("open(p,'w')", None), ("open('a', m)", None), ("open('a', 'w' if x else 'r')", None),
+                 ("p.write_text('y')", None), ("open(f'{x}','w')", None), ("open('a'+b,'w')", None),
+                 ("open('%s' % x,'w')", None), ("open('a{}'.format(1),'w')", None), ("open('a$b','w')", None),
+                 ("open('a@b','w')", None), ("import os\nos.remove(p)", None), ("import os\nos.rename('a', p)", None),
+                 ("import shutil\nshutil.copy('a')", None), ("open(*args)", None), ("open(**kw)", None),
+                 ("open(b'a','w')", None)])
+        self.node([("fs.rmSync(dir)", None), ("fs.writeFileSync('a'+b,'x')", None),
+                   ("fs.writeFileSync(path.join('a','b'),'x')", None), ("fs.writeFileSync('a$b','x')", None)])
+        self.rb([("File.write(p,'x')", None), ('File.write("a#{x}",\'x\')', None), ("File.write('a'+b,'x')", None),
+                 ("File.write('a@b','x')", None), ("FileUtils.rm_rf dir", None), ("FileUtils.rm(['a','b'])", None)])
+        self.pl([("open(F, '>', $p)", None), ("open(F, $m, 'a')", None), ("unlink @files", None),
+                 ('open(F, ">$f")', None), ("open(F, $spec)", None), ("unlink $f", None), ("mkdir $d", None)])
+        self.assertIsNone(iw('python3 -c "open(\'$F\',\'w\')"'))
+        # one literal and one non-literal write together
+        self.py([("open('a','w'); open(p,'w')", None), ("open(p,'w'); open('a','w')", None),
+                 ("import os\nos.remove('a')\nos.remove(p)", None)])
+        self.node([("fs.writeFileSync('a','x'); fs.rmSync(dir)", None)])
+        self.pl([("unlink 'a'; unlink $f", None)])
+        self.assertIsNone(iw('python3 -c "open(\'a\',\'w\')"; python3 -c "open(p,\'w\')"'))
+        # a symlink made in the same command as a visible write
+        self.assertIsNone(iw('ln -s /x d && python3 -c "open(\'d/o\',\'w\')"'))
+        self.assertEqual(iw('ln -s /x d && python3 -c "print(1)"'), [])
+        self.assertEqual(iw('ln -s /x d'), [])
+
+    def test_interpreter_script_file_is_not_read(self):
+        for cmd in ('python3 tool.py', 'python3 -m pkg', 'node x.js', 'ruby x.rb', 'perl x.pl', 'python3 tool.py -c x',
+                    'python3 -m pkg -c "open(\'o\',\'w\')"', 'python3 ./tool.py "open(\'o\',\'w\')"',
+                    'node x.js -e "require(\'fs\').rmSync(\'a\')"', 'python3 -u tool.py', 'perl x.pl -e 1',
+                    'python3 -m unittest', 'python3 -'):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(iw(cmd), [])
+
+    def test_interpreter_stated_limits_are_not_followed(self):
+        self.py([("import os\nos.system('rm a')", []), ("import subprocess\nsubprocess.run(['rm','a'])", []),
+                 ("exec(\"open('o','w')\")", []), ("eval(\"open('o','w')\")", []),
+                 ("getattr(__import__('os'), 'remove')('a')", []), ("__import__('os').remove('a')", [])])
+        self.node([("require('child_process').execSync('rm a')", []), ("eval(\"fs.rmSync('a')\")", [])])
+        self.rb([("system('rm a')", []), ("`rm a`", []), ("eval(\"File.write('o','x')\")", [])])
+        self.pl([("system('rm a')", []), ("`rm a`", []), ("eval \"unlink 'a'\"", [])])
+        self.assertEqual(iw('python3 <<< "open(\'o\',\'w\')"'), [])
+        self.assertEqual(iw('perl -i -pe ' + Q('s/a/b/') + ' f.txt'), [])
+        self.assertEqual(iw('ruby -i -pe ' + Q('$_.upcase!') + ' f.txt'), [])
+        self.assertEqual(iw('perl -pi -e ' + Q('s/a/b/') + ' f.txt'), [])
+
+    def test_interpreter_cd_folders_apply(self):
+        self.assertEqual(iw('cd sub && python3 -c ' + Q("open('o','w')")), [P('/p/sub/o')])
+        self.assertEqual(iw('cd sub; python3 -c ' + Q("open('o','w')")), [P('/p/o'), P('/p/sub/o')])
+        self.assertIsNone(iw('cd "$D" && python3 -c ' + Q("open('o','w')")))
+
+    def test_interpreter_without_an_interpreter_word_is_empty(self):
+        for cmd in ('echo hi', 'git status', 'cat a > b', 'git checkout -- x', 'echo "unterminated'):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(iw(cmd), [])
+
+    def test_write_targets_ignores_interpreter_code(self):
+        rows = [
+            'python3 -c ' + Q("open('o.txt','w')"),
+            'python3 -c ' + Q("import os; os.remove('a'); os.rename('b','c')"),
+            'python3 -c ' + Q("from pathlib import Path; Path('x.md').write_text('y')"),
+            'node -e ' + Q("require('fs').writeFileSync('o','x')"),
+            'ruby -e ' + Q("File.write('o','x')"), 'ruby -e ' + Q("FileUtils.rm_rf 'd'"),
+            'perl -e ' + Q("open(my $f, '>', 'o')"), 'perl -e ' + Q("unlink 'a'"),
+            'cd sub && python3 -c ' + Q("open('o','w')"),
+            "python3 - <<'EOF'\nopen('o.txt','w').write('x')\nEOF",
+            "node <<EOF\nrequire('fs').writeFileSync('o','x')\nEOF",
+            'sudo python3 -c ' + Q("open('o','w')"), 'bash -c ' + Q('python3 -c ' + Q("open('o','w')")),
+            'python3 -c ' + Q("open(p,'w')"),
+        ]
+        for cmd in rows:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(ma_bash.write_targets(cmd, CWD), [])
+        self.assertEqual(ma_bash.write_targets('cd sub && python3 -c ' + Q("open('o','w')") + ' > r.txt', CWD),
+                         [P('/p/sub/r.txt')])
+
+    def test_write_targets_docstring_says_it_does_not_read_interpreter_code(self):
+        self.assertIn('does not read inline interpreter code', ' '.join(ma_bash.write_targets.__doc__.split()))
+
+    def test_module_docstring_names_the_interpreter_limit(self):
+        doc = ' '.join(ma_bash.__doc__.split())
+        self.assertIn('interpreter_writes', doc)
+        self.assertIn('scope-guard', doc)
+        self.assertIn('script file', doc)
+        self.assertIn('does not read inline interpreter code', doc)
+        self.assertNotIn('a write it cannot see (`python -c`, a script) is the accepted', doc)
 
 
 if __name__ == '__main__':

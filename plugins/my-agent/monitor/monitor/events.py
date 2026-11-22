@@ -152,7 +152,8 @@ def build_events(lines) -> Events:
             if gate == 'G2':
                 res = f.get('result') or f.get('choice')
                 opened = [g for g in g2_open if g['sub'] in (None, 'not run (denied?)')]
-                same_key = [g for g in opened if g2_keys.get(id(g)) == f.get('key')] if f.get('key') and not f.get('id') else []
+                keyed_only = f.get('key') and not f.get('id')
+                same_key = [g for g in opened if g2_keys.get(id(g)) == f.get('key')] if keyed_only else []
                 if same_key:     # an id-less keyed answer closes every ask of that call (ma_g2.scan)
                     for g in same_key:
                         g['sub'] = res
@@ -247,7 +248,8 @@ def build_events(lines) -> Events:
     elif pending_g2:
         e.waiting = {'gate': 'G2', 'q': pending_g2[-1]['tx'][3:]}
         e.gates['G2'] = 'wait'
-    e.running = [{'a': it['a'], 'id': it['id'], 'sub': it['sub'], 'model': it['model'], 'effort': it.get('effort'), 'since': it['t']}
+    e.running = [{'a': it['a'], 'id': it['id'], 'sub': it['sub'], 'model': it['model'], 'effort': it.get('effort'),
+                  'since': it['t']}
                  for it in e.log if it['k'] == 'agent' and it['live']]
     if revs:
         e.revs = [{'at': e.started.strftime('%H:%M')}] + [{k: v for k, v in r.items() if k != 'rev'} for r in revs]

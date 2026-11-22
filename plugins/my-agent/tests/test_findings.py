@@ -57,6 +57,15 @@ class FindingsTest(unittest.TestCase):
                          'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 2 (open)\n'
                          '- SHOULD-FIX b.py:2 second → fix it\n- NITPICK d.py:4 fourth\n- NITPICK e.py:5 fifth\n')
 
+    def test_review_range_finding_counts_as_fixed(self):
+        self.put('review.md', 'BLOCKER 0\n\n## Findings\n- SHOULD-FIX work/final.md:28-30 three lines\n'
+                              '- NITPICK tests/fixtures/x/ folder\n- NITPICK general remark\n\n'
+                              '## Applied after review\n- fixed (work/final.md:29)\n- fixed (tests/fixtures/x/a.json)\n')
+        r = self.run_f()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout, 'findings: review.md (1 round)\n' + table([(0, 0, 0), (1, 1, 0), (2, 1, 1)]) +
+                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 1 (open)\n- NITPICK general remark\n')
+
     def test_review_two_rounds_and_fix_line(self):
         self.put('archive/261120-101500-run1/review.md',
                  'BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 broken\n- SHOULD-FIX b.py:2 two\n- NITPICK c.py:3 three\n')

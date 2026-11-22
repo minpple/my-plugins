@@ -12,6 +12,7 @@ import ma_models  # noqa: E402
 
 SCRIPT = L4 / 'scripts' / 'agent-models.py'
 EXAMPLE = REPO / 'docs' / 'agent-models.example.json'
+MAX_LINE_LENGTH = 121
 AGENTS = ('scope-reviewer', 'architect', 'plan-reviewer', 'verifier', 'reviewer', 'gate-analyst', 'explorer', 'researcher', 'writer', 'coder')
 DEFINITION = {'scope-reviewer': ('sonnet', 'high'), 'architect': ('opus', 'high'), 'plan-reviewer': ('sonnet', 'high'), 'verifier': ('opus', 'high'),
               'reviewer': ('sonnet', 'high'), 'gate-analyst': ('sonnet', 'high'), 'explorer': ('sonnet', 'low'),
@@ -446,9 +447,9 @@ class AgentModelsTest(unittest.TestCase):
         want = (Path(__file__).parent / 'fixtures' / 'agent-models-output-without-inline.txt').read_text(encoding='utf-8')
         self.assertEqual('\n'.join(out), want)
 
-    def test_no_line_of_ma_models_is_longer_than_121_characters(self):
+    def test_no_line_of_ma_models_is_over_the_line_limit(self):
         for n, line in enumerate((L4 / 'lib' / 'ma_models.py').read_text(encoding='utf-8').splitlines(), 1):
-            self.assertLessEqual(len(line), 121, f'ma_models.py:{n} is {len(line)} characters')
+            self.assertLessEqual(len(line), MAX_LINE_LENGTH, f'ma_models.py:{n} is {len(line)} characters')
 
 
 if __name__ == '__main__':

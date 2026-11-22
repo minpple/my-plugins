@@ -77,8 +77,20 @@ class GateReportTest(unittest.TestCase):
                          '2026-10-26 23:01:00 answer: gate=Q choice=Plain',
                          '2026-10-26 23:02:00 ask: gate=Q q="Location2" rec=A',
                          '2026-10-26 23:03:00 answer: gate=Q choice="plugins/my-agent only" other=1')
-        self.assertEqual(self.rows(out), [['1', 'Q', 'Location', 'none', 'Plain', 'unknown', ''],
+        self.assertEqual(self.rows(out), [['1', 'Q', 'Location', 'none', 'Plain', 'none', ''],
                                           ['2', 'Q', 'Location2', 'A', 'plugins/my-agent only', 'typed (Other)', '']])
+
+    def test_no_recommendation_shows_none(self):
+        out = self.tally('2026-10-26 23:00:00 ask: gate=Q q="Answered" rec=-',
+                         '2026-10-26 23:01:00 answer: gate=Q choice=Plain',
+                         '2026-10-26 23:02:00 ask: gate=E q="Unanswered" rec=-',
+                         '2026-10-26 23:03:00 ask: gate=Q q="Typed" rec=-',
+                         '2026-10-26 23:04:00 answer: gate=Q choice=mine other=1',
+                         '2026-10-26 23:05:00 ask: gate=Q q="Old line"')
+        self.assertEqual(self.rows(out), [['1', 'Q', 'Answered', 'none', 'Plain', 'none', ''],
+                                          ['2', 'E', 'Unanswered', 'none', '-', 'none', 'no answer'],
+                                          ['3', 'Q', 'Typed', 'none', 'mine', 'typed (Other)', ''],
+                                          ['4', 'Q', 'Old line', '(not recorded)', '-', 'unknown', 'no answer']])
 
     def test_unpaired_lines_are_noted(self):
         out = self.tally('2026-10-26 23:00:00 ask: gate=E q="Same slice"',

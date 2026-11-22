@@ -214,8 +214,9 @@ FINDING_MARK = re.compile(r'\s*\((new|carried)\)\s*$')
 IMPROVEMENT_LINE = re.compile(r'^-\s*\[(L\d),\s*([a-z]+)\]\s*(.*\S)\s*$')
 SUMMARY_ITEM = re.compile(r'^\s*\d+\.\s+(.*\S)\s*$')
 UNIT_KEY = re.compile(r'^(?:-\s*)?([A-Z][A-Za-z ]*?):\s*(.*)$')
-PATH_TOKEN = re.compile(r'[\w./\-]+\.\w+(?::\d+)?')
-LINE_SUFFIX = re.compile(r':\d+$')
+PATH_TOKEN = re.compile(r'[\w./\-]+\.\w+(?::\d+(?:-\d+)?)?|/?[\w.\-]+(?:/[\w.\-]+)+/?|[\w.\-]+/')
+LOCATION = re.compile(r'^(.*?)(?::(\d+)(?:-(\d+))?)?$')
+EXTENSION = re.compile(r'\.\w+$')
 
 
 def criteria(text: str) -> list:
@@ -284,15 +285,46 @@ def review_applied(text: str) -> list:
     return [l.strip()[1:].strip() for l in section_lines(text, APPLIED_AFTER_REVIEW) or [] if l.strip().startswith('-')]
 
 
+def _split_location(loc: str):
+    """(path, first line, last line) of `<path>`, `<path>:<n>` or `<path>:<a>-<b>`; the lines are None when absent."""
+    m = LOCATION.match(loc)
+    first = int(m.group(2)) if m.group(2) else None
+    return m.group(1), first, int(m.group(3)) if m.group(3) else first
+
+
+def _is_folder(path: str) -> bool:
+    return path.endswith('/') or ('/' in path and not EXTENSION.search(path))
+
+
+def _same_path(where: str, tok: str) -> bool:
+    return where == tok or where.endswith('/' + tok)
+
+
 def finding_applied(where: str, applied_lines) -> bool:
-    """A finding is applied when an `Applied after review` line names its `<file>:<line>` or its file path
-    (a path in the line may be cut at the front)."""
-    file = LINE_SUFFIX.sub('', where)
+    """A finding is applied when an `Applied after review` line names its location (a path in the line may be cut at
+    the front). A `<file>:<n>` finding: the same `<file>:<n>` or the file. A `<file>:<a>-<b>` finding: the same range,
+    a `<file>:<n>` with a <= n <= b, or the file. A folder finding (a path with a `/` and no extension, or ending in
+    `/`): the folder with or without the trailing `/` (cut at the front when the line's token is the whole folder), or
+    any path under it (cut at the front only down to two segments). Any other location stays unmatched."""
+    path, lo, hi = _split_location(where)
+    folder = lo is None and _is_folder(path)
+    path = path.rstrip('/') if folder else path
     for line in applied_lines:
-        for tok in PATH_TOKEN.findall(line):
-            if tok == where or where.endswith('/' + tok):
-                return True
-            if not LINE_SUFFIX.search(tok) and (file == tok or file.endswith('/' + tok)):
+        for token in PATH_TOKEN.findall(line):
+            tok, t_lo, t_hi = _split_location(token)
+            if folder:
+                token_folder = _is_folder(tok)
+                token_dir = tok.rstrip('/') if token_folder else tok.rpartition('/')[0]
+                if token_folder and token_dir and _same_path(path, token_dir):
+                    return True
+                parts = token_dir.split('/')
+                for i in range(1, len(parts) + 1):
+                    prefix = '/'.join(parts[:i])
+                    # a front-cut prefix of a path under the folder needs two segments: `tests/x.py` may be in any `tests`
+                    if prefix and (prefix == path or len([s for s in prefix.split('/') if s]) > 1 and _same_path(path, prefix)):
+                        return True
+            elif _same_path(path, tok) and (t_lo is None or (t_lo, t_hi) == (lo, hi)
+                                            or (hi != lo and t_hi == t_lo and lo <= t_lo <= hi)):
                 return True
     return False
 
@@ -333,7 +365,7 @@ def criterion_numbers(line: str) -> list:
 
 def unit_details(text: str) -> list:
     """[{id, name, status, group, files, criteria}] of the `### u<n>` units under ## Work units
-    (files: the backticked paths of `Files to change:`, on its line or in its nested bullets)."""
+    (files: every backticked path of `Files to change:`, on its line or in its nested bullets)."""
     units, in_files = [], False
     for line in section_lines(text, 'Work units') or []:
         head = UNIT_HEAD.match(line)
@@ -358,9 +390,7 @@ def unit_details(text: str) -> list:
             elif in_files:
                 unit['files'] += re.findall(r'`([^`]+)`', value)
         elif in_files and re.match(r'\s+-\s', line):
-            m = re.search(r'`([^`]+)`', line)
-            if m:
-                unit['files'].append(m.group(1))
+            unit['files'] += re.findall(r'`([^`]+)`', line)
     return units
 
 

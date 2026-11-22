@@ -366,7 +366,10 @@ class SkillMdTest(unittest.TestCase):
         head = self.text[:self.text.index('## Arguments')]
         sec = head[head.index('### Delegated approval'):]
         sec = sec[:sec.index('\n### ', 5)] if '\n### ' in sec[5:] else sec
-        self.assertIn('read `gates.md` "Delegated approval details"', sec)   # needed before the first gate too
+        self.assertNotIn('read `gates.md` "Delegated approval details"', sec)   # the Procedure files row says it
+        row = next(l for l in self.text.splitlines() if l.startswith('| `gates.md` |'))
+        self.assertIn('when delegated approval is asked for or turns on', row)
+        self.assertIn('Delegated approval details', row)
         for word in ('G2', 'G3', 'E', 'third `REVISE`', 'without a recommended choice', 'by=L1',
                      '(answered by L1)', 'last `delegate` line', 'Turn on (Recommended)', 'Keep asking me',
                      'delegate state=off how=person', 'delegate state=off how=end'):
@@ -386,13 +389,64 @@ class SkillMdTest(unittest.TestCase):
         g3 = sec[sec.index('**G3 under delegated approval:**'):]
         for word in ('answer gate=G3 choice="Rework: fix all open items" … by=L1', 'rec="Rework: fix all open items"',
                      '→ Rework: fix all open items (answered by L1)', 'open SHOULD-FIX or NITPICK items', 'show no popup',
-                     'is the choice L1 gives', 'is for the popup shown to the person',
+                     'is the choice L1 gives',
                      'New findings of a fix round are open items of the next G3',
                      'A Verify FAIL or a BLOCKER in a round follows the existing rules and caps',
                      'After `delegate state=off how=person` the next G3 goes to the person',
                      'On `findings: FAIL` show the cause; G3 goes to the person'):
             self.assertIn(word, g3, word)
         self.assertIn('3 Verify FAILs', sec)
+        self.assertNotIn('is for the popup shown to the person', sec)   # moved into the G3 recommendation rule
+
+    def test_g3_recommends_rework_while_should_fix_open(self):
+        """Criterion 9: the popup shown to the person recommends the rework while a SHOULD-FIX is open; the delegated G3 is unchanged."""
+        sec = self.section('- **G3 with open review items.**', '## E escalation', self.gates)
+        line = next(l for l in sec.splitlines() if l.startswith('  - Open items:'))
+        for word in ('is recommended while a SHOULD-FIX is open', 'at the first G3 of the task',
+                     'after a G3 Rework answer (either kind) with only NITPICK items open, `<Take>` is',
+                     'L1\'s answer under delegated approval ("G3 under delegated approval" above) is unchanged',
+                     'The `rec=` of the `ask` line is the recommended label'):
+            self.assertIn(word, line, word)
+        self.assertLess(line.index('`Abort`'), line.index('is recommended while a SHOULD-FIX'))
+        self.assertLess(line.index('is recommended while a SHOULD-FIX'), line.index('under delegated approval'))
+        self.assertNotIn('At the first G3 of the task `Rework: fix all open items` is the recommended choice', sec)
+        # the delegated G3 steps stay as they are
+        g3 = self.delegated()
+        g3 = g3[g3.index('**G3 under delegated approval:**'):]
+        self.assertIn('4. Otherwise (open SHOULD-FIX or NITPICK items): show no popup;', g3)
+        self.assertIn('2. No open item (BLOCKER 0, SHOULD-FIX 0 and NITPICK 0 open): answer `<Take>`', g3)
+
+    def test_e_give_direction_is_recorded_in_plan(self):
+        """Criterion 6: after `Give direction` that changes a unit's approach, the plan records it as a Scope change."""
+        sec = self.section('## E escalation', None, self.gates)
+        bullet = sec.rstrip().splitlines()[-1]
+        for word in ('After `Give direction` that changes a unit\'s approach', '`Scope change: u<n> <new approach>`',
+                     'under `plan.md` `## Approval`', '`fix … files=plan.md` line', 'plan and deliverable agree'):
+            self.assertIn(word, bullet, word)
+        self.assertTrue(bullet.startswith('  - After `Give direction`'))   # a new last bullet of "E escalation"
+
+    def test_blueprint_update_shows_deleted_lines(self):
+        """Criterion 6: after the writer's update L1 shows the lines it deleted (or says none)."""
+        sec = self.section('## Blueprint update', None, self.phase('accept'))
+        item = next(l for l in sec.splitlines() if l.startswith('4. '))
+        for word in ('`ok:` line', 'per-file lines', '`git diff -U0 -- docs/blueprint/`', 'shows as deleted',
+                     '(none: say so)'):
+            self.assertIn(word, item, word)
+
+    def test_no_verify_while_adjustment_is_built(self):
+        """Criterion 6: no Verify run starts while an adjustment within approved scope is still being built."""
+        sec = self.section('- **Adjust within approved scope:**', '- **Revise this task:**', self.changes)
+        sub = next(l for l in sec.splitlines() if l.startswith('  - Start no Verify run'))
+        for word in ('while an adjustment is still being built', 'coder call has not returned and been merged'):
+            self.assertIn(word, sub, word)
+
+    def test_person_check_how_to_first(self):
+        """Criterion 6: before the person-check popup L1 says in the chat how the person checks it."""
+        sec = self.section('**Person-check popup:**', '5. Change `phase:`', self.phase('define'))
+        first = sec.splitlines()[1]
+        self.assertTrue(first.startswith('     - Before it, say in the chat how the person checks it'), first)
+        for word in ('the steps and where', 'then ask'):
+            self.assertIn(word, first, word)
 
     def test_delegated_g3_take_when_nothing_is_open(self):
         """Nothing open, so L1 takes, whatever the round count; open risks are listed, not a stop."""
@@ -420,7 +474,8 @@ class SkillMdTest(unittest.TestCase):
         sec = self.section('## Gate reports', '## E escalation', self.gates)
         for word in ('`<Take> (Recommended)` / `Rework` / `Abort`, `rec="<Take>"`',
                      '`<Take>` / `Rework: fix all open items` / `Rework` / `Abort`',
-                     'At the first G3 of the task `Rework: fix all open items` is the recommended choice'):
+                     '`Rework: fix all open items` is recommended while a SHOULD-FIX is open, and at the first G3 of the task',
+                     'with only NITPICK items open, `<Take>` is'):
             self.assertIn(word, sec, word)
         accept = self.phase('accept')
         self.assertIn('Popup: `Accept (Recommended)` / `Rework` / `Abort`', accept)
@@ -482,7 +537,6 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('the date and minute the `answer` line printed', self.phase('define'))
         tools = self.section('### Tool choice', '### Change requests')
         self.assertIn("that do not need each other's result in one message", tools)
-        self.assertIn('each message re-reads the whole conversation', tools)
         phase = self.section('### Phase files', '### Procedure files')
         self.assertIn('Read the profile file the same way, but only when its text is not in context', phase)
         self.assertIn('read the profile file when its text is not in context', self.resume)
@@ -683,7 +737,8 @@ class SkillMdTest(unittest.TestCase):
                      'run `git rev-parse HEAD` first', 'follow "Tool choice"'):
             self.assertIn(kept, self.rules)
         row = next(l for l in self.text.splitlines() if l.startswith('| L4 |'))
-        self.assertIn('the monitor and the G2 dialog are outside the levels', row)
+        self.assertNotIn('monitor', row)   # the note stands on its own line under the table, not in the L4 cell
+        self.assertIn('\nThe monitor and the G2 dialog are outside the levels.\n', self.text)
 
     def test_tool_choice_rule(self):
         self.assertLess(self.text.index('### Tool choice'), self.text.index('## Arguments'))
@@ -695,8 +750,54 @@ class SkillMdTest(unittest.TestCase):
 
     def test_question_rules_popup_topics(self):
         rules = self.section('### Question rules', '### Gates')
-        for word in ('one popup per topic', 'plain explanation', 'multi-select', 'Popup bodies'):
+        for word in ('one popup per topic', 'plain explanation', 'multi-select', 'stands alone'):
             self.assertIn(word, rules, word)
+
+    def test_settled_popup_rule_in_one_place(self):
+        """Criterion 3: the settled-popup bullet is in "Question rules"; the three "do not ask" sentences it replaces are gone."""
+        rules = self.section('### Question rules', '### Gates')
+        bullet = next(l for l in rules.splitlines() if l.startswith('- **Settled popup:**'))
+        for word in ('after Intake', 'request, the files', 'earlier answer', '`answer … by=L1`',
+                     '(answered by L1)', 'G1a, G1b, G3, G2, E, Intake popups', 'without a recommended choice',
+                     'with another choice or a question back'):
+            self.assertIn(word, bullet, word)
+        self.assertEqual(self.text.count('**Settled popup:**'), 1)
+        define = self.phase('define')
+        research = (L1 / 'profiles' / 'research.md').read_text(encoding='utf-8')
+        for gone, text in (('Do not ask about items the request already answers.', define),
+                           ('In the Scope interview, do not ask what a line there already answers.', define),
+                           ('Do not ask about items the request already answers.', research)):
+            self.assertNotIn(gone, text)
+
+    def test_settled_popup_keeps_delegation_and_records(self):
+        """Under delegated approval the existing rules go on; a settled popup is recorded with its `ask` and `answer` lines."""
+        rules = self.section('### Question rules', '### Gates')
+        bullet = next(l for l in rules.splitlines() if l.startswith('- **Settled popup:**'))
+        self.assertIn('Delegated approval rules stay', bullet)
+        self.assertIn('write the `ask` line', bullet)
+        self.assertIn('by=L1', bullet)
+        sec = self.section('### Delegated approval', '### Levels')
+        self.assertIn('answers G1a, G1b, findings popups and other non-gate popups with the recommended choice', sec)
+        never = next(l for l in sec.splitlines() if l.startswith('- Never answered by L1:'))
+        for word in ('G2', ' E,', 'third `REVISE`', 'without a recommended choice', 'Intake item 1–5'):
+            self.assertIn(word, never, word)
+        row = next(l for l in self.recorder.splitlines() if l.startswith('| Popup answered by L1'))
+        self.assertIn('(delegated approval or a settled popup)', row)
+        self.assertIn('by=L1', row)
+
+    def test_popup_stands_alone(self):
+        """Criterion 4: a popup is understood without the chat text."""
+        rules = self.section('### Question rules', '### Gates')
+        bullet = next(l for l in rules.splitlines() if 'stands alone' in l)
+        for word in ('plain explanation', 'what it contains', 'what it leads to'):
+            self.assertIn(word, bullet, word)
+        self.assertNotIn('For a technical matter, start the question', rules)
+
+    def test_folder_copy_copies_contents(self):
+        """Criterion 6: a folder copy takes the folder's contents, so a rerun does not nest."""
+        rule = self.section('### Tool choice', '### Change requests')
+        self.assertIn('`cp -pR <folder>/.`', rule)
+        self.assertIn('does not nest', rule)
 
     def test_intake_worktree_and_gitignore_rules(self):
         self.assertIn('`New task in a worktree`', self.intake_item(1))
@@ -706,7 +807,7 @@ class SkillMdTest(unittest.TestCase):
         for word in ('my-agent-task/', 'git worktree add', 'task ID'):
             self.assertIn(word, section, word)
         self.assertIn('`New task in a worktree` (Intake item 1)', self.changes.split('\n## ')[0])
-        self.assertLessEqual(len(self.new_task), 10500)
+        self.assertLess(len(self.new_task), PROCEDURE_CHARS)
         self.assertIn('my-agent-task/', self.section('## continue', None, self.resume))
         self.assertIn('baseline', self.intake_item(10))
 
@@ -721,6 +822,24 @@ class SkillMdTest(unittest.TestCase):
         self.assertNotIn('rev-parse --is-inside-work-tree', self.new_task)
         report = self.section('\n11. **Report:**', '**Git check (item 2)**', self.new_task)
         self.assertIn('Git: <branch>, clean', report)
+        for word in ('`behind:`', 'above 0', 'also when it is the only one', '`origin/<default>`', 'pull or merge',
+                     '`not counted (<case>)`'):
+            self.assertIn(word, section, word)
+        self.assertIn(', <n> behind origin/<b>', report)
+        self.assertIn(', behind not counted (<case>)', report)
+
+    def test_new_task_request_file_rule(self):
+        item = self.intake_item(6)
+        for word in ('denied', 'deny list refuses', 'Write', '`<data folder>/request.txt`', '--request-file "<that path>"',
+                     'in place of `--request=`'):
+            self.assertIn(word, item, word)
+        self.assertIn('--request-file', self.new_task)
+        self.assertLess(len(self.new_task), PROCEDURE_CHARS)
+
+    def test_models_preset_popup_describes_each_preset(self):
+        item = self.section('**Models preset (item 3)**', None, self.new_task)
+        for word in ('one line on what its preset changes in cost or care', '`presets` line'):
+            self.assertIn(word, item, word)
 
     def test_flags_em_dash(self):
         for flags in (self.section('**Flags:**', None), self.section('## Flags', '## Intake', self.new_task)):

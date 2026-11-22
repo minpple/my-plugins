@@ -40,6 +40,7 @@ BLOCKER <n>
 
 - The first line is only `BLOCKER <count>`. If there are no problems, `BLOCKER 0`.
 - BLOCKER: a problem that, if shipped as is, leaves the person unable to use it or believing something wrong. SHOULD-FIX: a problem worth fixing. NITPICK: something minor.
+- An observation with nothing to fix is not a finding line.
 - Each NITPICK line ends with `(new)` or `(carried)`: compare with the previous `review.md` path, if any, that L1 passes in the input; a NITPICK already in it is `(carried)`. With no previous review every NITPICK is `(new)`.
 - Do not write an `## Applied after review` section in this file. That section is for L1, which made small fixes after the verdict and got only Review again without Verify; L1 adds what it fixed, one line each, at the end of the new `review.md` (`phases/accept.md`).
 

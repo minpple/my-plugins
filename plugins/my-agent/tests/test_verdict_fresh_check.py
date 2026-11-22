@@ -174,6 +174,19 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.verdicts()
         self.assertPassed(self.bash(f'echo x > {rel()}/{TASK}/deliverable/a.md'))
 
+    def test_interpreter_write_into_deliverable_is_not_read(self):
+        """Only scope-guard reads inline interpreter code (the person's decision, 2026-11-22): this hook keeps what
+        write_targets sees, as at 0.24.0."""
+        target = f'{rel()}/{TASK}/deliverable/x'
+        for cmd in (f'python3 -c "open(\'{target}\',\'w\')"', f'node -e "require(\'fs\').rmSync(\'{target}\')"',
+                    f"python3 - <<'EOF'\nopen('{target}','w')\nEOF"):
+            with self.subTest(cmd=cmd):
+                self.assertPassed(self.bash(cmd))
+        self.assertDenied(self.bash(f'echo x > {target}'))   # the control: a deliver, as in test_write_into_deliverable
+        self.verdicts()
+        self.assertPassed(self.bash(f'echo x > {target}'))
+        self.assertPassed(self.bash(f'python3 -c "open(\'{target}\',\'w\')"'))
+
     def test_copy_of_task_records_is_not_a_deliver(self):
         T, out = f'{rel()}/{TASK}', self.root / 'out'
         self.file(self.T / 'review.md', 'BLOCKER 3\n', 0)

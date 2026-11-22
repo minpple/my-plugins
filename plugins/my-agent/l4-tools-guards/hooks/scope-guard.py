@@ -22,6 +22,10 @@ architect may not add the `Approved` or
 `Prototype: requested` line L1 writes into plan.md (4.4 G1b) nor drop a `## Revisions` line (4.8.1).
 On a deny with an active task it appends one `guard:` line to the task's run-log (fields ma_schema.GUARD_FIELDS, `why` is
 the reason as printed); no active task, no line; a failed write never changes the decision.
+It judges inline interpreter code on the command line (`python3 -c`, `node -e`, `ruby -e`, `perl -e`, or a heredoc
+fed to one of them) like any other write: a visible write with a literal path by that path, one with a path that is
+not a literal as "cannot tell". The contents of a script file (`python3 tool.py`, `-m mod`) stay outside the
+check (the accepted risk of 4.4 "remaining risk").
 Paths compare without case (ma_path). Any error → exit 2, so the call is blocked
 (`onFailure: block` covers a crash or timeout).
 """
@@ -188,7 +192,9 @@ def glob_base(pattern: str, base: Path) -> Path:
 
 
 def paths_of(tool: str, ti: dict, cwd: Path):
-    """(read paths, write paths) the call touches; write None = Bash writes somewhere it cannot name."""
+    """(read paths, write paths) the call touches; write None = Bash writes somewhere it cannot name. The Bash write
+    paths are what the command line shows plus what its inline interpreter code writes (`ma_bash.interpreter_writes`:
+    only this hook reads that code); either one None makes the result None."""
     if tool == 'Read':
         return [resolve(ti['file_path'], cwd)], []
     if tool in WRITE_TOOLS:
@@ -200,7 +206,8 @@ def paths_of(tool: str, ti: dict, cwd: Path):
         return [base, glob_base(ti.get('pattern') or '', base)], []
     if tool == 'Bash':
         cmd = ti['command']
-        return ma_bash.read_paths(cmd, cwd), ma_bash.write_targets(cmd, cwd)
+        found, inline = ma_bash.write_targets(cmd, cwd), ma_bash.interpreter_writes(cmd, cwd)
+        return ma_bash.read_paths(cmd, cwd), None if found is None or inline is None else found + inline
     return [], []
 
 

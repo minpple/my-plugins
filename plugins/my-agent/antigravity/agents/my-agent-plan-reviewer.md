@@ -47,7 +47,7 @@ Run: <n>
 
 ## Common checks (all profiles)
 
-1. **Traceability:** every completion criterion has a work unit that produces it, and every work unit has a completion criterion number. If one is missing, BLOCKER.
+1. **Traceability:** every completion criterion has a work unit that produces it, and every work unit has a completion criterion number. If one is missing, BLOCKER. Check a criterion over all files of the repository against a scan of the tree (Glob or Grep), not a sample.
 2. **Mock-up:** `## Mock-up` exists, shows both the normal case and the scope's exception cases, and each case has a criterion number. If it adds requirements not in the scope, BLOCKER. Check the colours, states and labels in the mock-up against the existing UI files (CSS variables, class names, labels) with Grep; a mismatch is a SHOULD-FIX.
 3. **Scope:** the plan does nothing listed in the non-goals. If there is work outside the scope, BLOCKER.
 4. **Parallel groups:** within a group, the files to change do not overlap. If they overlap, BLOCKER. A group without a workflow has 4 units or fewer.
@@ -56,6 +56,7 @@ Run: <n>
 7. **Check tags:** when any criterion line (in `scope.md`, or in `plan.md` `## Completion criteria`) ends with a check tag (`[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`), every criterion must carry one; a missing tag or a value other than the four is a BLOCKER. A task whose criterion lines carry no tag at all was written before check tags and is judged as before.
 8. **Blueprint:** the plan keeps every `Constraint`, `Non-goal` and `Decision` line under `## Blueprint` in `explore.md`. A work unit that goes against one is a BLOCKER, unless the scope (the criteria, the non-goals or a `Scope change:` line) says that item changes. Without that section, or with `- none`, there is nothing to check.
 9. **Models:** `## Models` exists and its rows match the passed preset lines (a preset is passed with the paths; none means the definition values), and every difference has a one-line reason (the Note and the `Recommendation:` line). A row that differs without a reason is otherwise SHOULD-FIX; a missing section is a BLOCKER.
+10. **After G3:** Flag a criterion only L1 can meet after G3 (the final save path, the blueprint update) as SHOULD-FIX.
 
 ## Checks per profile
 

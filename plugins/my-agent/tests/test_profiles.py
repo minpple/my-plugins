@@ -222,9 +222,26 @@ class ProfilesTest(unittest.TestCase):
         row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
         a = row.index('ls-files --others --exclude-standard')
         b = row.index('git apply')
-        c = row.index('git worktree remove')
+        c = row.index('git worktree remove --force')
         self.assertLess(a, b)
         self.assertLess(b, c)
+
+    def test_merge_removes_worktree_after_compare(self):
+        """Criterion 6: each moved file is compared with its worktree copy before the worktree is removed; a difference keeps it."""
+        dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
+        row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
+        cmp_ = row.index('compare each moved file with its worktree copy (`cmp`, one call each)')
+        branch = row.index('`git -C <worktree> branch --show-current`')
+        remove = row.index('`git worktree remove --force <worktree>`')
+        delete = row.index('`git branch -D <branch>`')
+        self.assertLess(cmp_, branch)
+        self.assertLess(branch, remove)
+        self.assertLess(remove, delete)
+        self.assertNotIn('git worktree remove <worktree>', row)   # the plain command refuses an uncommitted diff
+        # exception: a difference found by the compare keeps the worktree
+        diff = row[delete:]
+        for word in ('a difference: keep the worktree', 'name the files in one chat line', '"Open risks" row of G3', 'no popup'):
+            self.assertIn(word, diff, word)
 
     def test_check_tags_in_scope_rules(self):
         """Every criterion line gets one check tag; four tag values are named."""

@@ -7,7 +7,8 @@ Writes <task folder>/changed-files.md and prints one line `changed-files: <N> fi
 Files: in the dev profile with a git task location, `git diff --name-only HEAD` plus the untracked files, without the
 task records folder; otherwise the files under <task folder>/work/ and deliverable/, plus each file a unit lists under
 `Files to change` that exists in the task location (code a coder changed in place where git cannot list it).
-A file maps to every plan unit that names it (`Files to change`, or any backticked path of the unit outside git); a file
+A file maps to every plan unit that names it (`Files to change`, or any backticked path of the unit outside git; in git a path
+is made relative to the git root first: an absolute path, a `./` prefix and a task location below the root); a file
 no unit names is `unmapped`, a shared test helper or `ma_schema.py` is `shared`; both have the criteria `all`.
 The criteria come from the units that name the file only: a criterion that also leans on a file of another unit is
 re-judged when that file's own criteria are listed (or `all`).
@@ -109,8 +110,25 @@ def main(argv=None) -> int:
         files = sorted({n for n in names if n and not (records and n.startswith(records))})
         base = (git(root, 'rev-parse', '--short', 'HEAD') or ['-'])[0]
 
+        try:
+            below = location.resolve().relative_to(root.resolve()).as_posix()   # task location below the git root
+        except ValueError:
+            below = '.'
+
+        def relative(n):
+            """The plan's path as git lists it: without `./`, an absolute path or a location-relative path made root-relative."""
+            n = n[2:] if n.startswith('./') else n
+            if n.startswith('/'):
+                try:
+                    return Path(n).resolve().relative_to(root.resolve()).as_posix()
+                except ValueError:
+                    return n
+            return n if below == '.' else f'{below}/{n}'
+
         def owners(f):
-            return [(uid, crit) for uid, crit, named, _all in units if f in named or PLUGIN_PREFIX.sub('', f) in named]
+            return [(uid, crit) for uid, crit, named, _all in units
+                    if any(f == r or PLUGIN_PREFIX.sub('', f) == r or PLUGIN_PREFIX.sub('', f) == n
+                           for n in named for r in (relative(n), n))]
     else:
         root = task
         files = sorted(p.relative_to(task).as_posix() for d in ('work', 'deliverable') if (task / d).is_dir()

@@ -7,8 +7,8 @@ import stat
 import sys
 import tempfile
 import unittest
-from unittest import mock
 from pathlib import Path
+from unittest import mock
 
 REPO = Path(__file__).resolve().parents[1]
 TOOL = REPO / 'tools' / 'claude-skill-check.py'
@@ -187,7 +187,13 @@ class SkillCheckTest(unittest.TestCase):
     def test_claude_gets_no_stdin(self):
         self.emit(init_event(self.plugin, GOOD))
         pipe_r, pipe_w = os.pipe()
-        saved = os.dup(0)
+        saved = None
+        try:
+            saved = os.dup(0)
+        finally:
+            if saved is None:
+                os.close(pipe_r)
+                os.close(pipe_w)
 
         def restore():
             os.dup2(saved, 0)

@@ -19,6 +19,7 @@ When a message that looks like a revision arrives after G1b approval, first ask 
 
 - **Adjust within approved scope:** Add a `Scope change: <content>` line under `plan.md` `## Approval` with Edit, write a `fix what="Scope change: <content>" files=plan.md` line, and continue.
   - If the person says they will do a manual check later, add `Scope change: criterion <n> is checked by the user later` under `plan.md` `## Approval` with Edit right then (the run-log line is the same).
+  - Start no Verify run while an adjustment is still being built (its coder call has not returned and been merged).
 - **Revise this task:** The new rev is current rev + 1.
   1. Stop new delegation (same as Abort item 1). Record finished background results with `stale` lines and set those units in `plan.md` to `stale`.
   2. Decide the phase to go back to. If WHAT/WHY changed, ① Define; if only HOW changed, ② Plan. Tell the person in one line.

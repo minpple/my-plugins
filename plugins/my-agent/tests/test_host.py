@@ -193,7 +193,7 @@ class HostTest(unittest.TestCase):
                              'tool_input': {'command': 'ls'}})
         env = {'MA_HOST': '', 'CLAUDE_PLUGIN_ROOT': str(helpers.REPO), 'CLAUDE_PROJECT_DIR': '/tmp/claude-proj'}
         o, e = io.StringIO(), io.StringIO()
-        with mock.patch.dict(os.environ, env), mock.patch.object(ma_g2,'codex_ask') as codex_ask:
+        with mock.patch.dict(os.environ, env), mock.patch.object(ma_g2, 'codex_ask') as codex_ask:
             for k in ('CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID'):
                 os.environ.pop(k, None)
             with contextlib.redirect_stdout(o), contextlib.redirect_stderr(e):

@@ -1,11 +1,15 @@
 """What a Bash command line writes, reads, or copies from (architecture 4.4 "what is blocked", 4.5 "Bash for L2 judges",
-4.12 "limiting read paths too"). Best effort by design: a write it cannot see (`python -c`, a script) is the accepted
-risk of 4.4 "remaining risk"; the forms it knows are pinned case by case in tests/test_bash.py. What it cannot follow
+4.12 "limiting read paths too", "Inline interpreter code"). Best effort by design: the forms it knows are pinned case
+by case in tests/test_bash.py. `write_targets` does not read inline interpreter code (`python3 -c`, a heredoc fed to
+`node`); `interpreter_writes` reads it, for scope-guard only (the other hooks keep `write_targets` as it is). The
+contents of a script file (`python3 tool.py`, `-m mod`) stay outside both: the accepted risk of 4.4 "remaining risk".
+What it cannot follow
 (command substitution outside single quotes, a heredoc left open, a `cd` to a variable, a symlink made and written
 through in one command) fails closed: None. A variable is followed only when `NAME=<literal>` is a bare assignment that
 always runs, nothing else sets or names `NAME`, and the line has no command that can set a variable unseen
 (`_literal_vars`).
 """
+import ast
 import os
 import re
 import shlex
@@ -757,7 +761,8 @@ def write_targets(cmd: str, cwd: Path) -> Optional[List[Path]]:
     """Absolute paths `cmd` creates, changes or deletes; [] when it writes nothing it knows of;
     None when it writes but a target cannot be named (git that changes the tree, except a plain
     `git mv <src> <dst>`, `$VAR`, xargs, find -delete,
-    a symlink made in the same command as another write, anything `_walk` cannot follow)."""
+    a symlink made in the same command as another write, anything `_walk` cannot follow). It does not read inline
+    interpreter code (`python3 -c "open('x','w')"`): `interpreter_writes` does, for scope-guard only."""
     walked = _walk(cmd, cwd)
     if walked is None:
         return None
@@ -775,6 +780,796 @@ def write_targets(cmd: str, cwd: Path) -> Optional[List[Path]]:
                 return None
             out += ps
     if link and writers > 1:
+        return None
+    return out
+
+
+# Inline interpreter code (architecture 4.12 "Inline interpreter code"). Only scope-guard calls `interpreter_writes`;
+# nothing above this line knows of it.
+INTERPRETER = re.compile(r'python|node|ruby|perl')
+HEREDOC_MARK = '__MAHEREDOC%d__'
+HEREDOC_MARKED = re.compile(r'__MAHEREDOC(\d+)__$')
+NO_WRITE = {'/dev/null', '/dev/stdout', '/dev/stderr'}
+WRITE_FLAGS = {'O_WRONLY', 'O_RDWR', 'O_CREAT', 'O_APPEND', 'O_TRUNC'}
+XARGS_VALUE = set('IPLnsdEa')       # short xargs options that take a value (attached or the next word)
+XARGS_LONG = {'--max-args', '--max-procs', '--max-lines', '--max-chars', '--delimiter', '--arg-file',
+              '--process-slot-var'}
+# per interpreter: letters of a short-option cluster that take the code, a value (rest of the cluster or the next
+# word), the rest of the cluster only, digits (`-0777`), or name a module (no inline code); long options with a value
+OPT_SPECS = {
+    'python': dict(code='c', value='WX', rest='', skip='', stop='m', long_value={'--check-hash-based-pycs'}, once=True),
+    'ruby': dict(code='e', value='IrCE', rest='FxWKTi', skip='0', stop='',
+                 long_value={'--encoding', '--external-encoding', '--internal-encoding', '--enable', '--disable'},
+                 once=False),
+    'perl': dict(code='eE', value='I', rest='FCMmxidDV', skip='0l', stop='', long_value=set(), once=False),
+}
+NODE_VALUE = {'-r', '--require', '--import', '--loader', '--experimental-loader', '-C', '--conditions', '--input-type'}
+NODE_CODE = {'-e', '--eval', '-p', '--print', '-pe', '-ep'}
+
+
+def _heredoc_marks(line: str) -> List[tuple]:
+    """(start, end, word, quoted, dash) of each `<<` / `<<-` on `line`: the span with its delimiter word, the word and
+    whether it is quoted, read the way `_delimiters` reads them."""
+    out = []
+    for m in HEREDOC.finditer(line):
+        j, word, quoted = m.end(), [], False
+        while j < len(line) and line[j] not in ' \t\n;&|()<>':
+            c = line[j]
+            quoted = quoted or c in '\'"\\'
+            if c in '\'"':
+                k = line.find(c, j + 1)
+                k = len(line) if k < 0 else k
+                word.append(line[j + 1:k])
+                j = k + 1
+            elif c == '\\' and j + 1 < len(line):
+                word.append(line[j + 1])
+                j += 2
+            else:
+                word.append(c)
+                j += 1
+        if word:
+            out.append((m.start(), j, ''.join(word), quoted, '-' in m.group(0)))
+    return out
+
+
+def _pair_heredocs(cmd: str) -> tuple:
+    """(text, bodies): `cmd` as `_strip_heredocs` leaves it, with each `<<WORD` replaced by an input redirect from a
+    placeholder word (`< __MAHEREDOC0__`), so the placeholder lands in the `inputs` of the command that reads the
+    heredoc; and the body lines of heredoc N in `bodies[N]`. ValueError exactly where `_strip_heredocs` raises it."""
+    out, bodies, waiting = [], [], []
+    for line in cmd.split('\n'):
+        if waiting:
+            word, quoted, dash, k = waiting[0]
+            if line.strip() == word:
+                waiting.pop(0)
+            elif not quoted and ('`' in line or '$(' in line):
+                raise ValueError('command substitution')
+            else:
+                bodies[k].append(line.lstrip('\t') if dash else line)
+            continue
+        marks = _heredoc_marks(line)
+        base = len(bodies)
+        for n, (_, _, word, quoted, dash) in enumerate(marks):
+            bodies.append([])
+            waiting.append((word, quoted, dash, base + n))
+        for n, (start, end, *_) in reversed(list(enumerate(marks))):
+            line = line[:start] + '< ' + HEREDOC_MARK % (base + n) + ' ' + line[end:]
+        out.append(line)
+    if waiting:
+        raise ValueError('heredoc not closed')
+    return '\n'.join(out), bodies
+
+
+def _xargs_words(raw: List[str]) -> Optional[tuple]:
+    """(the words after `xargs` and its options, whether it has a replace option) for a simple command run through
+    xargs, from its raw words: `_simple` does not know the clusters (`-tI {}`) and can take a value for the command."""
+    k = next((i for i, w in enumerate(raw) if os.path.basename(w) == 'xargs'), None)
+    if k is None:
+        return None
+    rest, i, replace = raw[k + 1:], 0, False
+    while i < len(rest) and rest[i].startswith('-') and rest[i] != '-':
+        opt = rest[i]
+        i += 1
+        if opt == '--':
+            break
+        if opt.startswith('--'):
+            name = opt.split('=', 1)[0]
+            replace = replace or name == '--replace'
+            i += '=' not in opt and name in XARGS_LONG
+            continue
+        for j, ch in enumerate(opt[1:], 1):
+            replace = replace or ch in 'Ii'
+            if ch in XARGS_VALUE:
+                i += j == len(opt) - 1
+                break
+            if ch in 'ile':          # the value of these is attached or none
+                break
+    return _simple(rest[i:], [], []).words, replace
+
+
+def _scan_args(args: List[str], spec: dict) -> tuple:
+    """(code strings, status, module words) of the arguments of python, ruby or perl. status: 'code' (an inline
+    option was given), 'script' (a script file or module comes first), 'stdin' (neither: the code comes on stdin)."""
+    codes, mods, i = [], [], 0
+    while i < len(args):
+        a = args[i]
+        if a == '--':
+            i += 1
+            break
+        if a == '-' or not a.startswith('-'):
+            break
+        i += 1
+        if a.startswith('--'):
+            i += '=' not in a and a in spec['long_value']
+            continue
+        j = 1
+        while j < len(a):
+            ch = a[j]
+            if ch in spec['code']:
+                tail = a[j + 1:]
+                if tail:
+                    codes.append(tail)
+                elif i < len(args):
+                    codes.append(args[i])
+                    i += 1
+                break
+            if ch in spec['stop']:
+                return [], 'script', mods
+            if ch in spec['value']:
+                i += j == len(a) - 1
+                break
+            if ch in spec['rest']:
+                mods.append(a[j + 1:])
+                break
+            j += 1
+            if ch in spec['skip']:
+                while j < len(a) and a[j] in '01234567':
+                    j += 1
+        if codes and spec['once']:
+            return codes, 'code', mods
+    if codes:
+        return codes, 'code', mods
+    return [], ('stdin' if i >= len(args) or args[i] == '-' else 'script'), mods
+
+
+def _node_args(args: List[str]) -> tuple:
+    """`_scan_args` for node: `-e` / `--eval` / `-p` / `--print` (also `-pe`, `--eval=CODE`) give the code."""
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == '--':
+            i += 1
+            break
+        if a == '-' or not a.startswith('-'):
+            break
+        i += 1
+        name, eq, value = a.partition('=')
+        if name in NODE_CODE:
+            if eq:
+                return [value], 'code', []
+            return ([args[i]], 'code', []) if i < len(args) else ([], 'script', [])
+        i += not eq and name in NODE_VALUE
+    return [], ('stdin' if i >= len(args) or args[i] == '-' else 'script'), []
+
+
+class _Found:
+    """What one piece of inline code writes: literal paths in source order, whether a write has a path that is not a
+    literal (or a mode that cannot be told), and whether the code changes its folder."""
+
+    def __init__(self):
+        self.paths, self.unknown, self.chdir = [], False, False
+
+    def add(self, path: Optional[str]) -> None:
+        """A write to `path`: None is a path that is not a literal."""
+        if path is None:
+            self.unknown = True
+        elif path not in NO_WRITE:
+            self.paths.append(path)
+
+    def cannot_tell(self) -> None:
+        self.unknown = True
+
+
+def _plain(text: str) -> bool:
+    """Whether the text of a string literal is a plain path: no `$` (shell or interpreter variable), `@` or `#{`."""
+    return not re.search(r'[$@]|#\{', text)
+
+
+# ---- python (ast) ----
+PY_PATHS = {
+    'os': {'remove': ((0, 'path'),), 'unlink': ((0, 'path'),), 'rmdir': ((0, 'path'),), 'removedirs': ((0, 'name'),),
+           'mkdir': ((0, 'path'),), 'makedirs': ((0, 'name'),), 'truncate': ((0, 'path'),), 'mkfifo': ((0, 'path'),),
+           'rename': ((0, 'src'), (1, 'dst')), 'renames': ((0, 'old'), (1, 'new')),
+           'replace': ((0, 'src'), (1, 'dst')), 'symlink': ((1, 'dst'),), 'link': ((1, 'dst'),)},
+    'shutil': {'copy': ((1, 'dst'),), 'copy2': ((1, 'dst'),), 'copyfile': ((1, 'dst'),), 'copytree': ((1, 'dst'),),
+               'move': ((0, 'src'), (1, 'dst')), 'rmtree': ((0, 'path'),)},
+}
+PY_STAR = {'os': [*PY_PATHS['os'], 'chdir', 'open'], 'shutil': [*PY_PATHS['shutil']], 'io': ['open'],
+           'codecs': ['open'], 'pathlib': ['Path']}      # what `from <module> import *` brings in
+PY_PATH_METHODS = {'write_text', 'write_bytes', 'touch', 'mkdir', 'unlink', 'rmdir', 'symlink_to', 'hardlink_to'}
+PY_FORMS = re.compile(r'\b(?:open|' + '|'.join(sorted({n for t in PY_PATHS.values() for n in t} | PY_PATH_METHODS))
+                      + r')\b')
+
+
+def _py_arg(call: ast.Call, index: int, name: str):
+    """The argument node of `call` at `index` (or the keyword `name`); None when it is not given; False when a `*args`
+    or `**kw` hides it."""
+    if any(isinstance(a, ast.Starred) for a in call.args) or any(k.arg is None for k in call.keywords):
+        return False
+    if index < len(call.args):
+        return call.args[index]
+    return next((k.value for k in call.keywords if k.arg == name), None)
+
+
+def _py_lit(node) -> Optional[str]:
+    return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) and _plain(node.value) else None
+
+
+def _py_path(found: _Found, node) -> None:
+    """The path argument `node` of a write: a literal is judged; an int is a file descriptor (no path); anything
+    else (or an argument that is missing or hidden) is a path that cannot be told."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+        return
+    found.add(None if node is None or node is False else _py_lit(node))
+
+
+def _py_mode(node) -> str:
+    """'read', 'write' or 'unknown' for the mode argument of open (None: not given)."""
+    if node is None:
+        return 'read'
+    text = _py_lit(node) if isinstance(node, ast.Constant) else None
+    if text is None:
+        return 'unknown'
+    return 'write' if any(c in text for c in 'wax+') else 'read'
+
+
+def _py_flag_names(node) -> Optional[set]:
+    """The `O_*` names of an os.open flags expression (`os.O_CREAT | os.O_APPEND`); None when it is anything else.
+    A number other than 0 may hold any write flag."""
+    if isinstance(node, ast.Attribute):
+        return {node.attr}
+    if isinstance(node, ast.Name):
+        return {node.id}
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+        return {'O_WRONLY'} if node.value else set()
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        left, right = _py_flag_names(node.left), _py_flag_names(node.right)
+        return None if left is None or right is None else left | right
+    return None
+
+
+def _py_flags(node) -> str:
+    """'read', 'write' or 'unknown' for the flags argument of os.open."""
+    if node is None:
+        return 'read'
+    names = None if node is False else _py_flag_names(node)
+    if names is None:
+        return 'unknown'
+    if names & WRITE_FLAGS:
+        return 'write'
+    return 'read' if all(n.startswith('O_') for n in names) else 'unknown'
+
+
+def _python_writes(code: str, mods: List[str]) -> _Found:
+    found = _Found()
+    try:
+        tree = ast.parse(code)
+    except Exception:       # SyntaxError, ValueError (null byte), RecursionError: judged by the names the text has
+        if PY_FORMS.search(code):
+            found.cannot_tell()
+        return found
+    modules, funcs = {}, {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                if a.asname:
+                    modules[a.asname] = a.name
+                else:
+                    modules[a.name.split('.')[0]] = a.name.split('.')[0]
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            for a in node.names:
+                if a.name != '*':
+                    funcs[a.asname or a.name] = (node.module, a.name)
+                    continue
+                for name in PY_STAR.get(node.module, ()):
+                    funcs.setdefault(name, (node.module, name))
+
+    def ref(f):
+        if isinstance(f, ast.Name):
+            return funcs.get(f.id) or (('builtins', 'open') if f.id == 'open' else None)
+        if isinstance(f, ast.Attribute):
+            if isinstance(f.value, ast.Name) and f.value.id in modules:
+                return (modules[f.value.id], f.attr)
+            return ('.', f.attr, f.value)
+        return None
+
+    def path_call(recv):
+        """None when `recv` is not a `Path(...)` call; else its literal path, or False when it is not a literal."""
+        if not (isinstance(recv, ast.Call) and ref(recv.func) == ('pathlib', 'Path')):
+            return None
+        parts = [_py_lit(a) for a in recv.args]
+        if not parts or recv.keywords or None in parts:
+            return False
+        return os.path.join(*parts)
+
+    calls = sorted((n for n in ast.walk(tree) if isinstance(n, ast.Call)), key=lambda n: (n.lineno, n.col_offset))
+    for call in calls:
+        r = ref(call.func)
+        if r is None:
+            continue
+        if r[0] == '.':
+            name, recv = r[1], path_call(r[2])
+            if name in PY_PATH_METHODS:
+                found.add(None if recv in (None, False) else recv)
+            elif recv is not None and name in ('rename', 'replace'):
+                found.add(None if recv is False else recv)
+                target = _py_arg(call, 0, 'target')
+                found.add(_py_lit(target) if target else None)
+            elif recv is not None and name == 'open':
+                mode = _py_mode(_py_arg(call, 0, 'mode'))
+                if mode == 'unknown' or (mode == 'write' and recv is False):
+                    found.cannot_tell()
+                elif mode == 'write':
+                    found.add(recv)
+            continue
+        mod, name = r
+        if name == 'open' and mod in ('builtins', 'io', 'codecs'):
+            mode = _py_mode(_py_arg(call, 1, 'mode'))
+            if mode == 'unknown':
+                found.cannot_tell()
+            elif mode == 'write':
+                _py_path(found, _py_arg(call, 0, 'file') or _py_arg(call, 0, 'filename'))
+        elif (mod, name) == ('os', 'open'):
+            flags = _py_flags(_py_arg(call, 1, 'flags'))
+            if flags == 'unknown':
+                found.cannot_tell()
+            elif flags == 'write':
+                _py_path(found, _py_arg(call, 0, 'path'))
+        elif (mod, name) == ('os', 'chdir'):
+            found.chdir = True
+        else:
+            for index, kw in PY_PATHS.get(mod, {}).get(name, ()):
+                _py_path(found, _py_arg(call, index, kw))
+    return found
+
+
+# ---- node, ruby, perl (a small lexer, then the calls by name) ----
+LEX_WORD = {'js': re.compile(r'[A-Za-z_$][\w$]*'), 'rb': re.compile(r'[A-Za-z_]\w*[?!]?'),
+            'pl': re.compile(r'[A-Za-z_]\w*(?:::\w+)*')}
+REGEX_AFTER = {   # a word after which `/` starts a regex literal, not a division
+    'js': {'return', 'typeof', 'case', 'in', 'of', 'delete', 'void', 'throw', 'new', 'else', 'do', 'yield', 'await'},
+    'rb': {'if', 'unless', 'and', 'or', 'not', 'return', 'puts', 'print', 'when', 'while', 'until', 'then', 'elsif',
+           'case', 'p'},
+    'pl': {'if', 'unless', 'and', 'or', 'not', 'split', 'grep', 'map', 'return', 'print', 'while', 'until', 'push',
+           'join', 'x', 'eq', 'ne', 'lt', 'gt', 'le', 'ge', 'cmp', 'when'}}
+QUOTE_LIKE = {'m', 's', 'tr', 'y', 'qr', 'q', 'qq', 'qw'}
+QUOTE_DELIMS = set('/|!{([<#"\'~^%+:')
+BRACKETS = {'(': ')', '[': ']', '{': '}', '<': '>'}
+PL_VAR = re.compile(r'\w+(?:::\w+)*')
+RB_VAR = re.compile(r'(?:@@?\w+|\$(?:\w+|[^\s\w]))')
+RB_PERCENT = re.compile(r'%[qQwWiIrsx]?([^\w\s])')
+STOP_WORDS = {'if', 'unless', 'while', 'until', 'and', 'or', 'xor', 'do', 'then', 'end', 'rescue', 'for', 'foreach'}
+ARG_START_OPS = {'[', '{', '\\', '-', '+', '*', '!'}
+ARG_START = {'str', 'xstr', 'num', 'var', 'sym', 'quote', 'cmd'}
+
+
+def _skip_to(code: str, i: int, close: str, nest: Optional[str] = None) -> int:
+    """Index just past the `close` that ends a literal whose body starts at `i` (escapes skipped, `nest` is an opener
+    that is counted); len(code) when it never closes."""
+    depth, n = 0, len(code)
+    while i < n:
+        c = code[i]
+        if c == '\\':
+            i += 2
+            continue
+        if nest and c == nest:
+            depth += 1
+        elif c == close:
+            if depth == 0:
+                return i + 1
+            depth -= 1
+        i += 1
+    return n
+
+
+def _lex(code: str, lang: str) -> List[tuple]:
+    """(kind, text) tokens of node ('js'), ruby ('rb') or perl ('pl') code. Kinds: id, str (a string literal with no
+    backslash), xstr (any other string), num, var, sym, quote (a regex or other quote-like literal), cmd (backticks),
+    nl, op. Comments are dropped; a name inside a string, regex or comment is no id."""
+    toks, i, n = [], 0, len(code)
+
+    def operand() -> bool:       # the last token ends a value, so `/` divides and `%` is an operator
+        if not toks:
+            return False
+        kind, text = toks[-1]
+        if kind == 'id':
+            return text not in REGEX_AFTER[lang]
+        return text in (')', ']', '}') if kind == 'op' else kind != 'nl'
+
+    while i < n:
+        c, nxt = code[i], code[i + 1:i + 2]
+        if c in ' \t\r':
+            i += 1
+        elif c == '\n':
+            toks.append(('nl', c))
+            i += 1
+        elif (lang == 'js' and code.startswith('//', i)) or (lang != 'js' and c == '#'):
+            j = code.find('\n', i)
+            i = n if j < 0 else j
+        elif lang == 'js' and code.startswith('/*', i):
+            j = code.find('*/', i + 2)
+            i = n if j < 0 else j + 2
+        elif c in '\'"`':
+            j = _skip_to(code, i + 1, c)
+            body = code[i + 1:j - 1]
+            if c == '`' and lang != 'js':
+                toks.append(('cmd', body))
+            else:
+                toks.append(('xstr' if '\\' in body else 'str', body))
+            i = j
+        elif lang == 'pl' and (c in '$@' or (c == '%' and not operand() and (nxt.isalpha() or nxt in '_{$'))):
+            j = i + 1 + (c == '$' and nxt == '#')
+            m = PL_VAR.match(code, j)
+            if m:
+                j = m.end()
+            elif c == '$' and code[j:j + 1] not in ('', '{', '$') and not code[j].isspace():
+                j += 1
+            toks.append(('var', code[i:j]))
+            i = j
+        elif lang == 'rb' and RB_VAR.match(code, i):
+            m = RB_VAR.match(code, i)
+            toks.append(('var', m.group(0)))
+            i = m.end()
+        elif lang == 'rb' and c == ':' and (nxt.isalpha() or nxt == '_') and code[i - 1:i] != ':':
+            m = re.compile(r'\w+[?!=]?').match(code, i + 1)
+            toks.append(('sym', m.group(0)))
+            i = m.end()
+        elif c == '/' and not operand():
+            j = _skip_to(code, i + 1, '/')
+            while j < n and code[j].isalpha():
+                j += 1
+            toks.append(('quote', ''))
+            i = j
+        elif lang == 'rb' and c == '%' and not operand() and RB_PERCENT.match(code, i):
+            d = RB_PERCENT.match(code, i).group(1)
+            toks.append(('quote', ''))
+            i = _skip_to(code, RB_PERCENT.match(code, i).end(), BRACKETS.get(d, d), d if d in BRACKETS else None)
+        elif c.isdigit():
+            m = re.compile(r'\d[\w.]*').match(code, i)
+            toks.append(('num', m.group(0)))
+            i = m.end()
+        elif LEX_WORD[lang].match(code, i):
+            word = LEX_WORD[lang].match(code, i).group(0)
+            j = i + len(word)
+            d = code[j:j + 1]
+            if (lang == 'pl' and word in QUOTE_LIKE and d in QUOTE_DELIMS and d != ''
+                    and not (toks and toks[-1] == ('op', '->'))):
+                end = _skip_to(code, j + 1, BRACKETS.get(d, d), d if d in BRACKETS else None)
+                body = code[j + 1:end - 1]
+                if word in ('s', 'tr', 'y'):
+                    if d in BRACKETS:
+                        while end < n and code[end].isspace():
+                            end += 1
+                        d2 = code[end:end + 1]
+                        end = _skip_to(code, end + 1, BRACKETS.get(d2, d2), d2 if d2 in BRACKETS else None)
+                    else:
+                        end = _skip_to(code, end, d)
+                while end < n and code[end].isalpha():
+                    end += 1
+                if word in ('q', 'qq'):
+                    toks.append(('xstr' if '\\' in body else 'str', body))
+                else:
+                    toks.append(('quote', ''))
+                i = end
+            else:
+                toks.append(('id', word))
+                i = j
+        else:
+            two = code[i:i + 2]
+            op = two if two in ('->', '=>', '::', '&&', '||') else c
+            toks.append(('op', op))
+            i += len(op)
+    return toks
+
+
+def _starts_arg(tok: tuple) -> bool:
+    kind, text = tok
+    if kind == 'id':
+        return text not in STOP_WORDS
+    return kind in ARG_START or (kind == 'op' and text in ARG_START_OPS)
+
+
+def _call_args(toks: List[tuple], k: int, optional: bool) -> Optional[List[List[tuple]]]:
+    """The arguments of the call whose name ends before `toks[k]`: a list of token lists, split at the commas. With
+    parentheses they end at the matching `)`; without (`optional`, ruby and perl) at the end of the statement, a
+    closing bracket, `&&`, `||` or a word like `if`, `do`, `or`. None when no call follows."""
+    n = len(toks)
+    paren = k < n and toks[k] == ('op', '(')
+    if paren:
+        k += 1
+    elif not optional or k >= n or not _starts_arg(toks[k]):
+        return None
+    args, cur, depth = [], [], 0
+    while k < n:
+        kind, text = toks[k]
+        if kind == 'nl':
+            if paren or depth or toks[k - 1] == ('op', ','):
+                k += 1
+                continue
+            break
+        if kind == 'op' and text in '([{':
+            depth += 1
+        elif kind == 'op' and text in ')]}':
+            if depth == 0:
+                break
+            depth -= 1
+        elif depth == 0 and ((kind == 'op' and text in (';', '&&', '||')) or (
+                not paren and kind == 'id' and text in STOP_WORDS)):
+            break
+        if kind == 'op' and text == ',' and depth == 0:
+            args.append(cur)
+            cur = []
+        else:
+            cur.append(toks[k])
+        k += 1
+    if cur or args:
+        args.append(cur)
+    return args
+
+
+def _lit(args: List[List[tuple]], index: int) -> Optional[str]:
+    """The string of argument `index` when it is one plain string literal, else None."""
+    if index < len(args) and len(args[index]) == 1 and args[index][0][0] == 'str' and _plain(args[index][0][1]):
+        return args[index][0][1]
+    return None
+
+
+def _flag_write(args: List[List[tuple]], index: int, letters: str) -> str:
+    """'read', 'write' or 'unknown' for the mode or flags argument `index` of an open call: a string with one of
+    `letters` writes; no argument reads; anything else cannot be told."""
+    if index >= len(args):
+        return 'read'
+    text = _lit(args, index)
+    if text is None:
+        return 'unknown'
+    return 'write' if any(c in text for c in letters) else 'read'
+
+
+def _paths_of(found: _Found, args: List[List[tuple]], indexes) -> None:
+    for index in indexes:
+        found.add(_lit(args, index))
+
+
+JS_FS = re.compile(r"""['"`](?:node:)?fs(?:/promises)?['"`]""")
+JS_PATH0 = {'writeFile', 'writeFileSync', 'appendFile', 'appendFileSync', 'createWriteStream', 'mkdir', 'mkdirSync',
+            'mkdtemp', 'mkdtempSync', 'rm', 'rmSync', 'rmdir', 'rmdirSync', 'unlink', 'unlinkSync', 'truncate',
+            'truncateSync'}
+JS_BOTH = {'rename', 'renameSync'}
+JS_DEST = {'copyFile', 'copyFileSync', 'cp', 'cpSync', 'symlink', 'symlinkSync', 'link', 'linkSync'}
+JS_OPEN = {'open', 'openSync'}
+
+
+def _node_writes(code: str, mods: List[str]) -> _Found:
+    found = _Found()
+    if not JS_FS.search(code):
+        return found
+    toks = _lex(code, 'js')
+    for k, (kind, name) in enumerate(toks):
+        if kind != 'id' or (k and toks[k - 1] in (('id', 'function'), ('id', 'new'))):
+            continue
+        if name == 'chdir' and k and toks[k - 1] == ('op', '.') and toks[k - 2:k - 1] == [('id', 'process')]:
+            found.chdir = True
+            continue
+        if name not in JS_PATH0 | JS_BOTH | JS_DEST | JS_OPEN:
+            continue
+        args = _call_args(toks, k + 1, False)
+        if args is None:
+            continue
+        if name in JS_PATH0:
+            _paths_of(found, args, (0,))
+        elif name in JS_BOTH:
+            _paths_of(found, args, (0, 1))
+        elif name in JS_DEST:
+            _paths_of(found, args, (1,))
+        else:
+            mode = _flag_write(args, 1, 'wa+')
+            if mode == 'unknown':
+                found.cannot_tell()
+            elif mode == 'write':
+                _paths_of(found, args, (0,))
+    return found
+
+
+RB_CALLS = {
+    'File': {'write': (0,), 'binwrite': (0,), 'delete': 'all', 'unlink': 'all', 'rename': (0, 1), 'symlink': (1,),
+             'link': (1,), 'truncate': (0,), 'open': 'open', 'new': 'open'},
+    'IO': {'write': (0,), 'binwrite': (0,)},
+    'FileUtils': {**{n: (0,) for n in ('rm', 'rm_f', 'rm_r', 'rm_rf', 'rmtree', 'remove', 'remove_dir', 'remove_file',
+                                        'rmdir', 'mkdir', 'mkdir_p', 'makedirs', 'mkpath', 'touch')},
+                  **{n: (0, 1) for n in ('mv', 'move')},
+                  **{n: (1,) for n in ('cp', 'copy', 'cp_r', 'copy_file', 'install', 'ln', 'ln_s', 'ln_sf',
+                                       'symlink')}},
+    'Dir': {'mkdir': (0,), 'rmdir': (0,), 'delete': (0,), 'unlink': (0,), 'chdir': 'chdir'},
+}
+
+
+def _ruby_writes(code: str, mods: List[str]) -> _Found:
+    found = _Found()
+    toks = _lex(code, 'rb')
+    for k in range(len(toks) - 2):
+        cls, sep, name = (t[1] for t in toks[k:k + 3])
+        if toks[k][0] != 'id' or toks[k + 2][0] != 'id' or sep not in ('.', '::') or name not in RB_CALLS.get(cls, ()):
+            continue
+        what = RB_CALLS[cls][name]
+        if what == 'chdir':
+            found.chdir = True
+            continue
+        args = _call_args(toks, k + 3, True)
+        if args is None:
+            continue
+        if what == 'all':
+            _paths_of(found, args, range(len(args)))
+        elif what == 'open':
+            mode_arg = next((a[2:] for a in args[1:] if a[:2] in ([('id', 'mode'), ('op', ':')],
+                                                                    [('sym', 'mode'), ('op', '=>')])), None)
+            rest = args[:1] + ([mode_arg] if mode_arg is not None else args[1:2])
+            mode = _flag_write(rest, 1, 'wa+')
+            if mode == 'unknown':
+                found.cannot_tell()
+            elif mode == 'write':
+                _paths_of(found, args, (0,))
+        else:
+            _paths_of(found, args, what)
+    return found
+
+
+PL_ONE = {'unlink': 'all', 'rename': (0, 1), 'mkdir': (0,), 'rmdir': (0,), 'link': (1,), 'symlink': (1,),
+          'truncate': (0,)}
+PL_COPY = {'copy': (1,), 'cp': (1,), 'move': (0, 1), 'mv': (0, 1)}
+PL_PATH = {'make_path', 'mkpath', 'remove_tree', 'rmtree'}
+PL_MODE = re.compile(r'\s*(\+?(?:>>|>|<))\s*(.*?)\s*$', re.S)
+
+
+def _perl_flags(tokens: List[tuple]) -> str:
+    """'read', 'write' or 'unknown' for the flags argument of sysopen: names such as `O_WRONLY|O_CREAT`."""
+    names = [t[1].split('::')[-1] for t in tokens if t[0] == 'id']
+    others = [t for t in tokens if t[0] not in ('id',) and t != ('op', '|') and t != ('num', '0')]
+    if set(names) & WRITE_FLAGS or any(t[0] == 'num' for t in others):
+        return 'write'
+    return 'read' if tokens and not others and all(n.startswith('O_') for n in names) else 'unknown'
+
+
+def _perl_writes(code: str, mods: List[str]) -> _Found:
+    found = _Found()
+    toks = _lex(code, 'pl')
+    modules = {'File::Copy': 'File::Copy' in code or any('File::Copy' in m for m in mods),
+               'File::Path': 'File::Path' in code or any('File::Path' in m for m in mods)}
+    for k, (kind, word) in enumerate(toks):
+        if kind != 'id' or (k and toks[k - 1] in (('op', '->'), ('id', 'sub'))):
+            continue
+        pkg, _, name = word.rpartition('::')
+        if name == 'chdir':
+            found.chdir = True
+            continue
+        copy = name in PL_COPY and (pkg == 'File::Copy' or (not pkg and modules['File::Copy']))
+        path = name in PL_PATH and (pkg == 'File::Path' or (not pkg and modules['File::Path']))
+        if not (copy or path or (not pkg and (name in PL_ONE or name in ('open', 'sysopen')))):
+            continue
+        args = _call_args(toks, k + 1, True)
+        if args is None:
+            continue
+        if name == 'open' and not pkg:
+            if len(args) >= 3:
+                mode = _perl_open_mode(args)
+                if mode == 'unknown':
+                    found.cannot_tell()
+                elif mode == 'write':
+                    _paths_of(found, args, (2,))
+            elif len(args) == 2:
+                spec = _lit(args, 1)
+                if spec is None:
+                    found.cannot_tell()
+                else:
+                    m = PL_MODE.match(spec)
+                    if m and ('>' in m.group(1) or m.group(1) == '+<') and m.group(2) not in ('', '-'):
+                        found.add(m.group(2))
+        elif name == 'sysopen' and not pkg:
+            mode = _perl_flags([t for a in args[2:3] for t in a]) if len(args) > 2 else 'read'
+            if mode == 'unknown':
+                found.cannot_tell()
+            elif mode == 'write':
+                _paths_of(found, args, (1,))
+        elif path:
+            for a in args:
+                if a[:1] == [('op', '{')] or (len(a) == 1 and a[0][0] == 'num'):
+                    continue
+                found.add(_lit([a], 0))
+        elif copy:
+            _paths_of(found, args, PL_COPY[name])
+        else:
+            which = PL_ONE[name]
+            if which == 'all':
+                _paths_of(found, args, range(len(args))) if args else found.cannot_tell()
+            else:
+                _paths_of(found, args, which)
+    return found
+
+
+def _perl_open_mode(args: List[List[tuple]]) -> str:
+    """'read', 'write' or 'unknown' for the mode of a three-argument open: `>`, `>>`, `+<`, `+>`, `+>>`, also with a
+    layer (`>:utf8`); a mode that is not a literal cannot be told."""
+    text = _lit(args, 1)
+    if text is None:
+        return 'unknown'
+    m = PL_MODE.match(text)
+    return 'write' if m and ('>' in m.group(1) or m.group(1) == '+<') else 'read'
+
+
+ANALYSERS = {'python': _python_writes, 'node': _node_writes, 'ruby': _ruby_writes, 'perl': _perl_writes}
+
+
+def _inline_writes(c: 'Simple', bodies: List[List[str]]) -> Optional[List[str]]:
+    """The literal paths the inline interpreter code of one simple command writes ([] when it runs no interpreter or
+    no code is given inline); None when a write cannot be told."""
+    words, replace = (_xargs_words(c.raw) or (c.words, False)) if c.xargs else (c.words, False)
+    if not words:
+        return []
+    name = os.path.basename(words[0])
+    kind = 'python' if PYTHON.match(name) else name if name in ('node', 'ruby', 'perl') else None
+    if kind is None:
+        return []
+    codes, status, mods = _node_args(words[1:]) if kind == 'node' else _scan_args(words[1:], OPT_SPECS[kind])
+    if status == 'script':
+        return []
+    if status == 'stdin':
+        marked = HEREDOC_MARKED.match(c.inputs[-1]) if c.inputs and not c.xargs else None
+        if not marked:
+            return []
+        codes = ['\n'.join(bodies[int(marked.group(1))]) + '\n']
+    elif replace:
+        return None         # the code text can change under `xargs -I`
+    found = ANALYSERS[kind]('\n'.join(codes), mods)
+    if found.unknown or (found.chdir and found.paths):
+        return None
+    return found.paths
+
+
+def interpreter_writes(cmd: str, cwd: Path) -> Optional[List[Path]]:
+    """Absolute paths the inline interpreter code in `cmd` creates, changes or deletes: `python`/`python3 -c`, `node`
+    `-e`/`-p`, `ruby -e`, `perl -e`/`-E`, or code fed through a heredoc on the interpreter's own command, also behind
+    the prefix words of `_simple` and in `bash -c` and `eval` strings. [] when it shows no write; None when a visible
+    write has a path that is not one plain string literal, or one of them cannot be told (a symlink made in the same
+    command, `os.chdir`, a replace option of `xargs`, a heredoc or quote `_walk` cannot follow). A script file or
+    module (`python3 tool.py`, `-m mod`) is not read: the stated limit. Only scope-guard calls it."""
+    try:
+        return _interpreter_writes(cmd, cwd)
+    except Exception:       # a form this reader does not expect: cannot tell
+        return None
+
+
+def _interpreter_writes(cmd: str, cwd: Path) -> Optional[List[Path]]:
+    """`interpreter_writes` without the catch-all: only the ValueError of `_pair_heredocs` (a heredoc left open, a
+    substitution in an expanded body: the same commands `write_targets` gives None) is turned into None here."""
+    if not INTERPRETER.search(re.sub(r'[\'"\\]', '', cmd)):      # the shell joins `py'thon'3`
+        return []
+    try:
+        text, bodies = _pair_heredocs(cmd)
+    except ValueError:
+        return None
+    walked = _walk(text, cwd)
+    if walked is None:
+        return None
+    out = []
+    for c, cwds in walked:
+        paths = _inline_writes(c, bodies)
+        if paths is None:
+            return None
+        for tok in paths:
+            ps = _resolve_all('./' + tok if tok.startswith('~') else tok, cwds)
+            if ps is None:
+                return None
+            out += ps
+    if out and any(c.words and os.path.basename(c.words[0]) == 'ln' for c, _ in walked):
         return None
     return out
 

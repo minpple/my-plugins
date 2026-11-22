@@ -163,6 +163,17 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.assertPassed(self.hook('Bash', {'command': f'echo "{self.proj}" >> {self.tasks_dir}/projects.txt'}))
         self.assertPassed(self.hook('Bash', {'command': 'ls -la && git status --porcelain'}))
 
+    def test_interpreter_write_is_not_read(self):
+        """Only scope-guard reads inline interpreter code (the person's decision, 2026-11-22): L1 before G1b keeps
+        what write_targets sees, as at 0.24.0."""
+        out = self.root / 'outside' / 'x.txt'
+        self.assertAsked(self.hook('Bash', {'command': f'echo x > {out}'}), str(out))   # the control
+        for cmd in (f'python3 -c "open(\'{out}\',\'w\')"', f'python3 -c "open(p,\'w\')"',
+                    f'node -e "require(\'fs\').writeFileSync(\'{out}\',\'x\')"',
+                    f"python3 - <<'EOF'\nopen('{out}','w')\nEOF"):
+            with self.subTest(cmd=cmd):
+                self.assertPassed(self.hook('Bash', {'command': cmd}))
+
     def test_asks_for_outside_writes(self):
         self.assertAsked(self.hook('Write', {'file_path': '/tmp/x/notes.md'}), str(Path('/tmp/x/notes.md').resolve()))
         self.assertAsked(self.hook('Bash', {'command': 'git commit -m x'}), 'cannot tell: git commit -m x')

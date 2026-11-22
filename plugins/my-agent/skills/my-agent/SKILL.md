@@ -19,10 +19,11 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 - Ask the person **everything** through an `AskUserQuestion` popup, never in prose. If the person asks back in prose, answer, then ask the same decision again in a popup.
 - No Codex popup answer: `hosts.md` “Waiting for Codex popup responses”.
 - 2–4 choices; put the recommended one first with `(Recommended)`.
-- Ask one popup per topic. For a technical matter, start the question with a one-line plain explanation of what is being decided. A scope question whose single recommended answer is likely to be replaced may use multi-select (recommended first) or the Other field.
-- Popup bodies: gates.md "Gate reports" for gate popups; E for repeated Verify FAIL names the criterion and a one-line reason; commit popups say what happens next.
-- For a popup written in a phase or profile file, use the choices as written (meaning, order, `(Recommended)` position; wording in the person's language). If another choice seems better, keep them and give the reason in one line in the question body.
+- Ask one popup per topic. A scope question whose single recommended answer is likely to be replaced may use multi-select (recommended first) or the Other field.
+- A popup stands alone: a technical question opens with a one-line plain explanation; the question names each thing it asks about with what it contains, not by a label only the chat defines; each option says what it leads to.
+- For a popup written in a phase or profile file, use the choices as written. If another choice seems better, keep them and give the reason in one line in the question body.
 - Write an `ask` line right before a popup and an `answer` line after the answer (`recorder.md` "Recorder rules").
+- **Settled popup:** after Intake, a non-gate popup whose answer follows from the request, the files or the person's earlier answer in this task is not asked: write the `ask` line and `answer … by=L1` with the recommended choice, and show `<question> → <choice> (answered by L1)`. Always asked: G1a, G1b, G3, G2, E, Intake popups, a popup without a recommended choice, and one the person answered before with another choice or a question back. Delegated approval rules stay.
 - Subagents do not ask the person. They only return result files and reports.
 
 ### Gates
@@ -42,9 +43,9 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 
 - Start: the `--auto` flag, or a message like "go ahead without asking me", confirmed once with the popup `Turn on (Recommended)` / `Keep asking me`. The state is the last `delegate` line in the run-log (also after compaction or `continue`).
 - While on, L1 answers G1a, G1b, findings popups and other non-gate popups with the recommended choice: write the `ask` line, then `answer … by=L1`, and show one chat line `<question> → <choice> (answered by L1)`.
-- Never answered by L1: G2, E, the G1a/G1b popup after the third `REVISE`, a popup without a recommended choice, the Intake item 1–5 popups and the flag popups. They go to the person.
+- Never answered by L1: G2, E, the G1a/G1b popup after the third `REVISE`, a popup without a recommended choice, the Intake item 1–5 popups and the flag popups.
 - A message that takes it back ("stop deciding for me") → `delegate state=off how=person`. G3 acceptance or Abort → `delegate state=off how=end`.
-- When delegation is asked for or turns on, read `gates.md` "Delegated approval details" (a pending popup, loop caps, how L1 answers G3).
+
 ### Levels
 
 | Level | Who | Does | Does not |
@@ -52,7 +53,9 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 | L1 | main session (this skill) | runs phases, delegates, merges, asks all questions, records | make deliverables (code, notes, drafts, plans) itself. Only exception: small fixes a judgment pointed out (2 files or fewer, about 10 lines), and small `plan.md` edits before G1b (Plan Review findings, G1b `Request changes`), and the work of an inline role (below). A small fix that changes a decision the person made is asked in a popup first; after an L1 edit in an HTML file, run a syntax check. |
 | L2 | scope-reviewer · architect · plan-reviewer · verifier · reviewer · gate-analyst | plans, judges, interprets decisions | change deliverables, delegate further |
 | L3 | explorer · researcher · writer · coder | the one work unit assigned | touch files outside the scope, delegate further |
-| L4 | tools·MCP · hooks · permission rules · scripts; the monitor and the G2 dialog are outside the levels | run, record, block | judge |
+| L4 | tools·MCP · hooks · permission rules · scripts | run, record, block | judge |
+
+The monitor and the G2 dialog are outside the levels.
 
 - **Inline role:** when `agent-models.py` shows a role as `model=inline … pass=inline`, do not start that agent. Where the phase file or the plan hands work to it, read its definition (`${CLAUDE_PLUGIN_ROOT}/l2-design-judge/agents/<role>.md` or `${CLAUDE_PLUGIN_ROOT}/l3-workers/agents/<role>.md`) and follow it yourself in this session with the hand-off's inputs; write its result file where the agent would, inside its write scope, then record the `inline` line (Recorder rules). A role the phase does not start (explorer when `explore.md` says `Skipped:`) has no inline run and no line.
 - L1 hands work to L2 and L3 directly, passing only paths and criteria. Never pass the author's explanation to a judge.
@@ -70,12 +73,12 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 ### Tool choice
 
 - Read files with Read, Grep and Glob; write them with Edit and Write; never `cat`, `sed -i`, `echo >` or a heredoc for a file.
-- Bash only for plugin scripts, single git commands, `date`, check commands (`python3 -m unittest discover -s <absolute folder>`) and copy commands (`mkdir -p`, `cp -pR`, `cp -p`, `cmp`; an archive is `archive.py`): one command per call, absolute paths, no `cd`, no variable assignment, no `;`/`&&`/`|`, no redirection, no `$(` or backticks. Get a value in its own call first.
-- Send the tool calls of one step that do not need each other's result in one message (the `step` line, the data folder command, the phase-file Read, the `.active` edit): each message re-reads the whole conversation.
+- Bash only for plugin scripts, single git commands, `date`, check commands (`python3 -m unittest discover -s <absolute folder>`) and copy commands (`mkdir -p`, `cp -pR <folder>/.` (its contents, so a rerun does not nest), `cp -p`, `cmp`; an archive is `archive.py`): one command per call, absolute paths, no `cd`, no variable assignment, no `;`/`&&`/`|`, no redirection, no `$(` or backticks. Get a value in its own call first.
+- Send the tool calls of one step that do not need each other's result in one message (the `step` line, the data folder command, the phase-file Read, the `.active` edit).
 
 ### Change requests
 
-- If a message before G3 acceptance asks to change the scope, plan or deliverable, do not fix or delegate at once; follow "In-flight revision" in `changes.md`. When you have architect rewrite `plan.md` before G1b approval (Request changes, `REVISE`, applying findings, `Plan change`), also archive per "Rewrite before approval" in `phases/plan.md`, write a `revision` line, then delegate.
+- If a message before G3 acceptance asks to change the scope, plan or deliverable, do not fix or delegate at once; follow "In-flight revision" in `changes.md`. An architect rewrite of `plan.md` before G1b approval: `phases/plan.md` "Rewrite before approval".
 
 ### Phase files
 
@@ -90,7 +93,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 
 ### Procedure files
 
-- The procedures are in `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/`. Read a file with Read at the moment its row gives, and again after `continue` or compaction when its text is no longer in context. One file per Read. A section name in quotes, here or in a phase file (`gates.md "Gate reports"`), is that section of the file named.
+- The procedures are in `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/`. Read a file with Read at the moment its row gives, and again after `continue` or compaction when its text is no longer in context. One file per Read.
 
 | File | Read it | Sections |
 |---|---|---|

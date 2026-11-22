@@ -230,6 +230,77 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(rows['plugins/demo/lib/parser.py']['since'], 'same')
         self.assertEqual(rejudge, '3')
 
+    def plan_with_files(self, files_block):
+        """PLAN with u2's `Files to change` line replaced by `files_block` (its lines, nested bullets included)."""
+        return PLAN.replace('- Files to change: `web/view.html`', files_block)
+
+    def test_two_paths_on_one_files_line_map(self):
+        """Control case of #84: two paths on one `Files to change` line both map to the unit."""
+        (self.task / 'plan.md').write_text(self.plan_with_files('- Files to change: `README.md`, `README-ko.md`'),
+                                           encoding='utf-8')
+        self.write('README.md', 'r2\n')
+        self.write('README-ko.md', 'k2\n')
+        res = self.run_cf()
+        self.assertEqual(res.returncode, 0, res.stderr)
+        _text, rows, _r = self.table()
+        self.assertEqual((rows['README.md']['units'], rows['README-ko.md']['units']), ('u2', 'u2'))
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+
+    def test_two_paths_in_one_nested_bullet_map(self):
+        """#84: a nested bullet of `Files to change` that holds two paths maps both, not only the first."""
+        block = '- Files to change:\n  - `README.md` and `README-ko.md`: same table row'
+        (self.task / 'plan.md').write_text(self.plan_with_files(block), encoding='utf-8')
+        self.write('README.md', 'r2\n')
+        self.write('README-ko.md', 'k2\n')
+        res = self.run_cf()
+        self.assertEqual(res.returncode, 0, res.stderr)
+        _text, rows, _r = self.table()
+        self.assertEqual((rows['README.md']['units'], rows['README-ko.md']['units']), ('u2', 'u2'))
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+
+    def test_absolute_files_to_change_paths_map(self):
+        """#75 candidate: a plan that writes absolute paths maps files that git lists relative to its root."""
+        block = f'- Files to change: `{self.root}/web/view.html`, `{self.root}/plugins/demo/lib/parser.py`'
+        (self.task / 'plan.md').write_text(self.plan_with_files(block), encoding='utf-8')
+        self.write('web/view.html', '<p>y</p>\n')
+        self.write('plugins/demo/lib/parser.py', 'a = 3\n')
+        res = self.run_cf()
+        self.assertEqual(res.returncode, 0, res.stderr)
+        _text, rows, _r = self.table()
+        self.assertEqual(rows['web/view.html']['units'], 'u2')
+        self.assertEqual(rows['plugins/demo/lib/parser.py']['units'], 'u1, u2')   # u1 names it too, relative
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+
+    def test_location_below_git_root_maps(self):
+        """#75 candidate: the task location is a folder below the git root and the plan writes paths relative to it."""
+        (self.root / 'app').mkdir()
+        self.write('app/src/main.js', 'm = 1\n')
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-q', '-m', 'app')
+        (self.task / 'intake.md').write_text(
+            f'Status: active\nLocation: {self.root}/app\nProfile: dev\nTask: {TASK}\n', encoding='utf-8')
+        (self.task / 'plan.md').write_text(self.plan_with_files('- Files to change: `src/main.js`, new `src/new.js`'),
+                                           encoding='utf-8')
+        self.write('app/src/main.js', 'm = 2\n')
+        self.write('app/src/new.js', 'n = 1\n')
+        res = self.run_cf()
+        self.assertEqual(res.returncode, 0, res.stderr)
+        _text, rows, _r = self.table()
+        self.assertEqual((rows['app/src/main.js']['units'], rows['app/src/new.js']['units']), ('u2', 'u2'))
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+
+    def test_dot_slash_paths_map(self):
+        """#75 candidate: `./web/view.html` in the plan is the same file as `web/view.html` in git's list."""
+        (self.task / 'plan.md').write_text(
+            self.plan_with_files('- Files to change: `./web/view.html`, new `./web/new.js`'), encoding='utf-8')
+        self.write('web/view.html', '<p>y</p>\n')
+        self.write('web/new.js', 'n = 1\n')
+        res = self.run_cf()
+        self.assertEqual(res.returncode, 0, res.stderr)
+        _text, rows, _r = self.table()
+        self.assertEqual((rows['web/view.html']['units'], rows['web/new.js']['units']), ('u2', 'u2'))
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+
     def test_parser_tolerates_missing_text(self):
         self.assertEqual(ma_schema.changed_files_rows(None), ([], None))
         self.assertEqual(ma_schema.changed_files_rows(''), ([], None))

@@ -406,6 +406,66 @@ class AgentsTest(unittest.TestCase):
     def test_architect_keeps_coder_files_in_task_location(self):
         self.assertIn('inside the task location', self._agent('architect'))
 
+    def assertRuleLine(self, path, sentence):
+        """The rule sentence sits whole on one line of the file (one sentence or one list line per rule, 4.5)."""
+        lines = path.read_text(encoding='utf-8').splitlines()
+        self.assertTrue(any(sentence in line for line in lines), f'{path.name}: {sentence!r}')
+
+    def test_coder_html_syntax_check(self):
+        """#12 (criterion 5)."""
+        self.assertRuleLine(REPO / 'l3-workers' / 'agents' / 'coder.md',
+                            'After editing a hand-maintained HTML file, run a syntax check of it before you report.')
+
+    def test_coder_partial_after_write_guard_deny(self):
+        """#93 (criterion 5)."""
+        self.assertRuleLine(REPO / 'l3-workers' / 'agents' / 'coder.md',
+                            'After a write-guard deny, stop and report `PARTIAL` with the denied path; '
+                            'never retry that write through another tool or an interpreter.')
+
+    def test_verifier_and_explorer_foreground_and_summary_lines(self):
+        """#67, #68, #109 (criterion 5)."""
+        rule = ('Run each command in the foreground; when you filter its output, keep the summary lines '
+                '(`Ran …`, `OK` / `FAILED`).')
+        self.assertRuleLine(REPO / 'l2-design-judge' / 'agents' / 'verifier.md', rule)
+        self.assertRuleLine(REPO / 'l3-workers' / 'agents' / 'explorer.md', rule)
+
+    def test_blueprint_paths_relative_to_repository_root(self):
+        """#82 (criterion 5)."""
+        self.assertRuleLine(REPO / 'l3-workers' / 'blueprint-format.md',
+                            'Paths are relative to the repository root, never absolute or `~` paths.')
+
+    def test_after_g3_criterion_not_a_verify_criterion(self):
+        """#101, #113 (criterion 5): architect, scope-reviewer, plan-reviewer and L1 in define.md."""
+        what = 'criterion only L1 can meet after G3 (the final save path, the blueprint update)'
+        judges = REPO / 'l2-design-judge' / 'agents'
+        self.assertRuleLine(judges / 'architect.md', f'Write no {what}.')
+        self.assertRuleLine(judges / 'scope-reviewer.md', f'Flag a {what} as SHOULD-FIX.')
+        self.assertRuleLine(judges / 'plan-reviewer.md', f'Flag a {what} as SHOULD-FIX.')
+        self.assertRuleLine(REPO / 'l1-orchestration' / 'phases' / 'define.md',
+                            f'Write no {what}; name that work in the scope as done by L1 after G3.')
+
+    def test_writer_never_invents_a_task_id(self):
+        """#108 (criterion 5)."""
+        self.assertRuleLine(REPO / 'l3-workers' / 'agents' / 'writer.md',
+                            'Never invent a task ID: leave a line the passed files give no source for as it is, '
+                            'and name it in your report.')
+
+    def test_reviewer_observation_is_not_a_finding(self):
+        """#110 (criterion 5)."""
+        self.assertRuleLine(REPO / 'l2-design-judge' / 'agents' / 'reviewer.md',
+                            'An observation with nothing to fix is not a finding line.')
+
+    def test_plan_reviewer_scans_whole_repository_criteria(self):
+        """#116 (criterion 5)."""
+        self.assertRuleLine(REPO / 'l2-design-judge' / 'agents' / 'plan-reviewer.md',
+                            'Check a criterion over all files of the repository against a scan of the tree '
+                            '(Glob or Grep), not a sample.')
+
+    def test_architect_lists_generated_file_under_source_unit(self):
+        """#66 (criterion 11)."""
+        self.assertRuleLine(REPO / 'l2-design-judge' / 'agents' / 'architect.md',
+                            'List a generated file under the work unit that changes its source.')
+
 
 if __name__ == '__main__':
     unittest.main()

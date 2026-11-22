@@ -168,7 +168,8 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.69 (2026-11-22, plugin 0.24.0:'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.70 (2026-11-22, plugin 0.25.0:'), line[:90])
+        self.assertIn('v0.69 (2026-11-22, plugin 0.24.0:', line)
         self.assertIn('v0.68 (2026-11-22, plugin 0.23.2:', line)
         self.assertIn('v0.67 (2026-11-22, plugin 0.23.1: Phase timeline return marks and the duration fix', line)
         self.assertIn('v0.66 (2026-11-21, plugin 0.23.0: Antigravity as a third host', line)
@@ -454,6 +455,91 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('before the first question or command', part)
         variables = next(l for l in differences.splitlines() if l.startswith('| Skill text variables |'))
         self.assertIn('ask the person only with request_user_input', variables)
+
+    def bullet(self, start, end, prefix):
+        """The bullet of the section `start`..`end` that begins with `prefix`, with its nested lines."""
+        lines = self.section(start, end).splitlines()
+        i = next(k for k, l in enumerate(lines) if l.startswith(prefix))
+        j = next((k for k in range(i + 1, len(lines)) if lines[k].startswith(('- ', '**', '#'))), len(lines))
+        return '\n'.join(lines[i:j])
+
+    def assert_words(self, text, words):
+        for word in words:
+            self.assertIn(word, text, word)
+
+    def test_codex_g2_answer_closes_with_its_result(self):
+        line = next(l for l in self.section('### 4.7.2 ', '### 4.7.3 ').splitlines()
+                    if l.startswith('- **How the readers class them:**'))
+        self.assertIn('with the result of that answer', line)
+        self.assertNotIn('as `allowed`', line)
+        self.assertNotIn('that `key=` as `allowed`', self.text)
+
+    def test_interpreter_writes_and_their_limit(self):
+        self.assertNotIn('For example, writing a file with `python -c`.', self.text)
+        risk = self.bullet('### 4.4 ', '### 4.5 ', '- **remaining risk:**')
+        self.assert_words(risk, ('interpreter_writes', 'scope-guard', 'plan-approved-check', 'verdict'))
+        bullet = self.bullet('### 4.12 ', '### 4.13 ', '- **Inline interpreter code (2026-11-22, plugin 0.25.0; #92):**')
+        self.assertGreater(len(bullet.splitlines()), 10)
+        self.assert_words(bullet, (
+            '`ma_bash.interpreter_writes(cmd, cwd)`', 'next to `write_targets`', 'Only `scope-guard.py` calls it',
+            '`plan-approved-check.py` and `verdict-fresh-check.py` keep `write_targets`', 'do not read it',
+            'the person decided (2026-11-22)', '`python`, `python3`', '`node`', '`ruby`', '`perl`',
+            'heredoc', 'sudo', 'xargs', '`ast`', 'Cannot tell where this command writes',
+            'The contents of a script file or module', '`os.system`', '`subprocess`', '`child_process`',
+            '`exec`, `eval`, `getattr`, `__import__`', '`<<<`', '`perl -i`', '`ruby -i`',
+            'inline code with no visible write is not refused'))
+
+    def test_settled_and_stand_alone_popups_described(self):
+        start, end = '### 4.4 ', '### 4.5 '
+        head = '**Popups after Intake (2026-11-22, plugin 0.25.0)**'
+        self.assertIn(head, self.section(start, end))
+        settled = self.bullet(start, end, '- **Settled popup:**')
+        self.assert_words(settled, (
+            'after Intake', 'request, the files or the person\'s earlier answer', '`ask` line', '`answer … by=L1`',
+            '(answered by L1)', 'SKILL.md "Question rules"', 'Always asked:', 'G1a, G1b, G3, G2, E',
+            'every Intake popup', 'a popup without a recommended choice', 'with a question back',
+            'Delegated approval rules stay', 'counted with the L1 answers'))
+        alone = self.bullet(start, end, '- **Stand-alone popup:**')
+        self.assert_words(alone, ('stands alone', 'one-line plain explanation', 'what it contains',
+                                  'what it leads to', 'written at plan time'))
+        preset = self.bullet(start, end, '- **Models preset popup:**')
+        self.assert_words(preset, ('one line', 'cost or care', '`presets` line'))
+
+    def test_g3_recommendation_follows_the_open_items(self):
+        g3 = next(l for l in self.text.splitlines() if l.startswith('| **G3 Final acceptance**'))
+        self.assert_words(g3, ('while a SHOULD-FIX is open', 'with only NITPICK items open',
+                               'cost (reference, 4.8)'))
+        self.assertNotIn('and after a G3 Rework answer Accept (Commit) is, because', g3)
+        bullet = self.bullet('### 4.4 ', '### 4.5 ', '- **G3 recommendation')
+        self.assert_words(bullet, ('every G3 of the task', 'first G3', 'after a Rework answer',
+                                   'under delegated approval', 'unchanged', 'up to 3 rounds'))
+
+    def test_procedure_rules_are_described_in_their_sections(self):
+        popups = self.section('### 4.4 ', '### 4.5 ')
+        self.assert_words(popups, ('Scope change: u<n> <new approach>', '`Give direction`',
+                                   'how the person checks it'))
+        findings = self.bullet('### 4.4 ', '### 4.5 ', '- **Finding locations')
+        self.assert_words(findings, ('`<file>:<a>-<b>`', 'a line inside it', 'the bare file', 'a folder',
+                                     'stays unmatched'))
+        mapping = self.bullet('### 4.4 ', '### 4.5 ', '- **Verify and Review scope')
+        self.assert_words(mapping, ('nested bullets', 'relative to the git root', 'a `./` prefix',
+                                    'listed under the work unit that changes its source'))
+        self.assertIn('`cp -pR <folder>/.`', self.section('### 4.7.1 ', '### 4.7.2 '))
+        self.assert_words(self.section('### 4.7.2 ', '### 4.7.3 '), (
+            '`rec=-` gives `none`', 'no `rec=` field', 'ask` plus `answer … by=L1'))
+        blueprint = self.section('### 4.7.5 ', '### 4.7.6 ')
+        self.assert_words(blueprint, ('relative to the repository root', 'git diff -U0 -- docs/blueprint/',
+                                      'as done by L1 after G3'))
+        self.assertIn('no Verify run starts while an adjustment', self.section('### 4.8.1 ', '### 4.8.2 '))
+        resume = self.section('### 4.8.2 ', '### 4.9 ')
+        self.assert_words(resume, ('`behind:`', 'FETCH_TIMEOUT', 'GIT_TERMINAL_PROMPT=0', '`--request-file`',
+                                   '`git worktree remove --force <worktree>`', 'git branch -D <branch>', 'its contents'))
+        agents = self.bullet('### 4.5 ', '### 4.5.1 ', '- **Rules added 2026-11-22')
+        self.assert_words(agents, ('syntax check', 'never retries that write', 'foreground', 'summary lines',
+                                   'never invents a task ID', 'nothing to fix', 'Glob or Grep',
+                                   'list a generated file under the work unit', 'only L1 can meet after G3'))
+        self.assert_words(self.section('### 4.1 Principles', '### 4.1.1 '), (
+            'adds no gate and no popup kind', 'behind `origin`'))
 
     def test_reference_articles_list_both_local_copies(self):
         ref = (REPO / 'docs' / 'reference.md').read_text(encoding='utf-8')

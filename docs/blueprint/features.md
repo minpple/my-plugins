@@ -1,5 +1,51 @@
 # Features
 
+## Settled and stand-alone popups
+- Purpose: Fewer needless popups after Intake and popups that can be answered from the popup alone, with a G3 recommendation that matches the open review items. Used by the person who answers the questions of a my-agent task.
+- Where: plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/l1-orchestration/new-task.md, plugins/my-agent/l1-orchestration/gates.md, plugins/my-agent/l1-orchestration/phases/define.md, plugins/my-agent/l1-orchestration/profiles/research.md, plugins/my-agent/l1-orchestration/recorder.md, plugins/my-agent/l4-tools-guards/scripts/intake.py, plugins/my-agent/docs/build-guide/my-agent-architecture.md (278-281)
+- Tasks: 261122-triage-open-feedback
+- Updated: 2026-11-22
+
+1. After Intake a non-gate popup whose answer is settled is answered by L1 with the recommended choice, in one rule in one place that replaces the scattered "do not ask" sentences; the always-asked popups, the records and delegated approval are named in it [check: command] → `SKILL.md:26`; `test_skill_md.py` `test_settled_popup_rule_in_one_place`, `test_settled_popup_keeps_delegation_and_records` (plugin suite Ran 1244 tests OK)
+2. A popup stands alone: the question names each thing with what it contains, each option says what it leads to, and the models preset popup describes each preset in one line [check: command] → `SKILL.md:23`; `new-task.md:54`; `test_popup_stands_alone`, `test_models_preset_popup_describes_each_preset`, `test_intake.py` `test_presets_lines_for_two_made_up_presets`
+3. The G3 popup recommends the rework of all open items while a SHOULD-FIX is open and at the first G3, the take choice after a Rework answer with only NITPICK items open; L1's delegated answer is unchanged [check: command] → `gates.md:59`; `test_g3_recommends_rework_while_should_fix_open`, `test_g3_choices_unchanged_without_delegation`
+4. The gate tally shows `none` for a popup recorded without a recommendation [check: command] → `ma_gate_report.py:83`; `test_gate_report.py` `test_no_recommendation_shows_none`
+
+## Intake Git check behind-count
+- Purpose: A branch that is behind the default branch of `origin` is reported as a problem of the Intake Git check, with the count. Used by the person who starts a task in a git location with a remote.
+- Where: plugins/my-agent/l4-tools-guards/scripts/intake.py (`net_git`, `behind`), plugins/my-agent/docs/build-guide/my-agent-architecture.md (1403-1411), plugins/my-agent/tests/test_intake.py
+- Tasks: 261122-triage-open-feedback
+- Updated: 2026-11-22
+
+1. Intake fetches with a time limit and counts the commits the branch is behind `origin`'s default branch, also for a branch never pushed; a count above 0 is a Git check problem listed in its popup with the count, also when it is the only one [check: command] → `intake.py:108-156`; `test_intake.py` `BehindTest` (`test_behind_counts_commits_on_origin_default`, `test_behind_counts_a_branch_never_pushed`), `test_skill_md.py` `test_intake_git_check_any_profile`
+2. With a detached HEAD, no remote or no `origin`, a failed fetch, a timeout or no default branch, the check goes on without the count and says which case it was in one line [check: command] → `BehindTest` (`test_behind_fetch_timeout` and the other cases)
+
+## Interpreter write check
+- Purpose: The write guard judges a write made through inline interpreter code the same way as a shell write, so a read-only agent or an agent with a write scope cannot write around the guard with `python3 -c` and the like. Used by every my-agent task.
+- Where: plugins/my-agent/l4-tools-guards/lib/ma_bash.py (`interpreter_writes`), plugins/my-agent/l4-tools-guards/hooks/scope-guard.py, plugins/my-agent/docs/build-guide/my-agent-architecture.md (343, 1547-1558)
+- Tasks: 261122-triage-open-feedback
+- Updated: 2026-11-22
+
+1. Inline code of `python`, `python3`, `node`, `ruby` and `perl`, also behind the prefix words the guard reads, is judged by the literal path of each visible write; a non-literal path is refused as "cannot tell", one refused write refuses the command, and inline code with no visible write passes [check: command] → `scope-guard.py:209`; `test_bash.py` `InterpreterWritesTest`; `test_scope_guard.py` `test_interpreter_writes_by_role`, `test_only_scope_guard_reads_interpreter_code`; `test_plan_approved_check.py` `test_interpreter_write_is_not_read`; `test_verdict_fresh_check.py` `test_interpreter_write_into_deliverable_is_not_read`
+2. The contents of a script file stay outside the check, and the design document names that limit [check: file] → my-agent-architecture.md:343, :1547-1558
+
+## Feedback triage and rule fixes
+- Purpose: The open feedback list shows only what is still open: each item was checked against version 0.24.0 and closed as fixed, duplicate or obsolete, or applied as designed behavior with a test or a rule line. Used by the person who runs my-agent and the maintainer who reads the feedback list.
+- Where: plugins/my-agent/l3-workers/agents/, plugins/my-agent/l2-design-judge/agents/, plugins/my-agent/l1-orchestration/, plugins/my-agent/l3-workers/blueprint-format.md, plugins/my-agent/l4-tools-guards/lib/ma_schema.py, plugins/my-agent/l4-tools-guards/scripts/changed-files.py, plugins/my-agent/l4-tools-guards/scripts/intake.py, plugins/my-agent/maintenance-notes.md
+- Tasks: 261122-triage-open-feedback
+- Updated: 2026-11-22
+
+1. The triage table covers each of the 120 items taken at Intake once, with class, theme and evidence (27 already fixed, 39 duplicate, 3 obsolete, 29 apply, 22 needs decision) [check: file] → task folder `triage.md` (Python check: `rows 120 distinct 120 missing []`, counts equal)
+2. A review finding whose location is a line range or a folder counts as fixed when an "Applied after review" line matches it, with the two-segment rule for a front-cut path under a folder; `intake.py` accepts the request from a file (`--request-file`) [check: command] → `ma_schema.py:303-330`; `test_schema.py` `test_finding_applied_range_and_folder`; `test_findings.py` `test_review_range_finding_counts_as_fixed`; `test_intake.py` `RequestFileTest`
+3. The agent definitions and blueprint format carry the batch C rules: HTML syntax check, foreground commands with the summary line kept, repository-relative blueprint paths, PARTIAL after a write-guard deny, no criterion only L1 can meet after G3, no invented task ID, no observation as a finding, scan of the tree for repository-wide criteria [check: command] → `coder.md:20, :31`; `verifier.md:22`; `explorer.md:22`; `blueprint-format.md:11`; `architect.md:23`; `scope-reviewer.md:57`; `plan-reviewer.md:47, :56`; `define.md:27`; `writer.md:23`; `reviewer.md:48`; `test_agents.py`
+4. The L1 rules of batch D hold: no Verify while an adjustment is built, a folder copy copies contents, `Give direction` is recorded in the plan, the how-to before a person-check popup, worktree removal after an equal compare, the blueprint deleted-lines check [check: command] → `changes.md:22`; `SKILL.md:76`; `gates.md:70`; `define.md:36`; `profiles/dev.md:15`; `accept.md:61`; `test_no_verify_while_adjustment_is_built`, `test_folder_copy_copies_contents`, `test_e_give_direction_is_recorded_in_plan`, `test_person_check_how_to_first`, `test_merge_removes_worktree_after_compare`, `test_blueprint_update_shows_deleted_lines`
+5. A nested bullet with two paths in a unit maps to both changed files, and a generated file is listed under the unit that changes its source [check: command] → `ma_schema.py:393`; `test_changed_files.py` `test_two_paths_in_one_nested_bullet_map` and three other mapping tests; `test_schema.py:203`; `architect.md:44`; `test_architect_lists_generated_file_under_source_unit`
+6. The keyed Codex G2 answer text is in the design document and the maintenance notes, and the seven points of #43 are judged and the ones that held are fixed [check: file] → my-agent-architecture.md:940; maintenance-notes.md:301; `test_codex_g2_answer_closes_with_its_result`; `triage.md:208-218`
+7. The design document describes each behavior change and `triage.md` names the section for each applied item, and each applied item names its test or rule line [check: file] → my-agent-architecture.md (278-293, 343, 426, 506, 512, 835, 940, 1403-1415, 1547-1558); `triage.md:172-224`
+8. The 69 closings of the already-fixed, duplicate and obsolete items ran after the G1b approval, highest number first, through the feedback script only, with a closing log and before and after lists [check: file] → `closing-log.md`, `closings.md`, `feedback-before.txt`, `feedback-after.txt` (log rows 69, order True, `after == before minus closed True 51`; the one item added by this task is `closing-log.md:106`)
+9. The skill file is under 12,500 characters and every file L1 reads at once under 11,500 [check: command] → `SKILL.md` 12438; largest L1 file `phases/build.md` 11440; `test_skill_md.py` size tests
+10. my-agent is 0.25.0 in the three plugin manifests and both README rows; the Codex build, the Antigravity build and the architecture page pass their freshness checks; the four suites pass [check: command] → `grep -n '"version"'` (0.25.0 ×3), README.md:9, README-ko.md:9; `build-codex.py --check`, `build-antigravity.py --check`, `build-docs.py --check` exit 0; plugin Ran 1244, monitor Ran 328, root Ran 110, tray Ran 69 tests OK; maintenance-notes.md dated 2026-11-22 entries
+
 ## Git guard and deny rules
 - Purpose: During a my-agent task a gate hook judges `git push` and `git commit` from the parsed shell command, so each dangerous form is denied or asked about and a plain text mention passes; the hand-merged pattern deny list has fewer gaps and false positives, and the documents state what the rules cannot stop. Used by the person who runs my-agent on Claude Code, Codex or Antigravity, and by anyone who merges the permission list by hand.
 - Where: plugins/my-agent/l4-tools-guards/hooks/git-guard.py, plugins/my-agent/l4-tools-guards/lib/ma_bash.py (`git_forms`), plugins/my-agent/l4-tools-guards/lib/ma_host.py, plugins/my-agent/l4-tools-guards/permissions/permissions.json, plugins/my-agent/l4-tools-guards/scripts/cd-guard.py, plugins/my-agent/docs/build-guide/my-agent-architecture.md (4.4, 4.6, 4.12), README.md, README-ko.md, docs/index.html, docs/index-ko.html

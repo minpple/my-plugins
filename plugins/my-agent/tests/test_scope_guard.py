@@ -575,6 +575,54 @@ class ScopeGuardTest(unittest.TestCase):
     def test_verifier_git_mv_only_reads(self):
         self.assertIn('only reads and checks', self.reason('my-agent:verifier', 'git mv a b'))
 
+    def test_interpreter_writes_by_role(self):
+        write = 'python3 -c "open(\'x\',\'w\')"'
+        only_reads = 'scope-guard: Bash for {} only reads and checks (this command changes files or git state).'
+        for agent in ('verifier', 'reviewer', 'explorer'):
+            with self.subTest(agent=agent):
+                self.assertEqual(self.reason(f'my-agent:{agent}', write), only_reads.format(agent))
+        self.assertEqual(self.reason('my-agent:verifier', 'node -e "require(\'fs\').rmSync(\'a\')"'),
+                         only_reads.format('verifier'))
+        self.assertEqual(self.reason('my-agent:verifier', 'python3 -c "open(p,\'w\')"'), only_reads.format('verifier'))
+        self.assertIsNone(self.reason('my-agent:verifier', 'python3 -c "print(open(\'src/a.txt\').read())"'))
+        self.assertIsNone(self.reason('my-agent:coder', 'python3 -c "open(\'src/a.py\',\'w\')"'))
+        self.assertIsNone(self.reason('my-agent:coder', 'ruby -e "File.write(\'src/a.rb\',\'x\')"'))
+        self.assertEqual(self.reason('my-agent:coder', f'python3 -c "open(\'{rel()}/{TASK}/verify.md\',\'w\')"'),
+                         f'scope-guard: Outside the write scope of coder: {self.T / "verify.md"}')
+        self.assertEqual(self.reason('my-agent:coder', 'python3 -c "open(\'/etc/x\',\'w\')"'),
+                         f'scope-guard: Outside the write scope of coder: {Path("/etc/x").resolve()}')
+        self.assertTrue(self.reason('my-agent:coder', 'python3 -c "open(p,\'w\')"').startswith(
+            'scope-guard: Cannot tell where this command writes'))
+        self.assertIsNone(self.reason('my-agent:coder', 'python3 -c "print(1)"'))
+        self.assertIsNone(self.reason('my-agent:coder', 'python3 tool.py'))   # a script file is not read: the stated limit
+        self.assertTrue(self.reason('my-agent:coder', 'echo x > "$OUT"').startswith('scope-guard: Cannot tell where'))
+        self.assertEqual(self.reason('my-agent:coder', f'echo y > src/b.txt; python3 -c "open(\'{rel()}/x\',\'w\')"'),
+                         f'scope-guard: Outside the write scope of coder: {self.L / rel() / "x"}')
+
+    def test_interpreter_write_by_the_coder_in_its_worktree(self):
+        W = self.L / '.claude' / 'worktrees' / 'agent-x'
+        W.mkdir(parents=True)
+        (self.L / '.git' / 'worktrees' / 'agent-x').mkdir(parents=True)
+        (W / '.git').write_text(f"gitdir: {self.L / '.git' / 'worktrees' / 'agent-x'}\n")
+        cmd = 'python3 -c "open(\'a.py\',\'w\')"'
+        self.assertFalse(self.denied('my-agent:coder', 'Bash', {'command': cmd}, cwd=W))
+        cmd = 'python3 -c "open(\'../../../src/a.py\',\'w\')"'
+        self.assertTrue(self.denied('my-agent:coder', 'Bash', {'command': cmd}, cwd=W))
+
+    def test_only_scope_guard_reads_interpreter_code(self):
+        hooks = L4 / 'hooks'
+        self.assertIn('interpreter_writes', (hooks / 'scope-guard.py').read_text(encoding='utf-8'))
+        for name in ('plan-approved-check.py', 'verdict-fresh-check.py'):
+            with self.subTest(hook=name):
+                self.assertNotIn('interpreter_writes', (hooks / name).read_text(encoding='utf-8'))
+
+    def test_docstring_names_the_script_file_limit(self):
+        import ast
+        text = (L4 / 'hooks' / 'scope-guard.py').read_text(encoding='utf-8')
+        doc = ' '.join((ast.get_docstring(ast.parse(text)) or '').split())
+        self.assertIn('inline interpreter code', doc)
+        self.assertIn('script file', doc)
+
     def test_script_error_exits_nonzero(self):
         payload = json.dumps({'agent_type': 'my-agent:coder', 'tool_name': 'Read', 'tool_input': 'oops',
                               'cwd': str(self.L)})

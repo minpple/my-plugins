@@ -16,17 +16,18 @@ there (a cloud session has no statusline file) the cost is tokens times list pri
 and its subagent transcripts (`ma_usage.claude_cost`). With neither it prints `run-log: no cost line (<reason>)`
 and writes nothing (exit 0); a value below the previous
 `cost:` line of that session gets reset=1. `cost` also refuses baseline=.
-`inline` records a role that ran in the main session (the inline pass of agent-models.py): agent=my-agent:<role> of the ten
-roles and file= (the result file, or `-` for my-agent:coder) are needed, unit= is optional (`-`). result= is the first non-empty line of
-the file (cut to 200 characters); for `file=-` (coder only) it is given as result=, and for every other role it is refused. A missing
-result file prints `run-log: inline needs the result file <path> (missing)`, exit 1, nothing written. Fields: agent unit file
+`inline` records a role that ran in the main session (the inline pass of agent-models.py): agent=my-agent:<role> of the
+ten roles and file= (the result file, or `-` for my-agent:coder) are needed, unit= is optional (`-`). result= is the
+first non-empty line of the file (cut to 200 characters); for `file=-` (coder only) it is given as result=, and for
+every other role it is refused. A missing result file prints
+`run-log: inline needs the result file <path> (missing)`, exit 1, nothing written. Fields: agent unit file
 result model (--model gives model=).
 After the `step` line with n=1 the script writes a second line `cost: session=<sid> usd=<value> baseline=1` (the
-baseline the tally measures the Intake stretch against), when the statusline file gives a value (same lookup as `cost`)
-and the run-log has no `cost:` line yet; otherwise it writes and prints nothing extra.
-After a `step` line that opens a phase (n=3 Plan, n=5 Execute, also with back=, n=7 Verify) the script writes the `cost:`
-line of that moment itself, as `cost` would (reset=1 when lower), so the two lines keep their order in one call; without a
-statusline value it writes and prints nothing extra. Steps 2, 4, 6 and 8 never write a cost line.
+baseline the tally measures the Intake stretch against), when the statusline file gives a value (same lookup as
+`cost`) and the run-log has no `cost:` line yet; otherwise it writes and prints nothing extra.
+After a `step` line that opens a phase (n=3 Plan, n=5 Execute, also with back=, n=7 Verify) the script writes the
+`cost:` line of that moment itself, as `cost` would (reset=1 when lower), so the two lines keep their order in one
+call; without a statusline value it writes and prints nothing extra. Steps 2, 4, 6 and 8 never write a cost line.
 `ask` takes no prose=, other= or pre= (they belong on the `answer` line): one line on stderr, exit 1, nothing written.
 Prints the line, then one MISMATCH line per subagent stop: line with
 mismatch=1 written since the previous L1 line, and PARTIAL lines (with unit=)
@@ -101,7 +102,8 @@ def subagent_mismatches(lines) -> list:
     for kind, f in lines[last_l1 + 1:]:
         if kind == 'stop' and f.get('mismatch') == '1':
             s = starts.get(f.get('id'), {})
-            out.append(f"MISMATCH: {s.get('agent', '?')} configured {s.get('configured', '?')}, actual {f.get('actual', '?')}")
+            out.append(f"MISMATCH: {s.get('agent', '?')} configured {s.get('configured', '?')}, "
+                       f"actual {f.get('actual', '?')}")
     return out
 
 
@@ -113,16 +115,19 @@ def inline_fields(fields, given, cwd):
         return 2
     extra = {k for k, _ in fields} - {'agent', 'unit', 'file', 'result'}
     if extra:
-        print(f"run-log: inline takes agent=, unit=, file= and result=, not {', '.join(sorted(extra))}=", file=sys.stderr)
+        print(f"run-log: inline takes agent=, unit=, file= and result=, not {', '.join(sorted(extra))}=",
+              file=sys.stderr)
         return 2
     path = given['file']
     if role == 'coder' and path == '-':
         if not given.get('result'):
-            print('run-log: inline for my-agent:coder with file=- needs result= (the first line of its report)', file=sys.stderr)
+            print('run-log: inline for my-agent:coder with file=- needs result= (the first line of its report)',
+                  file=sys.stderr)
             return 2
         result = given['result']
     elif path == '-' or 'result' in given:
-        print('run-log: inline takes file=- and result= for my-agent:coder only; other roles give the result file', file=sys.stderr)
+        print('run-log: inline takes file=- and result= for my-agent:coder only; other roles give the result file',
+              file=sys.stderr)
         return 2
     else:
         full = Path(path) if os.path.isabs(path) else Path(cwd) / path

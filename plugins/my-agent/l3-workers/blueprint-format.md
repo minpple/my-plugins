@@ -8,7 +8,7 @@ The blueprint is the committed record of what a project is now: what has been de
 
 A `<task-id>` below is the ID of the my-agent task that set the line. A change made without a task (a direct edit in a normal session) is named `direct-<yymmdd>-<slug>` in its place, for example `direct-261121-fix-typo`; do not invent a task ID for it.
 
-Each file is the current state, not a history. A task rewrites the entries it changed and removes what no longer holds; the earlier text is in git. Create a missing file with its title line. Keep the title lines, the `## ` section names, the line labels (`Purpose:`, `Where:`, `Tasks:`, `Updated:`) and the tags in English as written here.
+Each file is the current state, not a history. A task rewrites the entries it changed and removes what no longer holds; the earlier text is in git. Paths are relative to the repository root, never absolute or `~` paths. Create a missing file with its title line. Keep the title lines, the `## ` section names, the line labels (`Purpose:`, `Where:`, `Tasks:`, `Updated:`) and the tags in English as written here.
 
 ### `features.md`: what exists, and how it is checked
 

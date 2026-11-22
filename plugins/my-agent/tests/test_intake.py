@@ -8,8 +8,11 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest import mock
 
 from helpers import CLAUDE_HOOK_ENV, L4, clean_task_env, events, log_lines, parse, run_hook, run_script
+
+sys.path.insert(0, str(L4 / 'scripts'))
 
 SCRIPT = L4 / 'scripts' / 'intake.py'
 TASK_DIR = '.my-agent'
@@ -264,6 +267,17 @@ class FactsTest(FactsBase):
             self.assertEqual(len(head[f'presets {p}']), 1)
             self.assertTrue(head[f'presets {p}'][0].startswith('error: agent-models: '), head[f'presets {p}'])
 
+    def test_presets_lines_for_two_made_up_presets(self):
+        repo = init_repo(self.root / 'repo')
+        self.write_models({'dev': {'thorough': {'coder': {'model': 'opus', 'effort': 'high'}},
+                                   'lean': {'coder': {'model': 'haiku', 'effort': 'low'}}}})
+        head, _ = self.parsed(repo)
+        lines = {line.partition(':')[0]: line for line in head['presets dev']}
+        self.assertEqual(set(lines), {'thorough', 'lean'})
+        self.assertEqual(lines['thorough'], 'thorough: coder opus/high')
+        self.assertEqual(lines['lean'], 'lean: coder haiku/low')
+        self.assertEqual(head['presets research'], ['none'])
+
     def test_header_order_before_candidates(self):
         repo = init_repo(self.root / 'repo')
         lines = self.facts(repo).stdout.splitlines()
@@ -338,6 +352,127 @@ class FactsTest(FactsBase):
 
 NAME = 'claude-opus-5-5'
 KINDS = ['step', 'ask', 'answer', 'delegate', 'models', 'profile']
+
+
+class BehindTest(FactsBase):
+    """The `behind:` line of `facts`: every remote is a local bare repository, so nothing uses the network."""
+
+    def setUp(self):
+        super().setUp()
+        self.bare = self.root / 'origin.git'
+        self.bare.mkdir()
+        git(self.bare, 'init', '-q', '--bare')
+        git(self.bare, 'symbolic-ref', 'HEAD', 'refs/heads/main')
+        self.seed = init_repo(self.root / 'seed')
+        git(self.seed, 'remote', 'add', 'origin', str(self.bare))
+        git(self.seed, 'push', '-q', 'origin', 'main')
+        self.pushed = 0
+
+    def clone(self):
+        subprocess.run(['git', 'clone', '-q', str(self.bare), str(self.root / 'repo')], check=True, capture_output=True)
+        return self.root / 'repo'
+
+    def push_commits(self, n):
+        for _ in range(n):
+            self.pushed += 1
+            (self.seed / f'g{self.pushed}.txt').write_text('x')
+            git(self.seed, 'add', '.')
+            git(self.seed, 'commit', '-qm', f'more {self.pushed}')
+        git(self.seed, 'push', '-q', 'origin', 'main')
+
+    def behind(self, repo):
+        _, cands = self.parsed(repo)
+        return cands[0]['behind']
+
+    def test_behind_counts_commits_on_origin_default(self):
+        repo = self.clone()
+        self.assertEqual(self.behind(repo), '0 (origin/main)')
+        self.push_commits(3)
+        self.assertEqual(self.behind(repo), '3 (origin/main)')
+        git(repo, 'remote', 'set-head', 'origin', '-d')   # no origin/HEAD: the default branch comes from ls-remote
+        self.assertEqual(git(repo, 'symbolic-ref', '-q', 'refs/remotes/origin/HEAD', check=False).returncode, 1)
+        self.push_commits(1)
+        self.assertEqual(self.behind(repo), '4 (origin/main)')
+
+    def test_behind_counts_a_branch_never_pushed(self):
+        repo = self.clone()
+        git(repo, 'checkout', '-q', '-b', 'feature')
+        (repo / 'mine.txt').write_text('m')
+        git(repo, 'add', 'mine.txt')
+        git(repo, 'commit', '-qm', 'mine')
+        self.push_commits(2)
+        self.assertEqual(self.behind(repo), '2 (origin/main)')
+
+    def test_behind_line_comes_after_path_lines_before_gitignore(self):
+        repo = self.clone()
+        (repo / 'new.txt').write_text('n')
+        r = self.facts(repo)
+        lines = [line.split(':')[0].strip() for line in r.stdout.splitlines() if line.startswith('  ')]
+        self.assertEqual(lines, ['active', 'git', 'branch', 'uncommitted', 'path', 'behind', 'gitignore', 'ids', 'listed'])
+
+    def test_behind_no_remote(self):
+        self.assertEqual(self.behind(init_repo(self.root / 'plain')), 'not counted (no remote)')
+
+    def test_behind_no_origin_remote(self):
+        repo = init_repo(self.root / 'plain')
+        git(repo, 'remote', 'add', 'upstream', str(self.bare))
+        self.assertEqual(self.behind(repo), 'not counted (no origin remote)')
+
+    def test_behind_detached_head(self):
+        repo = self.clone()
+        git(repo, 'checkout', '-q', '--detach')
+        self.assertEqual(self.behind(repo), 'not counted (detached HEAD)')
+
+    def test_behind_origin_without_default_branch(self):
+        empty = self.root / 'empty.git'
+        empty.mkdir()
+        git(empty, 'init', '-q', '--bare')
+        repo = init_repo(self.root / 'plain')
+        git(repo, 'remote', 'add', 'origin', str(empty))
+        self.assertEqual(self.behind(repo), 'not counted (origin has no default branch)')
+
+    def test_behind_fetch_failed(self):
+        repo = init_repo(self.root / 'plain')
+        git(repo, 'remote', 'add', 'origin', str(self.root / 'gone'))
+        value = self.behind(repo)
+        self.assertTrue(value.startswith('not counted (fetch failed: '), value)
+        self.assertIn('gone', value)
+        self.assertEqual(len(value.splitlines()), 1)
+        repo = self.clone()   # the default branch is known, the fetch itself fails
+        self.bare.rename(self.root / 'moved.git')
+        value = self.behind(repo)
+        self.assertTrue(value.startswith('not counted (fetch failed: '), value)
+
+    def test_behind_fetch_timeout(self):
+        import intake
+        repo = self.clone()
+        real, seen = subprocess.run, []
+
+        def runner(cmd, *args, **kw):
+            if 'fetch' in cmd:
+                seen.append((kw.get('timeout'), (kw.get('env') or {}).get('GIT_TERMINAL_PROMPT')))
+                raise subprocess.TimeoutExpired(cmd, kw.get('timeout'))
+            return real(cmd, *args, **kw)
+
+        with mock.patch.object(intake.subprocess, 'run', runner):
+            value = intake.behind(repo)
+        self.assertEqual(value, 'not counted (fetch timed out after 10 s)')
+        self.assertEqual(intake.FETCH_TIMEOUT, 10)
+        self.assertEqual(seen, [(10, '0')])
+
+    def test_behind_ls_remote_timeout(self):
+        import intake
+        repo = self.clone()
+        git(repo, 'remote', 'set-head', 'origin', '-d')
+        real = subprocess.run
+
+        def runner(cmd, *args, **kw):
+            if 'ls-remote' in cmd:
+                raise subprocess.TimeoutExpired(cmd, kw.get('timeout'))
+            return real(cmd, *args, **kw)
+
+        with mock.patch.object(intake.subprocess, 'run', runner):
+            self.assertEqual(intake.behind(repo), 'not counted (fetch timed out after 10 s)')
 
 
 class CreateBase(FactsBase):
@@ -527,6 +662,59 @@ class RequestTextTest(CreateBase):
 
     def test_not_shlex_split(self):
         self.check('say "hi" and \\ done')
+
+
+class RequestFileTest(CreateBase):
+    def create_from(self, *request_args, slug='probe-task'):
+        base = ['--loc', str(self.repo), '--profile', 'general', '--model', NAME, '--slug', slug]
+        return run_script(SCRIPT, 'create', *base, *request_args, '--cwd', str(self.repo), '--data-dir', str(self.data),
+                          '--task-dir', TASK_DIR, env=self.env, cwd=self.root, drop=self.drop)
+
+    def request_file(self, data, name='request.txt'):
+        path = self.root / name
+        path.write_bytes(data if isinstance(data, bytes) else data.encode('utf-8'))
+        return path
+
+    def refused(self, *request_args):
+        before = snapshot(self.root)
+        r = self.create_from(*request_args)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn('nothing written', r.stderr)
+        self.assertEqual(snapshot(self.root), before)
+        return r
+
+    def test_create_request_file(self):
+        hook_skip = 'git commit ' + '--no' + '-verify'   # text the deny list refuses, so it cannot ride on a command line
+        text = f'Check the rule for `{hook_skip}` and $(x); a | b \'quoted\' "too" 작업'
+        for ending in ('', '\n', '\r\n'):
+            with self.subTest(ending=ending):
+                path = self.request_file(text + ending)
+                r = self.create_from('--request-file', str(path), slug='from-file' + ('' if not ending else str(len(ending))))
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                folder = self.task_folder(name=f'{self.today}-from-file' + ('' if not ending else str(len(ending))))
+                self.assertEqual(self.intake(folder)['Request'], text)
+                self.assertIn(f'Request: {text}\n', (folder / 'intake.md').read_text(encoding='utf-8'))
+                (self.repo / TASK_DIR / '.active').unlink()
+
+    def test_create_request_file_missing_or_empty_is_refused(self):
+        missing = self.root / 'missing.txt'
+        r = self.refused('--request-file', str(missing))
+        self.assertIn(f'--request-file: no such file {missing}', r.stderr)
+        for data in ('', '\n', '\r\n', '  \n'):
+            with self.subTest(data=data):
+                r = self.refused('--request-file', str(self.request_file(data)))
+                self.assertIn('--request=<line> is needed and must not be empty', r.stderr)
+
+    def test_create_request_file_multiline_is_refused(self):
+        r = self.refused('--request-file', str(self.request_file('first line\nsecond line\n')))
+        self.assertIn('--request must be one line', r.stderr)
+        self.refused('--request-file', str(self.request_file('first\n\n')))
+
+    def test_create_request_and_request_file_together_is_refused(self):
+        path = self.request_file('do it\n')
+        self.refused('--request=do it', '--request-file', str(path))
+        r = self.refused()   # neither
+        self.assertIn('--request', r.stderr)
 
 
 class RefuseTest(CreateBase):

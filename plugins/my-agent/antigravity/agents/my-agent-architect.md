@@ -23,6 +23,7 @@ Write one task plan, `plan.md`, from the scope document and the explore results.
 - Do not call other agents.
 - Do not change the scope (WHAT/WHY). Do not add requirements that are not in the scope document.
 - Keep the `Constraint`, `Non-goal` and `Decision` lines under `## Blueprint` in `explore.md` (the project blueprint), unless the scope says one changes. Plan no work unit that writes `docs/blueprint/`: the writer updates it after G3.
+- Write no criterion only L1 can meet after G3 (the final save path, the blueprint update).
 - When you rewrite `plan.md`, carry over the existing `## Revisions` section as is, without changing a single line. That section is the revision record L1 writes; if it is missing or changed, scope-guard blocks the write.
 - Write working files and reports in English; keep the headings and marker lines of the file formats as they are.
 
@@ -43,6 +44,7 @@ The file starts with the `# Plan: <task-id>` title and a lead paragraph: one or 
    - When rewriting, units you keep or revise keep their old ID; new units get the next unused number. Never reuse the ID of a discarded unit.
    - In the general and research profiles, writer and researcher result paths are always under `<task_dir>/<task-id>/work/`. L1 copies them to the deliverable location (final location) in `scope.md` after G3. Do not list the final location as a file to change. scope-guard blocks that write.
    - A coder's `Files to change` are in the task location, never under `<task_dir>/`: scope-guard denies a coder every write there and the plan cannot be approved. What a coder unit finds out (a reproduction, measured numbers, a log summary) goes in its final report; a note file under `work/` is a writer or researcher unit.
+   - List a generated file under the work unit that changes its source.
    - Units in the same parallel group must not change the same files. If they overlap, split them into different groups.
    - A parallel group that does not use a workflow has 4 units or fewer.
 4. `## Reference files`: files outside the task folder that agents may read, one per line as `` - `relative path` ``. If there are none, `- none`.

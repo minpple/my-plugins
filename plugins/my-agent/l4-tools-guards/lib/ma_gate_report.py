@@ -80,7 +80,7 @@ def decisions(lines) -> list:
         if kind == 'ask':
             rec = _bare(f.get('rec'))
             shown = NO_REC if rec is None else ('none' if rec == '-' else rec)
-            row = [gate, f.get('q', '-'), shown, '-', 'unknown', 'no answer']
+            row = [gate, f.get('q', '-'), shown, '-', 'none' if rec == '-' else 'unknown', 'no answer']
             rows.append(row)
             pending[key], last_ask[key], after_answer[key] = (row, rec), (row[1], shown, rec), False
             continue
@@ -109,7 +109,9 @@ def decisions(lines) -> list:
             row[4] = 'prose reply'
         elif f.get('other') == '1':
             row[4] = 'typed (Other)'
-        elif rec not in (None, '-'):
+        elif rec == '-':
+            row[4] = 'none'
+        elif rec is not None:
             row[4] = 'yes' if choice == rec else 'no'
         after_answer[done] = True
     return rows

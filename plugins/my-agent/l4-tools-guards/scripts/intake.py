@@ -2,15 +2,17 @@
 """The Intake script of the my-agent skill (step 1): `facts` collects what Intake needs, `create` writes its records.
 
 usage: intake.py facts  [--candidate PATH]... [--cwd DIR] [--data-dir X] [--task-dir Y]
-       intake.py create --loc DIR --profile general|research|dev (--slug SLUG | --task-id ID) --request=LINE
-                        --model MODEL [--preset NAME] [--gitignore ignore|commit] [--follows TASK-ID] [--auto]
+       intake.py create --loc DIR --profile general|research|dev (--slug SLUG | --task-id ID)
+                        (--request=LINE | --request-file PATH) --model MODEL [--preset NAME]
+                        [--gitignore ignore|commit] [--follows TASK-ID] [--auto]
                         [--router-pick PROFILE] [--ask 'FIELDS']... [--answer 'FIELDS']...
                         [--cwd DIR] [--data-dir X] [--task-dir Y]
 
 `--data-dir` and `--task-dir` are the `data_dir` and `task_dir` settings (the raw values or the resolved ones, as
 `data-dir.py`); `--cwd` is the run folder (default: the process folder).
 
-facts: writes nothing (no file, no folder, no run-log line). On Codex it first runs the hook-health check of
+facts: writes nothing (no file, no folder, no run-log line; except the remote-tracking ref that the `behind:` fetch
+updates). On Codex it first runs the hook-health check of
 `data-dir.py` (a problem is named on stderr, nothing is printed, exit 1). Output is `key: value` lines, in this order:
   data:, task_dir:, run: (the run folder), run_git: (its git root, or none), index: (the location
   `<data folder>/active-index.json` gives for the run folder outside git, else none), session: (or none),
@@ -23,6 +25,11 @@ facts: writes nothing (no file, no folder, no run-log line). On Codex it first r
     git: true|false
     and only when true: branch: (`(detached)` when empty), uncommitted: <n> followed by up to 10 `path: <porcelain
     line>` lines and `path: ... <k> more` (paths under `<task_dir>/`, `*.pyc` and `__pycache__/` are not counted),
+    behind: <n> (origin/<default>) | not counted (<case>) (commits on origin's default branch that HEAD lacks; the
+    cases: detached HEAD, no remote, no origin remote, origin has no default branch, fetch failed: <first stderr
+    line>, fetch timed out after 10 s). The default branch comes from `refs/remotes/origin/HEAD`, else from
+    `git ls-remote --symref origin HEAD`; then `git fetch origin <default>`. Each network call stops after
+    FETCH_TIMEOUT seconds and runs with GIT_TERMINAL_PROMPT=0.
     gitignore: ignored | file | ask (`<task_dir>/` is git-ignored | has a `.gitignore` | neither)
     ids: (folders of `<task_dir>/` that start with `<date>-`, comma-separated, or none)
     listed: yes|no (the location is in `projects.txt`)
@@ -35,6 +42,9 @@ create: makes every Intake record in a fixed order and starts the monitor. Argum
   --slug SLUG | --task-id ID   exactly one. SLUG is lowercase letters, digits and hyphens, 30 characters or fewer; the
                      ID is `<date>-<slug>`, then `-b`, `-c` ... when that folder exists. --task-id is exact.
   --request=LINE     the request as the person wrote it: always the `=` form, one line, not empty, kept as is
+  --request-file PATH   the request from a UTF-8 file (for a request the command line cannot carry): exactly one of
+                     --request and --request-file; one trailing newline is stripped, then the same checks as
+                     --request; a missing file is exit 2 (`--request-file: no such file <path>`)
   --model MODEL      the main session model ID (the `step` line; MISMATCH check)
   --preset NAME      a preset of `agent-models.py presets --profile P`; adds `Models:` and the `models` line
   --gitignore ignore|commit   writes `<task_dir>/.gitignore` (`*` or `# my-agent: commit`); refused when that file
@@ -77,6 +87,7 @@ FIELD_KEY = re.compile(r'[a-z][a-z0-9_-]*')
 STAMPED = re.compile(r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d ')
 SLUG_MAX = 30
 MAX_PATHS = 10
+FETCH_TIMEOUT = 10   # seconds for each network call of the `behind:` count
 SCRIPTS = Path(__file__).resolve().parent
 
 
@@ -91,6 +102,58 @@ def run(cmd, cwd=None):
 
 def git(folder, *args):
     return run(['git', '--no-optional-locks', '-C', str(folder), *args])
+
+
+def net_git(folder, *args):
+    """(returncode, stdout, stderr) of a git call that may use the network; (None, '', '') when it timed out."""
+    env = dict(os.environ, GIT_TERMINAL_PROMPT='0')
+    try:
+        r = subprocess.run(['git', '--no-optional-locks', '-C', str(folder), *args], capture_output=True, text=True,
+                           timeout=FETCH_TIMEOUT, env=env)
+    except subprocess.TimeoutExpired:
+        return None, '', ''
+    except (OSError, subprocess.SubprocessError) as exc:
+        return 127, '', str(exc)
+    return r.returncode, r.stdout, r.stderr
+
+
+def behind(loc):
+    """The `behind:` value: `<n> (origin/<default>)` or `not counted (<case>)`."""
+    timed_out = 'not counted (fetch timed out after %d s)' % FETCH_TIMEOUT
+
+    def failed(err, code):
+        return f'not counted (fetch failed: {(err.strip().splitlines() or [f"exit {code}"])[0]})'
+
+    if not git(loc, 'branch', '--show-current')[1].strip():
+        return 'not counted (detached HEAD)'
+    remotes = git(loc, 'remote')[1].split()
+    if not remotes:
+        return 'not counted (no remote)'
+    if 'origin' not in remotes:
+        return 'not counted (no origin remote)'
+    code, out, _ = git(loc, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD')
+    default = out.strip().partition('/')[2] if code == 0 else ''
+    if not default:
+        code, out, err = net_git(loc, 'ls-remote', '--symref', 'origin', 'HEAD')
+        if code is None:
+            return timed_out
+        if code != 0:
+            return failed(err, code)
+        for line in out.splitlines():
+            if line.startswith('ref: refs/heads/'):
+                default = line[len('ref: refs/heads/'):].split('\t')[0].strip()
+                break
+    if not default:
+        return 'not counted (origin has no default branch)'
+    code, _, err = net_git(loc, 'fetch', 'origin', default)
+    if code is None:
+        return timed_out
+    if code != 0:
+        return failed(err, code)
+    code, out, err = git(loc, 'rev-list', '--count', f'HEAD..origin/{default}')
+    if code != 0 or not out.strip().isdigit():
+        return failed(err, code)
+    return f'{int(out)} (origin/{default})'
 
 
 def git_root(folder):
@@ -204,6 +267,7 @@ def block(loc, kind, args, task_dir, date, listed):
         out.extend(f'  path: {line}' for line in lines[:MAX_PATHS])
         if count > MAX_PATHS:
             out.append(f'  path: … {count - MAX_PATHS} more')
+        out.append(f'  behind: {behind(loc)}')
         folder = Path(loc) / task_dir
         if git(loc, 'check-ignore', '-q', f'{folder}/')[0] == 0:
             out.append('  gitignore: ignored')
@@ -347,7 +411,20 @@ def plan(args):
         raise Refuse(2, f'--slug must be lowercase letters, digits and hyphens, {SLUG_MAX} characters or fewer')
     if args.task_id is not None and not TASK_ID.fullmatch(args.task_id):
         raise Refuse(2, '--task-id must be a folder name (letters, digits, . _ -)')
+    if args.request is not None and args.request_file is not None:
+        raise Refuse(2, 'give exactly one of --request and --request-file')
     request = args.request
+    if args.request_file is not None:
+        try:
+            request = Path(args.request_file).read_bytes().decode('utf-8')
+        except FileNotFoundError:
+            raise Refuse(2, f'--request-file: no such file {args.request_file}')
+        except (OSError, UnicodeDecodeError) as exc:
+            raise Refuse(2, f'--request-file: cannot read {args.request_file} ({type(exc).__name__})')
+        for end in ('\r\n', '\n'):
+            if request.endswith(end):
+                request = request[:-len(end)]
+                break
     if request is None or not request.strip():
         raise Refuse(2, '--request=<line> is needed and must not be empty')
     if ''.join(request.splitlines()) != request:
@@ -524,6 +601,7 @@ def parser() -> argparse.ArgumentParser:
     c.add_argument('--slug')
     c.add_argument('--task-id')
     c.add_argument('--request')
+    c.add_argument('--request-file')
     c.add_argument('--model')
     c.add_argument('--preset')
     c.add_argument('--gitignore')
