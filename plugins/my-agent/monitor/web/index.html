@@ -612,7 +612,7 @@ body.side-min .side-head { justify-content: center; padding: 0 0 10px; }
 
 <script>
 const $ = id => document.getElementById(id);
-const esc = s => (s == null ? '–' : String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc = s => (s == null ? '–' : String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const escA = s => esc(s).replace(/"/g,'&quot;').replace(/\n/g,'&#10;');
 const fmt = s =>esc(s).replace(/`([^`]+)`/g,'<code>$1</code>');
 
