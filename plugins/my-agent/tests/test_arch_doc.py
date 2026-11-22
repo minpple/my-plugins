@@ -51,7 +51,8 @@ class ArchDocTest(unittest.TestCase):
         start = self.text.index('### 4.5.1 ')
         section = self.text[start:self.text.index('### 4.6 ')]
         for script, matcher in (('plan-approved-check.py', 'Agent\\|Workflow\\|Edit\\|Write\\|NotebookEdit\\|Bash'),
-                                ('verdict-fresh-check.py', 'Bash\\|Edit\\|Write\\|NotebookEdit')):
+                                ('verdict-fresh-check.py', 'Bash\\|Edit\\|Write\\|NotebookEdit'),
+                                ('git-guard.py', 'Bash')):
             rows = [l for l in section.splitlines() if l.startswith('|') and script in l]
             self.assertEqual(len(rows), 1, script)
             self.assertIn(f'`{matcher}`', rows[0], script)
@@ -59,6 +60,62 @@ class ArchDocTest(unittest.TestCase):
     def section(self, start, end):
         a = self.text.index(start)
         return self.text[a:self.text.index(end, a)]
+
+    def git_guard_bullet(self):
+        lines = self.section('**actions G2 asks about**', '**Storing the deliverable after G3').splitlines()
+        start = next(i for i, l in enumerate(lines) if l.startswith('- **Git guard (2026-11-22, plugin 0.24.0):**'))
+        end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith('- ')), len(lines))
+        return '\n'.join(lines[start:end])
+
+    def test_git_guard_bullet_names_verdicts_and_hosts(self):
+        sec = self.section('### 4.4 ', '### 4.5 ')
+        self.assertIn('git-guard.py', sec)
+        bullet = self.git_guard_bullet()
+        self.assertGreater(len(bullet.splitlines()), 8)
+        for word in ('git-guard.py', '`deny`', '`ask`', 'bypassPermissions', 'force_ask', 'exit 2',
+                     '`onFailure: block`', 'ma_bash', '`+` refspec', '`--mirror`', '`--force-with-lease`',
+                     'cannot parse the command', 'subagent', 'auto', 'Codex', 'Antigravity',
+                     'GIT_CONFIG_KEY_<n>', '`$VAR`', 'core.hooksPath', 'Claude Code only', 'hand-merged',
+                     'no output', 'depth 3', 'never a deny from heredoc text'):
+            self.assertIn(word, bullet, word)
+
+    def test_git_guard_stays_in_the_g2_panel(self):
+        # tools/build-docs.py cut_bold('actions G2 asks about') stops at the next bold-only line
+        a = self.text.index('**actions G2 asks about**')
+        panel = self.text[a:self.text.index('**Storing the deliverable after G3', a)]
+        self.assertIn('- **Git guard (2026-11-22, plugin 0.24.0):**', panel)
+        # no bold-only line from the panel title through the end of the Git guard bullet
+        upto = panel[:panel.index('- **Git guard')] + self.git_guard_bullet()
+        self.assertFalse(any(re.match(r'^\*\*[^*]+\*\*$', l) for l in upto.splitlines()[1:]))
+
+    def test_permission_modes_say_the_git_guard_ignores_the_mode(self):
+        a = self.text.index('**Permission modes (decision Q11)**')
+        sec = self.text[a:self.text.index('**Workflow run approval prompt**', a)]
+        self.assertIn('git guard', sec)
+        self.assertIn('`bypassPermissions`', sec)
+
+    def test_cd_warning_is_recorded_as_harmless(self):
+        sec = self.section('### 4.6 ', '### 4.7 ')
+        self.assertIn('matches no tool', sec)
+        self.assertIn('2026-11-22', sec)
+        self.assertIn('harmless', sec)
+        self.assertIn('`set_cwd`', sec)
+
+    def test_security_section_states_the_subprocess_limit(self):
+        sec = self.section('### 4.12 ', '## 5. ')
+        self.assertIn('sh -c', sec)
+        self.assertIn('sandbox', sec)
+        self.assertIn('Keynote', sec)
+        self.assertNotIn('`Read(//**/.env.*)`', sec)
+        self.assertIn('Read(//**/*.p12)', sec)
+
+    def test_host_sections_name_the_git_guard(self):
+        codex = self.section('### 4.14 ', '### 4.15 ')
+        self.assertIn('git-guard.py', codex)
+        self.assertIn('git-guard', codex[codex.index('**Hook trust.**'):codex.index('**How Codex finds the skills.**')])
+        agy = self.section('### 4.15 ', '## 5. ')
+        self.assertIn('git-guard.py', agy)
+        self.assertIn('`conversationId`', agy[agy.index('**Not verified**'):])
 
     def test_g1b_section_says_ask_for_writes_and_deny_for_delegation(self):
         a = self.text.index('**G1b hard gate**')
@@ -111,7 +168,8 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.68 (2026-11-22, plugin 0.23.2:'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.69 (2026-11-22, plugin 0.24.0:'), line[:90])
+        self.assertIn('v0.68 (2026-11-22, plugin 0.23.2:', line)
         self.assertIn('v0.67 (2026-11-22, plugin 0.23.1: Phase timeline return marks and the duration fix', line)
         self.assertIn('v0.66 (2026-11-21, plugin 0.23.0: Antigravity as a third host', line)
         self.assertIn('v0.65 (2026-11-21, plugin 0.22.1: researcher notes and the findings table', line)
@@ -149,6 +207,7 @@ class ArchDocTest(unittest.TestCase):
         bullet = next(l for l in self.text.splitlines() if l.startswith('- **On Codex (plugin 0.11.0):**'))
         self.assertIn('plan-approved-check.py', bullet)
         self.assertIn('verdict-fresh-check.py', bullet)
+        self.assertIn('git-guard.py', bullet)
         self.assertNotIn('scope-guard.py', bullet)   # scope-guard never asks
 
     def test_inline_text_says_first_non_empty_line(self):

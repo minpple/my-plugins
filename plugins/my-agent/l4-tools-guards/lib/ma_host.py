@@ -1,5 +1,5 @@
 """Host adapter: the one place where Codex differs from Claude Code for the gate hooks (scope-guard,
-plan-approved-check, verdict-fresh-check).
+plan-approved-check, verdict-fresh-check, git-guard).
 
 `parse(raw)` reads a hook input and returns a `Call`: the host (`claude` or `codex`) and the Claude-shaped inputs the
 scripts already judge. Claude input passes through unchanged (one input, the parsed object as it is). Codex input is
@@ -18,7 +18,8 @@ A Codex input with a missing or differently shaped field raises, so the scripts'
 `emit()` writes the decision in the host's form: JSON on stdout as in Claude, except for a deny on the Codex
 file-change tool, where Codex ignored the deny JSON and honored exit 2 (identity findings: `file-deny=exit2`), so the
 reason goes to stderr with exit 2; and an ask on Codex (any tool), which Codex ignores: `ma_g2.codex_ask` makes it exit 2
-and lets one G2 answer line release one call. Only the two hooks that emit `ask` reach it (scope-guard only denies). `scratch_base()` is the scratchpad base of the host.
+and lets one G2 answer line release one call. Only the three hooks that emit `ask` reach it (plan-approved-check,
+verdict-fresh-check and git-guard; scope-guard only denies). `scratch_base()` is the scratchpad base of the host.
 """
 import json
 import os
@@ -454,7 +455,7 @@ def codex_subagents(session) -> list:
 
 # PreToolUse hooks that run on the Intake facts call. scope-guard is not listed: it returns before `parse` for an input that
 # names no my-agent agent, so it leaves no mark on a main-session call.
-GATE_HOOKS = ('plan-approved-check', 'verdict-fresh-check')
+GATE_HOOKS = ('plan-approved-check', 'verdict-fresh-check', 'git-guard')
 NOTICE_HOOK = 'session-notice'                                                # SessionStart: once per session
 FRESH_SECS = 120
 _CLAUDE_ENV = ('CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_PROJECT_DIR', 'CLAUDE_CODE_SESSION_ID')

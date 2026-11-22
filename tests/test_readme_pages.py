@@ -55,6 +55,24 @@ class ReadmePagesTest(unittest.TestCase):
             for word in ('G3', 'G2'):
                 self.assertIn(word, row, path.name)
 
+    def test_readmes_state_the_deny_rule_limits(self):
+        """The hand-merge paragraph says what the patterns miss: the git guard covers a task only, and a Read deny rule
+        does not stop a subprocess (the sandbox is the OS-level option)."""
+        sandbox = {'README.md': 'sandbox', 'README-ko.md': '샌드박스'}
+        for path in READMES:
+            text = read(path)
+            self.assertIn("sh -c 'cat x.key'", text, path.name)
+            self.assertIn('git-guard.py', text, path.name)
+            self.assertIn(sandbox[path.name], text, path.name)
+
+    def test_readmes_name_the_env_files_no_longer_denied(self):
+        """The narrowed `.env` rules name six files and `.env.<name>.local`; the hand-merge paragraph says that other
+        `.env.<name>` files (`.env.prod`) and the templates are not denied, so a reader adds a rule for his own name."""
+        for path in READMES:
+            text = read(path)
+            for name in ('.env.production', '.env.staging', '.env.<name>.local', '.env.prod', '.env.ci'):
+                self.assertIn(name, text, path.name)
+
     def test_monitor_autostart_is_off_by_default(self):
         """Every README that describes the monitor start names the setting that turns it on."""
         docs = READMES + [REPO / 'plugins' / 'my-agent' / 'monitor' / 'README.md',

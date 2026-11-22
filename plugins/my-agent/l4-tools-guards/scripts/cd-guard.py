@@ -10,8 +10,10 @@ move request), so a move into `agent-<id>` is refused; a coder starts in its wor
 `task-<id>` worktrees do not match. In a git repository that does not ignore the file yet, the line
 `.claude/settings.local.json` is added to the clone's `info/exclude`, so the file stays out of the task's commit.
 
-Prints one line: `cd-guard: present`, or `cd-guard: added <rule> to <file>` (with ` (new file: …)` when the file was
-created and `; excluded from git` when the exclude line was written), or `cd-guard: not added: <cause>`.
+Prints one line: `cd-guard: present`, or `cd-guard: added <rule> to <file> (<startup warning note>)` (then ` (new file: …)`
+when the file was created and `; excluded from git` when the exclude line was written), or `cd-guard: not added: <cause>`.
+The note says Claude Code may warn at startup that the rule matches no tool (`Cd` is not a model-callable tool) and that
+the rule still works.
 exit: 0 added or present, 1 not added (the settings file is left as it was), 2 bad arguments.
 """
 import argparse
@@ -22,6 +24,7 @@ import sys
 from pathlib import Path
 
 FILE = Path('.claude') / 'settings.local.json'
+WARNING = ' (Claude Code may warn at startup that this rule matches no tool; the rule still works)'
 NEW = ' (new file: Claude Code may read it only in sessions started after this)'
 RULE_BREAKERS = '()*?[]{}\n'
 
@@ -101,7 +104,7 @@ def main() -> int:
     except OSError as e:
         return fail(f'cannot write {path} ({e.strerror or e})')
     excluded = exclude_from_git(location)
-    print(f'cd-guard: added {rule} to {path}' + (NEW if new else '') + ('; excluded from git' if excluded else ''))
+    print(f'cd-guard: added {rule} to {path}{WARNING}' + (NEW if new else '') + ('; excluded from git' if excluded else ''))
     return 0
 
 

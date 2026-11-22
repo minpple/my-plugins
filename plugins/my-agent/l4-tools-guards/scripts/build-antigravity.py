@@ -90,6 +90,16 @@ ANTIGRAVITY_HOOKS = {
                     }
                 ],
             },
+            {
+                'matcher': 'run_command',
+                'hooks': [
+                    {
+                        'type': 'command',
+                        'command': 'python3 l4-tools-guards/hooks/git-guard.py',
+                        'timeout': 30,
+                    }
+                ],
+            },
         ],
         'PostToolUse': [
             {

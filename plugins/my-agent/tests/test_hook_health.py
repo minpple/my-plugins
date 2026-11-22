@@ -10,7 +10,7 @@ from helpers import L4, REPO, make_task, run_hook, run_script
 
 FIX = REPO / 'tests' / 'fixtures' / 'codex'
 SESSION = '019a0000-0000-7000-8000-000000000001'
-GATES = ('plan-approved-check', 'verdict-fresh-check')
+GATES = ('plan-approved-check', 'verdict-fresh-check', 'git-guard')
 
 
 class HookHealthTest(unittest.TestCase):
@@ -76,7 +76,7 @@ class HookHealthTest(unittest.TestCase):
     def test_guard_hooks_mark_on_codex_input(self):
         make_task(self.root / 'proj', session=SESSION)
         inp = json.loads((FIX / 'hook-pre-tool-use-bash.json').read_text())
-        for script in ('plan-approved-check.py', 'verdict-fresh-check.py'):
+        for script in ('plan-approved-check.py', 'verdict-fresh-check.py', 'git-guard.py'):
             run_hook(script, None, inp, self.root / 'proj', env=self.env)
         self.assertEqual(sorted(p.name for p in self.marks.iterdir()), sorted(GATES))
 

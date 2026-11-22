@@ -6,7 +6,7 @@ minpple의 Claude Code 플러그인 마켓플레이스입니다.
 
 | 플러그인 | 버전 | 설명 |
 |---|---|---|
-| `my-agent` | 0.23.2 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
+| `my-agent` | 0.24.0 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
 | `my-agent-tray` | 0.1.6 | my-agent 모니터용 macOS 메뉴바 앱 (선택; my-agent 0.5.0 이상 필요) |
 
 ## 요구 사항
@@ -29,7 +29,7 @@ claude plugin install my-agent@my-plugins
 claude plugin install my-agent-tray@my-plugins   # 선택: macOS 메뉴바 앱
 ```
 
-플러그인은 권한 규칙을 실을 수 없습니다. 위험한 행동 확인(G2: `git commit`, `git push`, `rm -rf`, 패키지 설치)과 막는 명령(비밀값 파일, `--no-verify`, `git push --force`)을 쓰려면 `plugins/my-agent/l4-tools-guards/permissions/permissions.json`의 `ask`·`deny` 목록을 `~/.claude/settings.json`의 `permissions`에 직접 병합합니다. 병합하지 않으면 이 행동들을 묻거나 막지 않습니다.
+플러그인은 권한 규칙을 실을 수 없습니다. `plugins/my-agent/l4-tools-guards/permissions/permissions.json`의 `ask`·`deny` 목록은 위험한 행동 확인(G2: `git commit`, `git push`, `rm -rf`, 패키지 설치)을 띄우고, 강제 푸시, git 명령의 훅 건너뛰기 옵션, 비밀값·자격 증명 파일 읽기(`*.pem`, `*.key`, `*.p12`, `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`, …, 그리고 `.env` 파일은 `.env`, `.env.local`, `.env.production`, `.env.development`, `.env.staging`, `.env.test`, `.env.<name>.local`만)를 막습니다. 그 밖의 `.env.<name>` 파일(예: `.env.prod`, `.env.dev`, `.env.ci`)과 템플릿 파일(`.env.example`)은 막지 않으므로, 비밀값을 다른 이름으로 두었다면 그 이름의 `Read` 규칙을 직접 추가합니다. 이 목록을 `~/.claude/settings.json`의 `permissions`에 직접 병합합니다. 목록은 Claude Code에서만 작동하고, 병합하지 않으면 이 행동들을 묻거나 막지 않습니다. my-agent 작업 중에는 플러그인의 `git-guard.py` 훅이 모든 호스트에서 파싱한 명령을 한 번 더 판단합니다. 강제 푸시(`-f`, `--force`, `+` refspec, `--mirror`), 원격 ref를 지우는 푸시, `git commit -n`, 훅 건너뛰기 옵션, 훅 경로 덮어쓰기는 막고, `--force-with-lease`는 먼저 묻습니다. 작업 밖에서는 병합한 패턴만 작동하며, 패턴이 놓치는 형태는 그대로 통과합니다. 읽기 deny 규칙은 Claude Code의 파일 도구와 Claude Code가 알아보는 명령(`cat`, `head`, …)만 막고 임의의 하위 프로세스는 막지 못합니다: `sh -c 'cat x.key'`는 파일을 읽습니다. OS 수준의 방법은 Claude Code의 샌드박스입니다.
 
 플러그인을 켤 때 Claude Code가 설정 두 가지를 묻습니다. 첫째는 데이터 폴더입니다(기본값 `~/.my-agent-data`, 나중에 `/config`에서 바꿀 수 있습니다). my-agent가 작업 폴더 밖에 두는 모든 것이 여기에 들어갑니다: 프로젝트 목록(`projects.txt`), 실행 색인(`active-index.json`), 모니터 상태·로그·설정, 가격 재정의, 개선 목록(`feedback.md`), 회고 보고서 사본(`gate-report/`). 앞의 `~`는 홈 폴더로 펼쳐집니다. 플러그인 자기 폴더에는 아무것도 쓰지 않습니다. 폴더를 바꾸면 이전 폴더는 그대로 두고 그때부터 새 폴더를 씁니다. 설정이 없으면(예: `--plugin-dir`로 불러온 경우) `~/.my-agent-data`를 씁니다. 환경변수 `MA_TASKS_DIR`(데이터 폴더), `MA_PROJECTS_FILE`, `MA_FEEDBACK_FILE`, `MA_GATE_REPORT_DIR`이 설정보다 먼저 적용됩니다. 이전 버전의 폴더(`~/my-agent`)는 옮겨 주지 않습니다. 새 위치로 직접 옮기거나, 데이터 폴더를 옛 경로로 지정하세요. 둘째 설정 `task_dir`은 작업 위치 안의 작업 폴더입니다(기본값 `.my-agent`, 나중에 `/config`에서 바꿀 수 있습니다). 이전 버전은 작업 기록을 `docs/agent`에 두었습니다. 이 기록은 옮기거나 읽어 주지 않으므로, `task_dir`을 `docs/agent`로 지정하거나 폴더를 직접 옮기세요(`mv docs/agent .my-agent`). `..`가 없는 상대 경로여야 하며, 아니면 기본값을 씁니다. 환경변수 `MA_TASK_DIR`이 설정보다 먼저 적용됩니다.
 
@@ -64,7 +64,7 @@ python3 ~/dev/my-plugins/plugins/my-agent/l4-tools-guards/scripts/build-antigrav
 
 - `plugins/my-agent/.antigravity-plugin/plugin.json`, `plugins/my-agent/hooks.json`, 그리고 `plugins/my-agent/antigravity/agents/`의 에이전트 열 개는 `build-antigravity.py --write`로 생성합니다.
 - 세션이 시작될 때 `session-notice.py`가 플러그인 폴더(`$PLUGIN_ROOT`), 데이터 폴더, 작업 폴더, 세션 ID(`$ANTIGRAVITY_CONVERSATION_ID`)를 시스템 메시지로 주입하고 `plugins/my-agent/l1-orchestration/hosts-antigravity.md`를 안내합니다.
-- 가드 훅(`scope-guard.py`, `plan-approved-check.py`, `verdict-fresh-check.py`)은 Antigravity의 camelCase `PreToolUse` 입력을 변환해 네이티브 결정(`allow`, `deny`, `force_ask`)을 반환합니다.
+- 가드 훅(`scope-guard.py`, `plan-approved-check.py`, `verdict-fresh-check.py`, `git-guard.py`)은 Antigravity의 camelCase `PreToolUse` 입력을 변환해 네이티브 결정(`allow`, `deny`, `force_ask`)을 반환합니다.
 - 모델 프리셋은 `agent-models.json`의 `antigravity` 섹션(`inherit`, `pro`, `flash`, `flash_lite`, 또는 `inline`)으로 적용됩니다. Antigravity에는 `SubagentStart`, `SubagentStop`, `PermissionRequest` 훅 이벤트가 없으므로, 서브에이전트 호출은 `PreToolUse`에서 `subagent-log.py call`이 기록하고 G2 확인은 네이티브 `force_ask`로 처리합니다.
 
 ## my-agent

@@ -1,16 +1,17 @@
-"""hooks.json registers the hooks exactly as architecture 4.5.1 / 4.7.2 list them; the three blocking hooks (scope-guard, plan-approved-check, verdict-fresh-check) carry onFailure block."""
+"""hooks.json registers the hooks exactly as architecture 4.5.1 / 4.7.2 list them; the four blocking hooks (scope-guard, plan-approved-check, verdict-fresh-check, git-guard) carry onFailure block."""
 import json
 import re
 import unittest
 
 from helpers import L4
 
-GATES = {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py'}
+GATES = {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py', 'git-guard.py'}
 EXPECTED = {
     ('PreToolUse', None, 'scope-guard.py'),
     ('PreToolUse', 'Agent|collaborationspawn_agent', 'subagent-log.py call'),
     ('PreToolUse', 'Agent|collaborationspawn_agent|Workflow|Edit|Write|NotebookEdit|apply_patch|Bash', 'plan-approved-check.py'),
     ('PreToolUse', 'Bash|Edit|Write|NotebookEdit|apply_patch', 'verdict-fresh-check.py'),
+    ('PreToolUse', 'Bash', 'git-guard.py'),
     ('SubagentStart', '^my-agent:|^my-agent-', 'subagent-log.py start'),
     ('SubagentStop', '^my-agent:|^my-agent-', 'subagent-log.py stop'),
     ('PermissionRequest', None, 'permission-log.py ask'),
@@ -55,7 +56,7 @@ class HooksJsonTest(unittest.TestCase):
             'Edit': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py'},
             'Write': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py'},
             'NotebookEdit': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py'},
-            'Bash': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py'},
+            'Bash': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py', 'git-guard.py'},
             'Read': {'scope-guard.py'},
         }
         for name, hooks in before.items():

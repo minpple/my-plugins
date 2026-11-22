@@ -8,6 +8,7 @@ from pathlib import Path
 from helpers import L4, run_script
 
 SCRIPT = L4 / 'scripts' / 'cd-guard.py'
+WARNING = ' (Claude Code may warn at startup that this rule matches no tool; the rule still works)'
 
 
 class CdGuardTest(unittest.TestCase):
@@ -31,9 +32,16 @@ class CdGuardTest(unittest.TestCase):
         r = self.run_guard()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.deny(), [self.rule])
-        self.assertTrue(r.stdout.startswith(f'cd-guard: added {self.rule}'), r.stdout)
+        self.assertTrue(r.stdout.startswith(f'cd-guard: added {self.rule} to {self.settings}{WARNING} (new file: '), r.stdout)
         self.assertIn('new file', r.stdout)
         self.assertTrue(self.settings.read_text(encoding='utf-8').endswith('}\n'))
+
+    def test_added_line_names_the_harmless_warning(self):
+        r = self.run_guard()
+        self.assertIn('matches no tool', r.stdout)
+        self.assertIn('the rule still works', r.stdout)
+        r = self.run_guard()
+        self.assertEqual(r.stdout.strip(), 'cd-guard: present')
 
     def test_second_run_changes_nothing(self):
         self.run_guard()
@@ -49,6 +57,7 @@ class CdGuardTest(unittest.TestCase):
         r = self.run_guard()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotIn('new file', r.stdout)
+        self.assertEqual(r.stdout.strip(), f'cd-guard: added {self.rule} to {self.settings}{WARNING}')
         data = json.loads(self.settings.read_text(encoding='utf-8'))
         self.assertEqual(data['permissions']['allow'], ['Bash(git add *)'])
         self.assertEqual(data['permissions']['deny'], ['Read(~/.ssh/**)', self.rule])
@@ -91,7 +100,8 @@ class CdGuardTest(unittest.TestCase):
         self.git('config', 'core.excludesFile', '/dev/null')   # the person's global ignore file must not decide
         r = self.run_guard()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('excluded from git', r.stdout)
+        self.assertTrue(r.stdout.strip().endswith('; excluded from git'), r.stdout)
+        self.assertIn(WARNING + ' (new file: ', r.stdout)
         exclude = (self.loc / '.git' / 'info' / 'exclude').read_text(encoding='utf-8')
         self.assertIn('.claude/settings.local.json\n', exclude)
         self.assertEqual(self.git('status', '--porcelain').stdout, '')
