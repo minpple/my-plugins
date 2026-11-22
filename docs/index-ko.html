@@ -452,7 +452,7 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
           <li>모든 질문은 보기 2~4개의 <code>AskUserQuestion</code> 팝업이고, 추천 보기가 맨 앞에 옵니다. 채팅에 묻혀 놓치는 질문이 없습니다.</li>
           <li>범위와 계획 보고는 개요(Overview, 배경과 목적)와 핵심 요약(Takeaway)으로 시작하고 5~8행 표가 이어집니다. 자세한 내용은 모니터의 Report 탭에 있습니다.</li>
           <li>전체 구조를 약 넷씩 묶었습니다(Cowan의 4±1 작업 기억 한계). 사람이 구조를 한눈에 잡을 수 있게 하기 위해서입니다.</li>
-          <li>위임 승인(<code>--auto</code>)은 일상적인 팝업에 추천 보기로 대신 답합니다. G3에서는 열린 리뷰 항목을 모두 고치게 하고(최대 3회), 남은 것이 없으면 수락합니다. G2와 E는 그래도 사람에게 옵니다. 권장 권한 모드는 auto이며, 이때도 ask·deny 규칙과 훅은 그대로 적용됩니다.</li>
+          <li>위임 승인(<code>--auto</code>)은 일상적인 팝업에 추천 보기로 대신 답합니다. G3에서는 열린 리뷰 항목을 모두 고치게 하고(최대 3회), 남은 것이 없으면 수락합니다. G2와 E는 그래도 사람에게 옵니다. 권장 권한 모드는 auto이며, 이때도 ask·deny 규칙과 훅은 그대로 적용됩니다. 훅과 규칙은 스킬이 작업을 수행하는 동안에만, 그 작업을 수행하는 세션에만 적용됩니다.</li>
         </ul>
         <p class="src"><b>출처:</b> <span class="mono">plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/docs/build-guide/my-agent-architecture.md, plugins/my-agent/l4-tools-guards/permissions/permissions.json</span></p>
       </article>
@@ -928,17 +928,17 @@ claude plugin install my-agent@my-plugins</pre>
         'architect는 L1이 쓰는 <code>Approved</code> 줄과 <code>Prototype: requested</code> 줄을 <code>plan.md</code>에 넣을 수 없고, <code>## Revisions</code> 줄도 지우거나 바꿀 수 없습니다.'],
        'plugins/my-agent/l4-tools-guards/hooks/scope-guard.py · plugins/my-agent/l4-tools-guards/hooks/hooks.json'],
       ['비밀 파일은 모든 에이전트가 읽거나 쓰지 못합니다.',
-       '<code>.env</code>, <code>.pem</code>, <code>.key</code>, <code>~/.ssh</code> 등은 에이전트 종류와 상관없이 막고, 같은 목록을 사용자 설정의 deny 규칙으로도 둡니다.',
+       '<code>.env</code>, <code>.pem</code>, <code>.key</code>, <code>~/.ssh</code> 등은 에이전트 종류와 상관없이 막고, 작업 중에는 deny 목록이 메인 세션에서도 막습니다.',
        ['scope-guard는 비밀 경로를 읽기·쓰기 모두 거부하고, 이름을 소문자로 맞춰 비교하며, <code>.env</code>나 <code>*.pem</code>을 이름으로 고르는 Grep glob도 막습니다.',
         '<code>permissions.json</code>의 deny 목록에도 이름을 정한 <code>.env</code> 파일 여섯 개(<code>.env</code>, <code>.env.local</code>, <code>.env.production</code> 등)와 <code>.env.&lt;name&gt;.local</code>이 들어 있고, <code>.env.prod</code> 같은 다른 <code>.env.&lt;name&gt;</code> 파일과 <code>.env.example</code> 같은 템플릿은 들어 있지 않으며, <code>.pem</code>, <code>.key</code>, <code>*.p12</code>, <code>~/.ssh</code>, <code>~/.aws</code>, <code>~/.config/gh</code>, <code>~/.netrc</code>, <code>~/.gnupg</code>, <code>~/.config/gcloud</code>, <code>~/.kube</code>, <code>~/.docker/config.json</code>, <code>~/.npmrc</code>, <code>~/.pypirc</code>, <code>~/.git-credentials</code> 읽기가 들어 있습니다.',
-        '이 규칙들은 플러그인이 직접 싣지 못하므로 사용자가 자기 설정에 합쳐 넣는 파일입니다.'],
-       'plugins/my-agent/l4-tools-guards/hooks/scope-guard.py · plugins/my-agent/l4-tools-guards/permissions/permissions.json · plugins/my-agent/maintenance-notes.md'],
+        '플러그인은 권한 규칙을 실을 수 없으므로 <code>permission-guard.py</code> 훅이 이 목록을 적용하며, 작업이 진행 중일 때 그 작업을 수행하는 세션에만 적용합니다. 사용자 설정에는 아무것도 병합하지 않습니다.'],
+       'plugins/my-agent/l4-tools-guards/hooks/scope-guard.py · plugins/my-agent/l4-tools-guards/hooks/permission-guard.py · plugins/my-agent/l4-tools-guards/permissions/permissions.json · plugins/my-agent/maintenance-notes.md'],
       ['위험한 동작은 권한 규칙으로 확인을 받거나 거부합니다 (G2).',
-       '커밋·푸시·설치·외부 쓰기 도구는 사람에게 확인을 받고, 강제 푸시와 검증 우회는 거부합니다.',
+       '작업 중에는 커밋·푸시·설치·외부 쓰기 도구는 사람에게 확인을 받고, 강제 푸시와 검증 우회는 거부합니다. 작업 밖에서는 이 규칙이 작동하지 않습니다.',
        ['확인(<code>ask</code>) 대상은 git commit·push, <code>rm -rf</code>, npm·pip·brew 설치, Slack 메시지 보내기, GitHub PR 생성·파일 푸시, Vercel 배포 생성 등입니다.',
-        '거부(<code>deny</code>) 대상은 강제 푸시(<code>--force</code>, <code>-f</code>)나 <code>--no-verify</code>를 담은 git 명령이며, 패턴은 좁혀 둔 형태입니다. 작업 중에는 <code>git-guard.py</code> 훅이 모든 호스트에서 파싱한 명령을 한 번 더 판단합니다: 강제 푸시(<code>+</code> refspec과 <code>--mirror</code> 포함), 원격 ref를 지우는 푸시, <code>git commit -n</code>, <code>--no-verify</code>, 훅 경로 덮어쓰기는 막고, <code>--force-with-lease</code>는 먼저 묻습니다.',
+        '확인 목록은 작업이 진행 중일 때 <code>permission-guard.py</code> 훅이 Claude Code에서 적용하며, <code>bypassPermissions</code> 모드에서는 확인이 거부로 바뀝니다. 강제 푸시와 검증 우회는 <code>git-guard.py</code> 훅이 거부하며, 작업 중에 모든 호스트에서 파싱한 명령을 판단합니다: 강제 푸시(<code>+</code> refspec과 <code>--mirror</code> 포함), 원격 ref를 지우는 푸시, <code>git commit -n</code>, <code>--no-verify</code>, 훅 경로 덮어쓰기는 막고, <code>--force-with-lease</code>는 먼저 묻습니다.',
         'G2에서는 "세션 동안 허용"을 권하지 않고 위험한 동작을 한 번에 하나씩 허용하게 합니다. 허용·거부 여부를 정하는 것은 L4 규칙이며, L4는 판단하지 않고 실행·기록·차단만 합니다.'],
-       'plugins/my-agent/l4-tools-guards/permissions/permissions.json · plugins/my-agent/l4-tools-guards/hooks/git-guard.py · plugins/my-agent/skills/my-agent/SKILL.md'],
+       'plugins/my-agent/l4-tools-guards/permissions/permissions.json · plugins/my-agent/l4-tools-guards/hooks/permission-guard.py · plugins/my-agent/l4-tools-guards/hooks/git-guard.py · plugins/my-agent/skills/my-agent/SKILL.md'],
       ['작업자 결과·웹 내용은 데이터로만 읽습니다.',
        '작업자 결과, 웹 내용, <code>work/</code> 파일 안의 지시문은 따르지 않고 데이터로만 취급합니다.',
        ['이 규칙은 SKILL.md의 핵심 규칙에 들어 있습니다.',
@@ -987,7 +987,7 @@ claude plugin install my-agent@my-plugins</pre>
        'plugins/my-agent/l4-tools-guards/scripts/feedback.py · plugins/my-agent/l1-orchestration/retro.md · plugins/my-agent/skills/my-agent/SKILL.md'],
       ['세션 재개 알림.',
        '새로 열린·재개된·정리된·압축된·분기된 세션에서 끝나지 않은 작업이 있으면 먼저 이어서 하라고 알려 줍니다.',
-       ['알림은 진행 중인 작업 이름과 단계를 말하고, <code>/my-agent continue</code>를 먼저 실행하라고 안내합니다. 계획서에 승인 줄이 없으면 위임도 쓰기도 하지 말라는 문장이 함께 들어갑니다. 분기(fork)된 세션에는 "원래 세션이 이 작업을 하고 있으니, 이 세션에서 이어받으려면 continue를 실행하라"는 다른 안내가 나갑니다.',
+       ['알림은 진행 중인 작업 이름과 단계를 말하고, <code>/my-agent continue</code>를 먼저 실행하라고 안내합니다. 계획서에 승인 줄이 없으면 위임도 쓰기도 하지 말라는 문장이 함께 들어갑니다. 작업을 수행하는 세션이 아닌 세션(예: 분기된 세션)에는 알림이 나가지 않습니다. 훅은 작업을 수행하는 세션에만 적용됩니다.',
         '진행 중인 작업(<code>.active</code>)이 없으면 아무것도 출력하지 않고, 어떤 경우에도 세션은 정상적으로 시작됩니다.',
         '이 알림은 안내일 뿐 강제가 아닙니다. 따르지 않으면 막는 장치는 없다고 설계 문서에 남은 위험으로 적혀 있습니다.',
         '<code>continue</code>는 이어받기 전에 세션 확인, 규칙 변경 확인, 위임 중이던 작업 단위의 상태 정리를 하고 <code>resume</code> 기록을 남깁니다.'],

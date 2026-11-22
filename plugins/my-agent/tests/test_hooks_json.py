@@ -1,17 +1,18 @@
-"""hooks.json registers the hooks exactly as architecture 4.5.1 / 4.7.2 list them; the four blocking hooks (scope-guard, plan-approved-check, verdict-fresh-check, git-guard) carry onFailure block."""
+"""hooks.json registers the hooks exactly as architecture 4.5.1 / 4.7.2 list them; the five blocking hooks (scope-guard, plan-approved-check, verdict-fresh-check, git-guard, permission-guard) carry onFailure block."""
 import json
 import re
 import unittest
 
 from helpers import L4
 
-GATES = {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py', 'git-guard.py'}
+GATES = {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py', 'git-guard.py', 'permission-guard.py'}
 EXPECTED = {
     ('PreToolUse', None, 'scope-guard.py'),
     ('PreToolUse', 'Agent|collaborationspawn_agent', 'subagent-log.py call'),
     ('PreToolUse', 'Agent|collaborationspawn_agent|Workflow|Edit|Write|NotebookEdit|apply_patch|Bash', 'plan-approved-check.py'),
     ('PreToolUse', 'Bash|Edit|Write|NotebookEdit|apply_patch', 'verdict-fresh-check.py'),
     ('PreToolUse', 'Bash', 'git-guard.py'),
+    ('PreToolUse', 'Bash|Read|Grep|Glob|mcp__.*', 'permission-guard.py'),
     ('SubagentStart', '^my-agent:|^my-agent-', 'subagent-log.py start'),
     ('SubagentStop', '^my-agent:|^my-agent-', 'subagent-log.py stop'),
     ('PermissionRequest', None, 'permission-log.py ask'),
@@ -49,15 +50,20 @@ class HooksJsonTest(unittest.TestCase):
                 out |= {h['command'][len(PREFIX):] for h in g['hooks']}
         return out
 
-    def test_claude_selection_unchanged(self):
+    def test_claude_selection(self):
         before = {
             'Agent': {'scope-guard.py', 'subagent-log.py call', 'plan-approved-check.py'},
             'Workflow': {'scope-guard.py', 'plan-approved-check.py'},
             'Edit': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py'},
             'Write': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py'},
             'NotebookEdit': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py'},
-            'Bash': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py', 'git-guard.py'},
-            'Read': {'scope-guard.py'},
+            'Bash': {'scope-guard.py', 'plan-approved-check.py', 'verdict-fresh-check.py', 'git-guard.py',
+                     'permission-guard.py'},
+            'Read': {'scope-guard.py', 'permission-guard.py'},
+            'Grep': {'scope-guard.py', 'permission-guard.py'},
+            'Glob': {'scope-guard.py', 'permission-guard.py'},
+            'mcp__plugin_slack_slack__slack_send_message': {'scope-guard.py', 'permission-guard.py'},
+            'AskUserQuestion': {'scope-guard.py'},
         }
         for name, hooks in before.items():
             self.assertEqual(self._selected('PreToolUse', name), hooks, name)

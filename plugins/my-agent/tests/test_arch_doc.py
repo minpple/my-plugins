@@ -52,7 +52,8 @@ class ArchDocTest(unittest.TestCase):
         section = self.text[start:self.text.index('### 4.6 ')]
         for script, matcher in (('plan-approved-check.py', 'Agent\\|Workflow\\|Edit\\|Write\\|NotebookEdit\\|Bash'),
                                 ('verdict-fresh-check.py', 'Bash\\|Edit\\|Write\\|NotebookEdit'),
-                                ('git-guard.py', 'Bash')):
+                                ('git-guard.py', 'Bash'),
+                                ('permission-guard.py', 'Bash\\|Read\\|Grep\\|Glob\\|mcp__.*')):
             rows = [l for l in section.splitlines() if l.startswith('|') and script in l]
             self.assertEqual(len(rows), 1, script)
             self.assertIn(f'`{matcher}`', rows[0], script)
@@ -75,7 +76,7 @@ class ArchDocTest(unittest.TestCase):
         for word in ('git-guard.py', '`deny`', '`ask`', 'bypassPermissions', 'force_ask', 'exit 2',
                      '`onFailure: block`', 'ma_bash', '`+` refspec', '`--mirror`', '`--force-with-lease`',
                      'cannot parse the command', 'subagent', 'auto', 'Codex', 'Antigravity',
-                     'GIT_CONFIG_KEY_<n>', '`$VAR`', 'core.hooksPath', 'Claude Code only', 'hand-merged',
+                     'GIT_CONFIG_KEY_<n>', '`$VAR`', 'core.hooksPath', 'permission guard',
                      'no output', 'depth 3', 'never a deny from heredoc text'):
             self.assertIn(word, bullet, word)
 
@@ -155,7 +156,7 @@ class ArchDocTest(unittest.TestCase):
     def test_decision_log_has_q39_and_q40_once_after_q38(self):
         rows = re.findall(r'^\| (Q\d+) \|', self.text, re.M)
         self.assertEqual(len(rows), len(set(rows)), rows)
-        self.assertEqual(rows[-5:], ['Q39', 'Q40', 'Q41', 'Q42', 'Q43'])
+        self.assertEqual(rows[-5:], ['Q40', 'Q41', 'Q42', 'Q43', 'Q44'])
         q39 = next(l for l in self.text.splitlines() if l.startswith('| Q39 |'))
         q40 = next(l for l in self.text.splitlines() if l.startswith('| Q40 |'))
         self.assertIn('capped at 3 rounds', q39)
@@ -168,7 +169,8 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.72 (2026-11-23, plugin 0.25.2:'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.73 (2026-11-23, plugin 0.26.0:'), line[:90])
+        self.assertIn('v0.72 (2026-11-23, plugin 0.25.2:', line)
         self.assertIn('v0.70 (2026-11-22, plugin 0.25.0:', line)
         self.assertIn('v0.69 (2026-11-22, plugin 0.24.0:', line)
         self.assertIn('v0.68 (2026-11-22, plugin 0.23.2:', line)
@@ -385,10 +387,33 @@ class ArchDocTest(unittest.TestCase):
             self.assertIn(word, section)
         self.assertIn('may be approved without a dialog and without a G2 record', section)
 
-    def test_resume_section_has_the_non_owner_notice(self):
+    def test_resume_section_gives_a_non_owner_session_no_notice(self):
         section = self.section('### 4.8.2 ', '### 4.9 ')
-        self.assertIn('The original session is running my-agent task <id> (phase <n>). '
-                      'To take it over in this session, run /my-agent continue; otherwise work as usual.', section)
+        self.assertNotIn('otherwise work as usual', section)
+        self.assertIn('gets no text (2026-11-23, plugin 0.26.0, Q44', section)
+
+    def test_hooks_and_rules_apply_only_during_a_task(self):
+        # Q44: the policy is stated once in the G2 panel, and the list is applied by a hook, not merged into settings
+        panel = self.section('**actions G2 asks about**', '**Storing the deliverable after G3')
+        lines = panel.splitlines()
+        start = next(i for i, l in enumerate(lines)
+                     if l.startswith('- **When the hooks and the permission rules apply (2026-11-23, plugin 0.26.0, Q44):**'))
+        end = next(i for i in range(start + 1, len(lines)) if lines[i].startswith('- '))
+        policy = '\n'.join(lines[start:end])
+        for word in ('only while the skill has been called and is running a task', '`.active`', '`session:`',
+                     'no my-agent rule sits in the user settings', 'scope-guard', 'session-notice', 'subagent-log',
+                     'permission-log.py', 'Codex and Antigravity', 'removes them'):
+            self.assertIn(word, policy, word)
+        guard = next(l for l in lines if l.startswith('- **Permission guard (2026-11-23, plugin 0.26.0):**'))
+        self.assertIn('permission-guard.py', guard)
+        for word in ('`Bash|Read|Grep|Glob|mcp__.*`', '`onFailure: block`', '`bypassPermissions`', 'Claude Code only',
+                     'ma_bash.command_texts', 'ma_bash.read_paths', 'F7'):
+            self.assertIn(word, panel, word)
+        self.assertIn('21 rules, all `Read` rules', panel)
+        self.assertNotIn('merges by hand', panel)
+        q44 = next(l for l in self.text.splitlines() if l.startswith('| Q44 |'))
+        for word in ('only while the skill has been called and is running a task', 'permission-guard.py', 'F7'):
+            self.assertIn(word, q44, word)
 
     def test_gate_section_has_the_ask_texts(self):
         section = self.section('### 4.4 ', '### 4.5 ')

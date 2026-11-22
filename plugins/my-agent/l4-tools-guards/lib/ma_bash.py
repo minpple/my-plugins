@@ -2054,6 +2054,21 @@ def git_subcommands(cmd: str) -> List[str]:
     return [s for s in subs if s is not None]
 
 
+def command_texts(cmd: str) -> List[str]:
+    """The text of every simple command in `cmd` (its words joined by one space; assignments and prefix words such as
+    `sudo` and `env` removed, `sh -c` and `eval` bodies read in place), for the text patterns of permission-guard.py.
+    A command that does not tokenize (an open quote, a command substitution, an open heredoc) gives its text cut at
+    the separators, heredoc bodies stripped where they can be."""
+    try:
+        return [' '.join(c.words) for c in _commands(cmd) if c.words]
+    except ValueError:
+        try:
+            text = _strip_heredocs(cmd)
+        except ValueError:
+            text = cmd
+        return [piece for piece in (' '.join(p.split()) for p in SEP_PIECE.split(text)) if piece]
+
+
 class GitForm(NamedTuple):
     verdict: str   # 'deny' or 'ask'
     form: str      # one line naming the form and the word: force push with a + refspec (`+main`)

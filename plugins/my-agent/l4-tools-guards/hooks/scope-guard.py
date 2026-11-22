@@ -8,7 +8,8 @@ reaches them.
 
 Runs in every session with the plugin on (F18), so an input that holds neither `my-agent:` nor `ma_host.CODEX_PREFIX`
 exits 0 before the JSON is even parsed; an input that holds only `my-agent-` is parsed and let through when it names no
-my-agent agent. For a my-agent agent: secrets are denied for everyone, reads must stay in the agent's read
+my-agent agent. It applies only while a task is active: with no `.active` a my-agent agent's call gets no verdict (a
+broken `.active` is a deny). For a my-agent agent of an active task: secrets are denied for everyone, reads must stay in the agent's read
 roots, writes in its write roots. The rules start from the agent's level (ma_schema.AGENTS): an L2 agent writes only
 its own file and its Bash only reads; an L3 agent writes nothing. Roles then widen or narrow that: the verifier and
 researcher may use the web, the researcher and writer write `work/` (writer also `prototype/` and the project
@@ -21,7 +22,7 @@ against that `cwd`. The
 architect may not add the `Approved` or
 `Prototype: requested` line L1 writes into plan.md (4.4 G1b) nor drop a `## Revisions` line (4.8.1).
 On a deny with an active task it appends one `guard:` line to the task's run-log (fields ma_schema.GUARD_FIELDS, `why` is
-the reason as printed); no active task, no line; a failed write never changes the decision.
+the reason as printed); a broken `.active` gives no line; a failed write never changes the decision.
 It judges inline interpreter code on the command line (`python3 -c`, `node -e`, `ruby -e`, `perl -e`, or a heredoc
 fed to one of them) like any other write: a visible write with a literal path by that path, one with a path that is
 not a literal as "cannot tell". The contents of a script file (`python3 tool.py`, `-m mod`) stay outside the
@@ -295,9 +296,9 @@ def judge(inp) -> Optional[dict]:
     role = agent.split(':', 1)[1]
     broken = []
     active = ma_active.find_active(inp.get('cwd') or os.getcwd(), broken=broken)
-    missing = (f'{broken[0]} has no `task:` line.' if broken else
-               'No active my-agent task (no .active).')
-    why = missing if active is None else check(inp, role, active)
+    if active is None and not broken:   # no task: the guard does not apply
+        return None
+    why = f'{broken[0]} has no `task:` line.' if active is None else check(inp, role, active)
     if not why:
         return None
     reason = why if why.startswith('my-agent scope-guard:') else f'scope-guard: {why}'

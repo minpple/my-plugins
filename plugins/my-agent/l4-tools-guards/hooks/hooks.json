@@ -53,6 +53,17 @@
             "onFailure": "block"
           }
         ]
+      },
+      {
+        "matcher": "Bash|Read|Grep|Glob|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/l4-tools-guards/hooks/permission-guard.py",
+            "timeout": 30,
+            "onFailure": "block"
+          }
+        ]
       }
     ],
     "SubagentStart": [

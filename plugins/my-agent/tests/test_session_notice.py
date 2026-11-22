@@ -8,8 +8,6 @@ from helpers import make_task, run_hook
 
 NOTICE = ('Unfinished my-agent task `261025-probe-task`, phase `2`. Run `/my-agent continue` before doing anything else. '
           'If `plan.md` has no approval line, do not delegate or write.')
-OTHER = ('The original session is running my-agent task 261025-probe-task (phase 2). '
-         'To take it over in this session, run /my-agent continue; otherwise work as usual.')
 
 
 class SessionNoticeTest(unittest.TestCase):
@@ -38,13 +36,12 @@ class SessionNoticeTest(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(self.context(self.notice(source)), NOTICE)
 
-    def test_other_session_every_source(self):
+    def test_other_session_gets_nothing(self):
+        # the hooks apply only to the session that is running the task
         make_task(self.root, phase='2', session='s-original')
         for source in ('startup', 'resume', 'clear', 'compact', 'fork'):
             with self.subTest(source=source):
-                ctx = self.context(self.notice(source, session='s-other'))
-                self.assertEqual(ctx, OTHER)
-                self.assertNotIn('before doing anything else', ctx)
+                self.assertEqual(self.notice(source, session='s-other'), '')
 
     def test_owner_gets_notice(self):
         make_task(self.root, phase='2', session='s-original')
@@ -106,7 +103,7 @@ class SessionNoticeTest(unittest.TestCase):
         owner = self.codex({'hook_event_name': 'SessionStart', 'session_id': 's-original'})
         self.assertEqual(owner, self.folders() + ' ' + NOTICE + '\n')
         other = self.codex({'hook_event_name': 'SessionStart', 'session_id': 's-other'})
-        self.assertEqual(other, self.folders() + ' ' + OTHER + '\n')
+        self.assertEqual(other, self.folders() + '\n')
 
     def test_codex_task_dir_option(self):
         out = self.codex(env={'MA_TASK_DIR': 'records/x'})

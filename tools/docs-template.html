@@ -391,7 +391,7 @@ function l4Detail(c) {
       <div class="panel"><h2>G1b hard gate</h2><div class="md">${L.hardGate}</div></div>`;
   }
   if (c.id === 'permission-rules') {
-    return `<div class="panel"><div class="dhead"><span class="badge lv">L4</span><h1>permission rules</h1></div><p class="desc">${esc(c.sub)} · <code>l4-tools-guards/permissions/permissions.json</code>, merged by hand into <code>~/.claude/settings.json</code></p>
+    return `<div class="panel"><div class="dhead"><span class="badge lv">L4</span><h1>permission rules</h1></div><p class="desc">${esc(c.sub)} · <code>l4-tools-guards/permissions/permissions.json</code>, applied by <code>permission-guard.py</code> only while a task is active</p>
       <div class="two"><div><h3 style="font-size:13px;margin-bottom:6px">ask <span class="badge gate">G2</span></h3><div class="chips">${L.ask.map(x => `<code>${esc(x)}</code>`).join('')}</div></div>
       <div><h3 style="font-size:13px;margin-bottom:6px">deny</h3><div class="chips">${L.deny.map(x => `<code>${esc(x)}</code>`).join('')}</div></div></div></div>
       <div class="panel"><h2>What G2 asks about</h2><div class="md">${L.g2}</div></div>`;

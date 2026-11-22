@@ -56,17 +56,17 @@ class ReadmePagesTest(unittest.TestCase):
                 self.assertIn(word, row, path.name)
 
     def test_readmes_state_the_deny_rule_limits(self):
-        """The hand-merge paragraph says what the patterns miss: the git guard covers a task only, and a Read deny rule
-        does not stop a subprocess (the sandbox is the OS-level option)."""
+        """The permission paragraph says what the rules miss: a Read deny rule does not stop a path built from a
+        variable or a subprocess (the sandbox is the OS-level option)."""
         sandbox = {'README.md': 'sandbox', 'README-ko.md': '샌드박스'}
         for path in READMES:
             text = read(path)
-            self.assertIn("sh -c 'cat x.key'", text, path.name)
+            self.assertIn("""sh -c 'cat "$HOME"/x.key'""", text, path.name)
             self.assertIn('git-guard.py', text, path.name)
             self.assertIn(sandbox[path.name], text, path.name)
 
     def test_readmes_name_the_env_files_no_longer_denied(self):
-        """The narrowed `.env` rules name six files and `.env.<name>.local`; the hand-merge paragraph says that other
+        """The narrowed `.env` rules name six files and `.env.<name>.local`; the permission paragraph says that other
         `.env.<name>` files (`.env.prod`) and the templates are not denied, so a reader adds a rule for his own name."""
         for path in READMES:
             text = read(path)
@@ -82,6 +82,17 @@ class ReadmePagesTest(unittest.TestCase):
             self.assertIn('"autostart": true', read(path), str(path))
         self.assertNotIn('default true', read(docs[2]))
 
+
+    def test_readmes_say_hooks_and_rules_apply_only_during_a_task(self):
+        """Plugin 0.26.0 (architecture Q44): nothing is merged into the user settings; permission-guard.py applies the
+        list during a task, and a list merged for an earlier version is removed by hand."""
+        words = {'README.md': ('apply only while the skill is running a task', 'Nothing is merged into',
+                               'remove those rules'),
+                 'README-ko.md': ('스킬이 작업을 수행하는 동안에만', '아무것도 병합하지 않습니다', '해당 규칙을 지우세요')}
+        for path in READMES:
+            text = read(path)
+            for word in words[path.name] + ('permission-guard.py', '0.26.0', '`bypassPermissions`'):
+                self.assertIn(word, text, path.name)
 
 if __name__ == '__main__':
     unittest.main()

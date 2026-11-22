@@ -84,12 +84,14 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertFalse(self.denied('my-agent:coder', 'Bash', {'command': 'ls src'}))
         self.assertEqual(self.guard_lines(), [])
 
-    def test_no_active_task_denies_without_line(self):
+    def test_no_active_task_gives_no_verdict(self):
+        # the guard applies only while a task is active
         other = self.root / 'elsewhere'
         other.mkdir()
-        r = self.hook('my-agent:coder', 'Bash', {'command': 'ls'}, cwd=other)
-        self.assertEqual(json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason'],
-                         'scope-guard: No active my-agent task (no .active).')
+        for tool, ti in (('Bash', {'command': 'ls'}), ('Bash', {'command': 'cat /etc/hosts'}),
+                         ('Write', {'file_path': str(other / 'x.md'), 'content': 'x'})):
+            r = self.hook('my-agent:coder', tool, ti, cwd=other)
+            self.assertEqual((r.returncode, r.stdout), (0, ''), r.stderr)
         self.assertEqual(self.guard_lines(), [])
 
     def test_unwritable_run_log_keeps_the_deny(self):
@@ -639,9 +641,16 @@ class ScopeGuardTest(unittest.TestCase):
                 self.assertEqual(hook('my-agent:verifier', loc / base / TASK / 'verify.md'), '')
                 self.assertIn('Outside the write scope of coder', hook('my-agent:coder', loc / base / TASK / 'x.md'))
 
-    def test_no_active_denies_my_agent(self):
+    def test_no_active_passes_my_agent(self):
         (records(self.L) / '.active').unlink()
-        self.assertTrue(self.denied('my-agent:explorer', 'Read', {'file_path': str(self.L / 'src/a.py')}))
+        self.assertFalse(self.denied('my-agent:explorer', 'Read', {'file_path': str(self.L / 'src/a.py')}))
+        self.assertFalse(self.denied('my-agent:explorer', 'Read', {'file_path': '/etc/hosts'}))
+
+    def test_broken_active_denies_my_agent(self):
+        (records(self.L) / '.active').write_text('phase: 1\n', encoding='utf-8')
+        r = self.hook('my-agent:explorer', 'Read', {'file_path': str(self.L / 'src/a.py')})
+        reason = json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason']
+        self.assertTrue(reason.startswith('scope-guard: ') and reason.endswith('has no `task:` line.'), reason)
 
     def test_coder_git_mv(self):
         coder = 'my-agent:coder'

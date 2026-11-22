@@ -179,10 +179,11 @@ class ScopeGuardCodexTest(Base):
         self.assertIn('not in plan.md exactly as given', r.stderr)
         self.assertIn('Write', r.stderr)
 
-    def test_claude_active_with_codex_call_has_no_task_denies_like_claude(self):
+    def test_codex_call_without_a_task_gets_no_verdict_like_claude(self):
+        # the guard applies only while a task is active (architecture Q44)
         (self.L / '.my-agent' / '.active').unlink()
         r = self.scope(fixture('hook-pre-tool-use-worker-bash.json'))
-        self.assertEqual(decision(r), (0, 'deny'))
+        self.assertEqual(decision(r), (0, None))
 
 
 class PlanApprovedCodexTest(Base):
