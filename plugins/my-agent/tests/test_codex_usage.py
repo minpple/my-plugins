@@ -1,4 +1,4 @@
-"""Usage, cost and main-model reader for Codex sessions (u6): the same output fields and run-log format as Claude.
+"""Usage, cost and main-model reader for Codex sessions: the same output fields and run-log format as Claude.
 
 A Codex session record is `<sessions>/YYYY/MM/DD/rollout-*.jsonl` ($MA_CODEX_SESSIONS); the fixture
 `fixtures/codex/session-with-subagent.jsonl` is split into a main record and a subagent record under a temp folder.

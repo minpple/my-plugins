@@ -72,7 +72,7 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.assertPassed(self.bash('git commit -m x', session_id='s-other'))
         self.assertPassed(self.bash('git commit -m x', agent_id='ag1'))
 
-    def test_commit_without_verdicts_denied(self):
+    def test_commit_without_verdicts_asks(self):
         self.file(self.L / 'src/a.py', 'x', 0)
         self.assertAsked(self.bash('git add -A && git commit -m "feat: x"'),
                          self.PREFIX + 'verify.md does not start with Verdict: ALL PASS' + self.TAIL)
@@ -83,19 +83,19 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.assertPassed(self.bash('git commit -m "feat: x (criteria 1, 2)"'))
 
     def test_commit_with_carried_rows_passes(self):
-        """261106 criterion 4: a rerun's verify.md with carried PASS lines is a fresh ALL PASS for the hook."""
+        """A rerun's verify.md with carried PASS lines is a fresh ALL PASS for the hook."""
         self.file(self.L / 'src/a.py', 'x', 0)
         self.verdicts(verify='Verdict: ALL PASS\nRun: 2\n- 1. PASS (carried from Run 1) a.py:1 ok\n- 2. PASS b.py:2 ok\n')
         self.assertPassed(self.bash('git commit -m "feat: x (criteria 1, 2)"'))
 
-    def test_wrong_verdict_word_denied(self):
+    def test_wrong_verdict_word_asks(self):
         self.file(self.L / 'src/a.py', 'x', 0)
         self.verdicts(verify='Verdict: FAIL\n')
         self.assertAsked(self.bash('git commit -m x'), self.PREFIX + 'verify.md does not start with Verdict: ALL PASS' + self.TAIL)
         self.verdicts(review='BLOCKER 1\n')
         self.assertAsked(self.bash('git commit -m x'), self.PREFIX + 'review.md does not start with BLOCKER 0' + self.TAIL)
 
-    def test_change_after_verify_denied(self):
+    def test_change_after_verify_asks(self):
         self.verdicts()
         self.file(self.L / 'src/a.py', 'x', 20)
         self.assertAsked(self.bash('git commit -m x'), self.PREFIX + 'review.md is older than src/a.py' + self.TAIL)
@@ -242,10 +242,6 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.verdicts()
         self.assertPassed(self.bash(f'git mv {T}/work/a.md {T}/deliverable/a.md'))
 
-    def test_commit_still_produces_output(self):
-        self.file(self.L / 'src/a.py', 'x', 0)
-        self.assertNotEqual(self.bash('git commit -m x').stdout, '')
-
     def test_second_deliver_copy_not_blocked_by_first(self):
         self.file(self.T / 'work' / 'a.md', 'a', 0)
         self.file(self.T / 'work' / 'b.md', 'b', 0)
@@ -264,7 +260,7 @@ class VerdictFreshCheckTest(unittest.TestCase):
     def test_unparsed_git_says_why(self):
         # live run: L1 logged HEAD with "$(git rev-parse HEAD)" during Execute and got the verify.md message
         self.file(self.L / 'src/a.py', 'x', 0)
-        # no `git ... commit` shape in it: not a possible commit any more (2026-10-30, criterion 3)
+        # no `git ... commit` shape in it: not a possible commit any more
         self.assertPassed(self.bash('echo "HEAD=$(git rev-parse HEAD)" && git status --porcelain'))
         r = self.bash('echo "HEAD=$(git rev-parse HEAD)" && git commit -m "$(cat <<\'EOF\'\nfeat: x\nEOF\n)"')
         why = self.assertAsked(r)

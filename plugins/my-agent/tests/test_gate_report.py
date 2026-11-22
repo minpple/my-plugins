@@ -222,7 +222,7 @@ class GateReportTest(unittest.TestCase):
         self.assertIn('| Judge misses | 0 |', out)
 
     def test_codex_g2_lines_are_hook_lines_for_the_readers(self):
-        """Criterion 7: L1's id-less Codex `answer gate=G2` line is a hook line; the decision table has no G2 row."""
+        """L1's id-less Codex `answer gate=G2` line is a hook line; the decision table has no G2 row."""
         import ma_gate_report
         text = ['2026-11-04 14:00:00 step: n=5 name=Execute rev=0 session=019a',
                 '2026-11-04 14:02:11 ask: gate=G2 agent=main id=- tool=apply_patch q=/Users/x/notes/todo.md key=5c1e09a4b7d2f388 hook=plan-approved-check session=019a',
@@ -254,7 +254,7 @@ class GateReportTest(unittest.TestCase):
             self.assertIn(row, out)
 
     def test_g3_answers_by_l1_are_delegated(self):
-        """Criterion 9: a G3 `answer … by=L1` is a delegated row and counts in `Delegated answers`."""
+        """A G3 `answer … by=L1` is a delegated row and counts in `Delegated answers`."""
         out = self.tally(
             '2026-10-29 04:00:01 delegate: state=on how=flag',
             '2026-10-29 04:07:00 ask: gate=G3 q="Accept?" rec="Rework: fix all open items"',

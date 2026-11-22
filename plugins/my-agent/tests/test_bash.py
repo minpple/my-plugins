@@ -105,25 +105,16 @@ class FinalReviewGapsTest(unittest.TestCase):
         self.assertIsNone(ma_bash.read_paths('ln -s "$HOME/.zshrc" z', CWD))
         self.assertEqual(ma_bash.read_paths('echo $PATH', CWD), [])
 
-    def test_git_allowlist(self):
-        for cmd in ['git bisect start', 'git update-ref refs/heads/x HEAD', 'git notes add -m x', 'git fetch',
-                    'git gc', 'git -c core.pager=x log', 'git diff --output=o.txt']:
-            with self.subTest(cmd=cmd):
-                self.assertTrue(ma_bash.git_mutates(cmd))
-        for cmd in ['git status --porcelain', 'git diff HEAD', 'git log -3', 'git show x', 'git branch',
-                    'git tag', 'git stash list', 'git -C sub rev-parse HEAD', 'git ls-files', 'git blame a']:
-            with self.subTest(cmd=cmd):
-                self.assertFalse(ma_bash.git_mutates(cmd))
-
 
 class SingleQuoteTest(unittest.TestCase):
-    """Criterion 1: single-quoted `$(` and backticks are literal; unquoted and double-quoted ones stay unknown."""
+    """Single-quoted `$(` and backticks are literal; unquoted and double-quoted ones stay unknown."""
 
     def test_single_quoted_substitution_is_text(self):
-        for cmd in ["grep -rn 'foo$(bar' src/", "grep -n 'a`b' src/a.py", "grep -rn '\\$(x)' src/"]:
+        for cmd, read in [("grep -rn 'foo$(bar' src/", '/p/src'), ("grep -n 'a`b' src/a.py", '/p/src/a.py'),
+                          ("grep -rn '\\$(x)' src/", '/p/src')]:
             with self.subTest(cmd=cmd):
                 self.assertEqual(ma_bash.write_targets(cmd, CWD), [])
-                self.assertIn(P('/p/src'), ma_bash.read_paths(cmd, CWD) + [P('/p/src')])
+                self.assertEqual(ma_bash.read_paths(cmd, CWD), [P(read)])
         self.assertEqual(ma_bash.read_paths("grep -rn 'x$(y)' src/", CWD), [P('/p/src')])
         self.assertEqual(ma_bash.write_targets("grep 'x`y`' a > out.txt", CWD), [P('/p/out.txt')])
 
@@ -141,7 +132,7 @@ class SingleQuoteTest(unittest.TestCase):
 
 
 class HeredocTest(unittest.TestCase):
-    """Criterion 2: any delimiter word closes at its matching line; the body is not read as commands."""
+    """Any delimiter word closes at its matching line; the body is not read as commands."""
 
     def test_delimiter_words(self):
         for delim in ['EOF.txt', 'END-EXPLORE', "'EOF-1'", '"EOF.txt"', 'EOF', 'E1']:
@@ -187,7 +178,7 @@ class HeredocExpansionTest(unittest.TestCase):
 
 
 class CdTest(unittest.TestCase):
-    """Criterion 4: `cd x &&` resolves against x only; anything else keeps the old folder as well."""
+    """`cd x &&` resolves against x only; anything else keeps the old folder as well."""
 
     def test_and_chain(self):
         self.assertEqual(ma_bash.write_targets('cd x && touch f', CWD), [P('/p/x/f')])
@@ -379,7 +370,7 @@ class EnvReadsTest(unittest.TestCase):
 
 
 class EnvReadsHeredocTest(unittest.TestCase):
-    """Criterion 12: the body of a quoted-delimiter heredoc is data (a note with a backticked `export`)."""
+    """The body of a quoted-delimiter heredoc is data (a note with a backticked `export`)."""
     BT = chr(96)
 
     def test_quoted_body_is_data(self):
@@ -422,16 +413,19 @@ class EnvReadsHeredocTest(unittest.TestCase):
         self.assertEqual(ma_bash.env_reads('cat <<< "$(printenv)"'), ['printenv'])
 
 
-class GitMutatesTest(unittest.TestCase):
-    def test_git_mutates(self):
+class GitRuleTest(unittest.TestCase):
+    def test_git_rule_through_write_targets(self):
         for cmd in ('git commit -m x', 'git push', 'git -C a checkout b', 'git reset --hard', 'git add .',
-                    'git branch -D x', 'git stash', 'ls && git restore f'):
+                    'git branch -D x', 'git stash', 'ls && git restore f', 'git bisect start',
+                    'git update-ref refs/heads/x HEAD', 'git notes add -m x', 'git fetch', 'git gc',
+                    'git -c core.pager=x log', 'git diff --output=o.txt'):
             with self.subTest(cmd=cmd):
-                self.assertTrue(ma_bash.git_mutates(cmd))
-        for cmd in ('git status', 'git diff', 'git log --oneline', 'git branch', 'git show HEAD',
-                    'git stash list', 'git rev-parse HEAD', 'ls'):
+                self.assertIsNone(ma_bash.write_targets(cmd, CWD))
+        for cmd in ('git status', 'git status --porcelain', 'git diff', 'git diff HEAD', 'git log --oneline',
+                    'git log -3', 'git branch', 'git tag', 'git show HEAD', 'git show x', 'git stash list',
+                    'git rev-parse HEAD', 'git -C sub rev-parse HEAD', 'git ls-files', 'git blame a'):
             with self.subTest(cmd=cmd):
-                self.assertFalse(ma_bash.git_mutates(cmd))
+                self.assertEqual(ma_bash.write_targets(cmd, CWD), [])
 
 
 class GitMvTest(unittest.TestCase):
@@ -453,7 +447,6 @@ class GitMvTest(unittest.TestCase):
 
     def test_unchanged(self):
         self.assertEqual(ma_bash.write_targets('echo x | xargs git status', CWD), [])
-        self.assertTrue(ma_bash.git_mutates('git mv a b'))
         for cmd in ('git add .', 'git commit -m x', 'git checkout b', 'git reset --hard'):
             with self.subTest(cmd=cmd):
                 self.assertIsNone(ma_bash.write_targets(cmd, CWD))

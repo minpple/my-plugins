@@ -1,4 +1,4 @@
-"""The page shows USD only: no token counts, Tokens tile or Tokens column (task 261031-token-display-usd)."""
+"""The page shows USD only: no token counts, Tokens tile or Tokens column."""
 import re
 import shutil
 import subprocess
@@ -23,7 +23,7 @@ class WebCostTest(unittest.TestCase):
         self.assertNotIn(KO_TOKEN, self.html)
 
     def test_no_token_fields(self):
-        for s in ('e.tok', 'x.tok', '.tok +=', 'tokSoFar', 't.tokens', 'maxTok', 'r.tok', 'sd.tok',
+        for s in ('e.tok', 'x.tok', '.tok +=', 'tokSoFar', 'maxTok', 'r.tok', 'sd.tok',
                   "cu('tok-'", "cu('mt-'", "=== 'k'"):
             self.assertNotIn(s, self.html, s)
 

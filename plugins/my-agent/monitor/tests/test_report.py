@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 from monitor.registry import Registry
 from monitor.runlog import read_lines
 
@@ -238,7 +240,7 @@ class ReportTest(unittest.TestCase):
         return {row[0]: tuple(int(x) for x in row[1:]) for row in rows if row[0] != 'Severity'}, opens
 
     def test_findings_command_equals_review_totals(self):
-        """Criterion 3: the counts of findings.py are the Report tab's review_totals, the open lines its open items."""
+        """The counts of findings.py are the Report tab's review_totals, the open lines its open items."""
         for name in (ROUNDS, G3, FULL):
             task = PROJECT / 'docs' / 'agent' / name
             counts, opens = self.findings(task, 'review')
@@ -268,7 +270,7 @@ class ReportTest(unittest.TestCase):
         self.assertEqual((counts['NITPICK'], opens), ((1, 0, 1), ['NITPICK plan.md:50 A heading could be shorter.']))
 
     def test_g3_answer_by_l1(self):
-        """Criterion 9: a G3 answer `by=L1` is a delegated decision row and marks the wait; a person's answer does not."""
+        """A G3 answer `by=L1` is a delegated decision row and marks the wait; a person's answer does not."""
         from monitor import report
         base = ('2026-11-08 11:30:00 step: n=8 name=Review-Deliver\n2026-11-08 11:40:00 ask: gate=G3 q="Commit?" rec=Commit\n'
                 '2026-11-08 11:50:00 answer: gate=G3 choice=Commit%s\n')
@@ -440,7 +442,7 @@ class ReportTest(unittest.TestCase):
 
 
 class CarriedVerifyTest(unittest.TestCase):
-    """261106 criterion 4: carried lines of a rerun's verify.md count as PASS in the criteria rows, the G3 gate and the takeaway."""
+    """Carried lines of a rerun's verify.md count as PASS in the criteria rows, the G3 gate and the takeaway."""
 
     def test_carried_rows_are_pass(self):
         from monitor import report
@@ -467,7 +469,7 @@ class CarriedVerifyTest(unittest.TestCase):
 
 
 class KoCopyTest(unittest.TestCase):
-    """261106 criterion 6: the Korean copy adds `*_ko` fields only for items whose sha matches the English source."""
+    """The Korean copy adds `*_ko` fields only for items whose sha matches the English source."""
 
     def build(self, edit=None):
         import json

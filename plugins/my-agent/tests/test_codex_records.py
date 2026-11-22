@@ -1,4 +1,4 @@
-"""Record hooks, session id and data folder on Codex input: same run-log lines as the Claude case (criterion 5)."""
+"""Record hooks, session id and data folder on Codex input: same run-log lines as the Claude case."""
 import json
 import os
 import sys

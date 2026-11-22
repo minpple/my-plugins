@@ -4,6 +4,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 import monitor  # puts l4-tools-guards/lib on sys.path
 import ma_prices
 from ma_prices import cost, load_prices

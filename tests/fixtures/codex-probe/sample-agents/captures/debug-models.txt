@@ -1,2 +1,0 @@
-model-a
-model-b

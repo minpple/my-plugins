@@ -1,4 +1,4 @@
-"""build-codex.py --check-question-tool: reads the Codex flag default_mode_request_user_input (task 261105, u1).
+"""build-codex.py --check-question-tool: reads the Codex flag default_mode_request_user_input.
 
 Every case runs the script with PATH set to a temp folder holding a fake `codex`; the real codex and ~/.codex are never
 used. The fake logs its arguments, so each case also shows that the check runs only `codex features list`.

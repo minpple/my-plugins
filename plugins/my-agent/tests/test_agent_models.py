@@ -320,7 +320,7 @@ class AgentModelsTest(unittest.TestCase):
                     want = {'effort': effort} if model == 'opus' else {'model': 'gpt-6-luna', 'effort': effort}
                     self.assertEqual(got[agent], want, f'{profile}/{preset}/{agent}')
 
-    # --- the `inline` model value (criterion 9) ---
+    # --- the `inline` model value ---
 
     def test_example_inline_preset_in_every_profile_and_codex_section(self):
         data = json.loads(EXAMPLE.read_text(encoding='utf-8'))
@@ -419,9 +419,9 @@ class AgentModelsTest(unittest.TestCase):
             self.assertRejected(self.run_cli('show', '--plan', str(self.plan(head + '| architect | inline | high | |\n')),
                                              host=host), 'an inline role takes no effort')
 
-    def test_output_without_inline_equals_0_10_0(self):
-        """A file without an inline value prints the 0.10.0 text (fixture captured from the 0.10.0 code; regenerated in
-        0.17.0, when the scope-reviewer row was added and the name column widened to the longest role name)."""
+    def test_output_without_inline_matches_the_baseline(self):
+        """A file without an inline value prints the `show`/`presets` text kept in
+        fixtures/agent-models-output-without-inline.txt; that output must not change."""
         self.use_example()
         data = json.loads(self.file.read_text(encoding='utf-8'))
         for profile, presets in data['codex'].items():
@@ -443,7 +443,7 @@ class AgentModelsTest(unittest.TestCase):
                     if r.stderr:
                         out.append(r.stderr.rstrip('\n'))
                     out.append('')
-        want = (Path(__file__).parent / 'fixtures' / 'agent-models-0.10.0.txt').read_text(encoding='utf-8')
+        want = (Path(__file__).parent / 'fixtures' / 'agent-models-output-without-inline.txt').read_text(encoding='utf-8')
         self.assertEqual('\n'.join(out), want)
 
     def test_no_line_of_ma_models_is_longer_than_121_characters(self):

@@ -249,7 +249,7 @@ class ArchiveTest(Base):
         self.assertIn('(1 rows, \u2248 $1.00)', r.stdout)
 
     def test_data_dir_projects_file(self):
-        """Criterion 4: without MA_PROJECTS_FILE the list is <data folder>/projects.txt."""
+        """Without MA_PROJECTS_FILE the list is <data folder>/projects.txt."""
         self.task(task='261001-done')
         self.task(task='261001-current', status='active')
         data = self.root / 'data'

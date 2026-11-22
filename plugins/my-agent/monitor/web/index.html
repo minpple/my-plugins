@@ -101,18 +101,8 @@ nav.tabs .k { font-family: var(--mono); font-size: 11px; margin-right: 5px; }
 /* layouts */
 .panels { display: grid; gap: 14px; }
 body.lay-a .panel[data-view]:not(.on) { display: none; }
-body.lay-b aside.tasks, body.lay-c aside.tasks { display: none; }
-body.lay-b .shell, body.lay-c .shell { grid-template-columns: minmax(0, 1fr); }
-body.lay-b .task-select, body.lay-c .task-select { display: inline-block; }
-body.lay-b nav.tabs, body.lay-c nav.tabs { display: none; }
-body.lay-b .panels { grid-template-columns: 1fr 1fr 1.3fr; }
-body.lay-b .panel[data-view="status"] { grid-column: 1 / -1; }
-body.lay-b .arch-grid { grid-template-columns: 1fr; }
-body.lay-b .lv .chips { grid-template-columns: 1fr 1fr; }
-body.lay-b .log-wrap { max-height: 520px; overflow: auto; }
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; } aside.tasks { display: none; } .task-select { display: inline-block; }
-  body.lay-b .panels { grid-template-columns: 1fr; }
 }
 
 /* status panel */
@@ -292,7 +282,6 @@ body.entering .tl-bar.live { animation: grow .8s backwards, stripes .7s linear i
 #p-report .group > .sec > .sb > .sbi > .sbp { padding: 4px 16px 16px 40px; }
 #p-report .seg.small button { padding: 1px 8px; font-size: 11.5px; }
 #p-report .nyw { font-size: 12.5px; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; padding: 6px 10px; margin: 4px 0; background: var(--surface-2); }
-body.lay-b #p-report, body.lay-c #p-report { display: none; }
 /* overview part */
 #p-report .lead { margin: 0 0 6px; }
 #p-report .ovsum { margin: 0; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }

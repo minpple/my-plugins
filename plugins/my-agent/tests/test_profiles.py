@@ -68,7 +68,6 @@ class ProfilesTest(unittest.TestCase):
         """Under delegated approval L1 answers G3 by gates.md; without it the Commit popup is unchanged."""
         text = (PROFILES / 'dev.md').read_text(encoding='utf-8')
         g3 = text[text.index('## G3 in the dev profile'):]
-        self.assertNotIn('G3 always goes to the person', g3)
         self.assertIn('L1 answers per gates.md "Delegated approval details"', g3)
         self.assertIn('Popup: `Commit (Recommended)` / `Rework` / `Abort`', g3)
 
@@ -218,7 +217,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('2 times: G1b, G3', general)
 
     def test_merge_copies_new_files_before_apply(self):
-        """Criterion 15: new files are copied before `git apply`, then the worktree is removed."""
+        """New files are copied before `git apply`, then the worktree is removed."""
         dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
         row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
         a = row.index('ls-files --others --exclude-standard')
@@ -228,7 +227,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertLess(b, c)
 
     def test_check_tags_in_scope_rules(self):
-        """Criterion 4: every criterion line gets one check tag; four tag values are named."""
+        """Every criterion line gets one check tag; four tag values are named."""
         tags = ('[check: command]', '[check: file]', '[check: URL]', '[check: person]')
         define = (REPO / 'l1-orchestration' / 'phases' / 'define.md').read_text(encoding='utf-8')
         for t in tags:
@@ -244,7 +243,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('check tag', line)
 
     def test_person_check_popup(self):
-        """Criterion 5: one popup per [check: person] criterion; Scope change lines; G3 lists later ones."""
+        """One popup per [check: person] criterion; Scope change lines; G3 lists later ones."""
         phases = REPO / 'l1-orchestration' / 'phases'
         define = (phases / 'define.md').read_text(encoding='utf-8')
         self.assertIn('I check it before G3 and tell you', define)
@@ -261,7 +260,7 @@ class ProfilesTest(unittest.TestCase):
             self.assertIn('checked by the user later', sec)
 
     def test_rerun_is_a_new_worker_call_never_a_resume(self):
-        """Criterion 6: where units are handed out and sent back, a rerun is a new call, never a resume."""
+        """Where units are handed out and sent back, a rerun is a new call, never a resume."""
         phases = REPO / 'l1-orchestration' / 'phases'
         build = (phases / 'build.md').read_text(encoding='utf-8')
         item = build.split('## 5. Execute')[1].split('## Workflow rules')[0]
@@ -382,7 +381,7 @@ class ProfilesTest(unittest.TestCase):
 
 
     def test_verify_and_review_scope(self):
-        """261106 criteria 1-3: L1 writes the changed-file map, the verifier gets it (and the previous verify.md on a rerun),
+        """L1 writes the changed-file map, the verifier gets it (and the previous verify.md on a rerun),
         the archive keeps it, and the reviewer gets verify.md instead of running the suites again."""
         phases = REPO / 'l1-orchestration' / 'phases'
         accept = (phases / 'accept.md').read_text(encoding='utf-8')
@@ -411,7 +410,7 @@ class ProfilesTest(unittest.TestCase):
             self.assertIn('changed-file map', (profiles / name).read_text(encoding='utf-8'), name)
 
 class CoderNotesRulesTest(unittest.TestCase):
-    """Execute rules for coder-notes.md: save, cut and pass (criteria 2, 3, 4, 6, 7, 13)."""
+    """Execute rules for coder-notes.md: save, cut and pass."""
 
     def setUp(self):
         self.build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')

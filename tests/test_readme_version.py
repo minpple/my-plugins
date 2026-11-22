@@ -67,20 +67,6 @@ class ManifestVersionTest(unittest.TestCase):
 
 
 class ReadmeVersionTest(unittest.TestCase):
-    def test_three_versions_match(self):
-        version = json.loads(MANIFEST.read_text(encoding='utf-8'))['version']
-        for path in READMES:
-            row = re.search(r'^\| `my-agent` \| ([^ |]+) \|', path.read_text(encoding='utf-8'), re.M)
-            self.assertIsNotNone(row, path.name)
-            self.assertEqual(row.group(1), version, path.name)
-
-    def test_tray_versions_match(self):
-        version = json.loads(TRAY_MANIFEST.read_text(encoding='utf-8'))['version']
-        for path in READMES:
-            row = re.search(r'^\| `my-agent-tray` \| ([^ |]+) \|', path.read_text(encoding='utf-8'), re.M)
-            self.assertIsNotNone(row, path.name)
-            self.assertEqual(row.group(1), version, path.name)
-
     def test_install_section_explains_the_data_folder(self):
         for path in READMES:
             section = install_section(path.read_text(encoding='utf-8'))

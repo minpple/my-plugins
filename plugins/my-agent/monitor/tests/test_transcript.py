@@ -7,6 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 from monitor import transcript
 from monitor.transcript import TranscriptCache
 from tests.fixtures.build_fixtures import CLAUDE, EXPECTED_MAIN

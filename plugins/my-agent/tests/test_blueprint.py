@@ -1,5 +1,6 @@
 """The project blueprint (architecture 4.7.5): ma_blueprint and scripts/blueprint.py."""
 import os
+import re
 import tempfile
 import unittest
 from unittest import mock
@@ -175,6 +176,16 @@ class BlueprintRulesTest(unittest.TestCase):
             self.assertIn(f'\n## {section}\n', fmt)
         for tag in ma_blueprint.BACKLOG_TAGS:
             self.assertIn(f'- [{tag}] ', fmt)
+        self.assertIn('4. **Language:** write the blueprint text in English, in a new file and in an existing one. '
+                      'A line found in another language is rewritten in English when the entry it belongs to is updated. '
+                      'A code name or a screen string quoted inside backticks stays as written.\n', fmt)
+        self.assertIn('Keep the title lines, the `## ` section names, the line labels', fmt)
+        self.assertIn('the tags in English as written here.', fmt)
+        arch = self.text('docs', 'build-guide', 'my-agent-architecture.md')
+        language = arch[arch.index('**Language (2026-11-22):**'):]
+        language = language[:language.index('\n')]
+        self.assertIn('English in every project', language)
+        self.assertIn('inside backticks', language)
 
     def test_format_file_examples_pass_the_check(self):
         """The three example blocks, filled with a task ID and a date, are valid files."""
@@ -183,6 +194,18 @@ class BlueprintRulesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             for name, block in zip(ma_blueprint.FILES, blocks):
                 body = block.split('```')[0].replace('<task-id>', '261117-add-login').replace('<YYYY-MM-DD>', '2026-11-17')
+                Path(tmp, name).write_text(body, encoding='utf-8')
+            counts, problems = ma_blueprint.check(tmp)
+        self.assertEqual(problems, [])
+        self.assertEqual(counts, {'features.md': 1, 'decisions.md': 3, 'backlog.md': 3})
+        # A line already written in another language stays valid: the check reads formats, not language.
+        korean = ''.join(chr(c) for c in (0xd55c, 0xad6d, 0xc5b4, 0x20, 0xc124, 0xba85))
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, block in zip(ma_blueprint.FILES, blocks):
+                body = block.split('```')[0].replace('<task-id>', '261117-add-login').replace('<YYYY-MM-DD>', '2026-11-17')
+                if name == 'features.md':
+                    body = re.sub(r'- Purpose: .*', '- Purpose: ' + korean, body)
+                    self.assertIn(korean, body)
                 Path(tmp, name).write_text(body, encoding='utf-8')
             counts, problems = ma_blueprint.check(tmp)
         self.assertEqual(problems, [])

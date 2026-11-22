@@ -1,1 +1,0 @@
-{"tools": [{"name": "exec"}, {"name": "wait"}], "input": [{"role": "user", "content": "Reply with exactly: ok."}]}

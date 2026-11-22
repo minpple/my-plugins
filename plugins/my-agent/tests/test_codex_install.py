@@ -1,4 +1,4 @@
-"""build-codex.py --install-agents / --check-agents: the ten agent files in `<codex home>/agents/` (task 261103, u3).
+"""build-codex.py --install-agents / --check-agents: the ten agent files in `<codex home>/agents/`.
 
 Every case uses a temp plugin root and a temp Codex home; the real ~/.codex is never read or written.
 """

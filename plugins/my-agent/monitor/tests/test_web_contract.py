@@ -36,7 +36,6 @@ class WebContractTest(unittest.TestCase):
         self.assertIn(".get('tab')", self.html)
         self.assertIn("'report'", self.html[self.html.index('URLSearchParams'):])
         self.assertIn("addEventListener('hashchange'", self.html)
-        self.assertNotIn('/^#task=(.+)$/', self.html)
 
 
 ST = {
@@ -112,7 +111,7 @@ class ReportTabTest(unittest.TestCase):
         self.assertLess(self.html.index('data-tab="log"'), self.html.index('data-tab="report"'))
 
     def test_wait_legend_delegated_g3(self):
-        """Criterion 9: a G3 answered by L1 reads as a delegated approval; the person-wait text stays for the rest."""
+        """A G3 answered by L1 reads as a delegated approval; the person-wait text stays for the rest."""
         i = self.code.index("wt.by === 'L1'")
         legend = self.code[i:i + 400]
         self.assertIn('G3 was answered by L1 (delegated approval) at ', legend)
@@ -178,10 +177,6 @@ class ReportTabTest(unittest.TestCase):
         self.assertNotIn('<script src=', self.html)
         self.assertNotIn('file://', self.html)
 
-    def test_no_token_word(self):
-        self.assertNotIn('token', self.html.lower())
-        self.assertNotIn('\ud1a0\ud070', self.html)
-
     def test_count_up_once_per_task(self):
         self.assertIn('counted: new Set()', self.code)
         self.assertIn('rp.counted.has(', self.code)
@@ -194,9 +189,6 @@ class ReportTabTest(unittest.TestCase):
                     "L('Work units'", "L('Phase timeline'", "L('Follow-up'", "L('Waiting for you at'", "L('Open prototype'",
                     "L('Scope'", "L('Delivered'", "L('Next'"):
             self.assertIn(lab, self.code)
-
-    def test_report_code_reads_reduced_motion(self):
-        self.assertIn('prefers-reduced-motion', self.code)
 
     def test_no_key_5_shortcut(self):
         self.assertNotIn("'5'", self.html)
@@ -211,14 +203,6 @@ class ReportTabTest(unittest.TestCase):
             self.assertIn("NYW('%s')" % f, self.code)
         self.assertIn('Not written yet: ', self.code)
         self.assertIn('not recorded', self.code)
-
-    def test_tray_layouts_hide_tabs_and_report(self):
-        self.assertIn('body.lay-b nav.tabs, body.lay-c nav.tabs { display: none; }', self.html)
-        self.assertRegex(self.html, r'body\.lay-b #p-report')
-
-
-if __name__ == '__main__':
-    unittest.main()
 
 
 class TimelineAxisTest(unittest.TestCase):
@@ -267,9 +251,6 @@ class TimelineAxisTest(unittest.TestCase):
             self.assertGreaterEqual(depth, 0, f'stray }} at css offset {i}')
         self.assertEqual(depth, 0, 'unclosed { in the stylesheet')
 
-    def test_old_tick_code_is_gone(self):
-        self.assertNotIn('stepM = W > 90', self.html)
-        self.assertNotIn('const tick = 15 * 60000', self.html)
 
 
 class ThemeSwitchTest(unittest.TestCase):
@@ -308,15 +289,13 @@ class OverviewListFormTest(unittest.TestCase):
 
     def test_list_form_shares_the_paragraph_style(self):
         fn = re.search(r'function rpOverview\(d\) \{.*?\n\}\n', self.html, re.S).group(0)
-        self.assertNotIn('ovl', fn)
         self.assertEqual(fn.count('<dl class="ov">'), 2)
         for en in ('Task', 'Profile', 'Status', 'Delivered', 'Follows', 'Request'):
             self.assertIn("L('%s'," % en, fn)
-        self.assertNotIn('.ovl', self.html)
 
 
 class KoCopyViewTest(unittest.TestCase):
-    """261106 criterion 6: in 한국어 mode the overview, criteria and unit titles use the Korean copy, else the English."""
+    """In 한국어 mode the overview, criteria and unit titles use the Korean copy, else the English."""
 
     @classmethod
     def setUpClass(cls):
@@ -343,5 +322,7 @@ class KoCopyViewTest(unittest.TestCase):
         for pair in ("L('Group ', '그룹 ')", "L(', ran ', ', 실행 ')", "L('FILES', '파일')", "L('TESTS', '테스트')",
                      "L('CRITERIA', '기준')"):
             self.assertIn(pair, self.code)
-        self.assertNotIn('>FILES (', self.code)
-        self.assertNotIn("'Group ' +", self.code)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -119,7 +119,7 @@ class ReportParsersTest(unittest.TestCase):
         self.assertEqual((ma_schema.verify_rows(None), ma_schema.run_number('')), ([], None))
 
     def test_verify_carried_row_reads_as_pass(self):
-        """261106 criterion 4: a rerun's carried line is a PASS row; the verdict and the run stay readable."""
+        """A rerun's carried line is a PASS row; the verdict and the run stay readable."""
         text = ('Verdict: ALL PASS\nRun: 2\n- 1. PASS (carried from Run 1) a.py:3 ok\n- 2. PASS b.py:9 fixed\n'
                 '\n## Commands run\n- python3 -m unittest discover -s /x/tests → Ran 9 tests … OK\n')
         self.assertEqual(ma_schema.verify_rows(text),

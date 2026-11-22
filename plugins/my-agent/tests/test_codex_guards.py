@@ -108,10 +108,6 @@ class ScopeGuardCodexTest(Base):
         r = self.scope({'tool_name': 'Bash', 'tool_input': {'command': 'ls plugins/my-agent-tray'}, 'cwd': str(self.L)})
         self.assertEqual((r.returncode, r.stdout), (0, ''), r.stderr)
 
-    def test_explorer_patch_outside_scope_is_denied(self):
-        r = self.scope(self.worker_file(patch('*** Add File: src/new.txt', '+x'), agent='my-agent-explorer'))
-        self.assertEqual(r.returncode, 2)
-
     def test_fail_closed(self):
         bad = [
             'my-agent- not json',

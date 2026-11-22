@@ -8,6 +8,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 from monitor import opener
 
 open_darwin = functools.partial(opener.open_monitor, platform='darwin')

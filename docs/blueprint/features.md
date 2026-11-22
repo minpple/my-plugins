@@ -92,3 +92,28 @@
 12. The L1 section and the L3 section of the maintenance notes have a 2026-11-18 entry [check: file] → plugins/my-agent/maintenance-notes.md:68, :112
 13. Tests check the new rules (the notes part and its limit, the storing and passing rules, the coder-only rule) [check: file] → plugins/my-agent/tests/test_agents.py:98, :112; plugins/my-agent/tests/test_profiles.py:361-389 (`CoderNotesRulesTest`)
 14. The test suites of the plugin, the repository root and the monitor all exit 0 [check: command] → `cd plugins/my-agent && python3 -m unittest discover -s tests` Ran 944 tests OK; `python3 -m unittest discover -s tests` (root) exit 0; `cd plugins/my-agent/monitor && python3 -m unittest discover tests` Ran 298 tests OK
+
+## Test suite cleanup
+- Purpose: Keep a test set in which every test checks a feature that exists now, so a failure means something and the suites cost less to run and read. Used by the maintainer of this repository.
+- Where: tools/codex-probe/probe.py, tests/test_codex_probe.py, tests/fixtures/codex-probe/skills-listing-record/, plugins/my-agent/tests/, plugins/my-agent/monitor/tests/, plugins/my-agent/l4-tools-guards/lib/ma_bash.py, plugins/my-agent/monitor/web/index.html
+- Tasks: 261122-prune-tests-blueprint-en
+- Updated: 2026-11-22
+
+1. The Codex investigation tool offers only `snapshot` and `check install`; every function and fixture left is reachable, `check install` prints the same lines and exits with the same status as before, and a removed subcommand gives the usual unknown-command error [check: command] → `python3 tools/codex-probe/probe.py --help` shows `{snapshot,check}`; `tests.test_codex_probe` Ran 37 tests OK (`test_every_function_and_constant_is_reachable`, `test_every_fixture_is_named_by_a_test`, `test_removed_subcommands_give_the_unknown_command_error`); `check install no-such-folder-xyz --version 9.9.9` gives the same six lines, exit 1, as ae50b6d
+2. The unused helper `git_mutates` and the two unused monitor page layouts (`lay-b`, `lay-c`) are gone; the git rule stays tested through the hook function [check: command] → `git grep -nE 'git_mutates|lay-b|lay-c' -- plugins tools` finds only allowed history lines; `test_bash.py` `GitRuleTest.test_git_rule_through_write_targets`
+3. The plan's disposition table has a row for every duplicate or vacuous test item, and the test files match it; absence checks that guard a rule in force stay [check: file] → plan.md:176-211 (34 rows); assertion-call diff against ae50b6d maps every removed or added assert to a row
+4. Each remove or merge row names the remaining test that asserts the same behaviour, and it passes [check: command] → twin runs: Ran 13, Ran 11 and Ran 1 tests OK
+5. No test name, docstring, comment or fixture name points at a finished task's criterion, a task ID or a past version as if current; tests named "denied" that assert an ask are renamed; the model-table baseline is `agent-models-output-without-inline.txt`; the assertion set differs only by the table rows and criteria 1 and 2 [check: command] → the plan's stale-name scan prints only the intended matches; `test_agent_models.py` `test_output_without_inline_matches_the_baseline`; counts 1029 / 328 / 108 / 69
+6. In every test file the direct-run call is the last statement [check: command] → the plan's direct-run scan prints `ok` over 75 test files; `python3 test_skill_md.py` Ran 99, `tests/test_web_contract.py` Ran 39, `tests/test_runlog.py` Ran 8 tests OK
+7. The four suites pass, the architecture page is up to date, and no tracked file refers to a removed subcommand, file or test as something that exists, except the past records the Scope change lines name [check: command] → plugin Ran 1029, monitor Ran 328, root Ran 108, tray Ran 69 tests OK; `python3 tools/build-docs.py --check` exit 0; the reference grep prints only allowed lines
+
+## Blueprint language rule
+- Purpose: Make the project blueprint always English in every project the plugin runs in, so it reads like every other document in the repository. Used by people and agents who read a blueprint written by the plugin.
+- Where: plugins/my-agent/l3-workers/blueprint-format.md (rule 4), plugins/my-agent/docs/build-guide/my-agent-architecture.md (4.7.5), plugins/my-agent/tests/test_blueprint.py, docs/blueprint/
+- Tasks: 261122-prune-tests-blueprint-en
+- Updated: 2026-11-22
+
+1. The format rule says the blueprint text is English in a new file and an existing one, that a line in another language is rewritten in English when its entry is updated, and that a code name or screen string inside backticks stays as written; a test pins it and the design document says the same [check: command] → blueprint-format.md:68; my-agent-architecture.md:1036; `test_blueprint.py:179-188`
+2. A blueprint with a line in another language stays valid for the format check until the next update rewrites it [check: command] → `test_blueprint.py:202-208`
+3. The three blueprint files of this repository contain no Hangul characters outside backticks [check: command] → the plan's Hangul check over docs/blueprint/{features,decisions,backlog}.md prints `0`
+4. my-agent is 0.23.2 in the three plugin manifests and the `my-agent` rows of both READMEs; the design document status line holds the `v0.68` entry; the maintenance notes have three 2026-11-22 entries for 0.23.2 [check: command] → `grep -n '"version"'` on the manifests (0.23.2 three times); README.md:9 and README-ko.md:9; `test_arch_doc` `test_status_line_starts_with_the_newest_entry`; maintenance-notes.md:133, :245, :295

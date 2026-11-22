@@ -7,6 +7,7 @@ import socket
 import subprocess
 import tempfile
 import threading
+import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -14,6 +15,7 @@ from unittest import mock
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))  # run directly: tests/<name>.py
 SCRIPT = ROOT / 'open-html.py'
 
 

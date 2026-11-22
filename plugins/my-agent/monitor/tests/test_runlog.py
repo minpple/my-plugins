@@ -3,6 +3,9 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 from monitor.runlog import parse_line, read_lines
 
 
@@ -42,10 +45,6 @@ class ReadLinesTest(unittest.TestCase):
         self.assertEqual(read_lines(Path('/nonexistent/run-log.md')), [])
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class GuardLineTest(unittest.TestCase):
     def test_mixed_run_log_parses(self):
         with tempfile.TemporaryDirectory() as d:
@@ -57,3 +56,7 @@ class GuardLineTest(unittest.TestCase):
             lines = read_lines(p)
             self.assertEqual([l.kind for l in lines], ['step', 'guard', 'ask'])
             self.assertEqual(lines[1].f['why'], 'scope-guard: x y')
+
+
+if __name__ == '__main__':
+    unittest.main()

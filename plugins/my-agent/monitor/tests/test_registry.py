@@ -4,6 +4,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
+import monitor  # puts l4-tools-guards/lib on sys.path
 import ma_prices
 from monitor import registry
 from monitor.registry import Registry
@@ -119,10 +123,6 @@ class RegistryTest(unittest.TestCase):
             self.assertEqual(r._cache, {})
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class PricesFileTest(unittest.TestCase):
     def test_prices_override_used_when_present(self):
         with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {'MA_TASKS_DIR': d}):
@@ -182,3 +182,7 @@ class SettingFolderTest(unittest.TestCase):
     def test_default_folder_is_home_my_agent(self):
         with tempfile.TemporaryDirectory() as d, self.env(''), mock.patch.dict(os.environ, {'HOME': d}):
             self.assertEqual(registry.default_projects_file(), Path(d, '.my-agent-data', 'projects.txt'))
+
+
+if __name__ == '__main__':
+    unittest.main()

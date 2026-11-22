@@ -1,4 +1,4 @@
-"""Codex G2 (criterion 7): a gate hook's ask is exit 2, and one `answer gate=G2` line releases exactly one call.
+"""Codex G2: a gate hook's ask is exit 2, and one `answer gate=G2` line releases exactly one call.
 
 The real hook scripts run with Codex-shaped inputs on a temp task; the answer is written by the real `run-log.py` from
 the command the hook's stderr prints."""

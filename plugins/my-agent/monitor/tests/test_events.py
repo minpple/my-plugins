@@ -1,6 +1,9 @@
 import unittest
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 from monitor.events import build_events
 from monitor.runlog import parse_line, read_lines
 
@@ -278,7 +281,7 @@ class EventsTest(unittest.TestCase):
     def test_cost_usd(self):
         self.assertEqual(ev('claude-sessions', '261024-cli-json-output').cost_usd, '2.41')
 
-    def test_pre_v019_log(self):
+    def test_old_log_form_without_header_or_steps(self):
         e = synth('15:56 call: my-agent:coder model=- isolation=worktree', '15:56 start: coder-1 Configured=sonnet')
         self.assertEqual((e.log, e.step_enter), ([], []))
         e = build_events([l for l in map(parse_line, ['# run-log x', '15:56 stop: coder-2 Actual=sonnet 84k DONE']) if l])

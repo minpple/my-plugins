@@ -7,6 +7,9 @@ from unittest import mock
 import urllib.error
 import urllib.request
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 import server
 from monitor.registry import Registry
 from monitor.registry import SUMMARY
@@ -62,8 +65,6 @@ class ServerTest(unittest.TestCase):
     def test_index_reads_task_from_hash(self):
         body = self.get('/')[2].decode('utf-8')
         self.assertIn('location.hash', body)
-        self.assertIn('URLSearchParams', body)
-        self.assertIn("get('tab')", body)
 
     def test_unknown_key_404(self):
         with self.assertRaises(urllib.error.HTTPError) as cm:

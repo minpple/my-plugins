@@ -33,10 +33,6 @@ class RuntimeTextTest(unittest.TestCase):
         accept = (REPO / 'l1-orchestration/phases/accept.md').read_text(encoding='utf-8')
         dev = (REPO / 'l1-orchestration/profiles/dev.md').read_text(encoding='utf-8')
         recorder = (REPO / 'l1-orchestration/recorder.md').read_text(encoding='utf-8')
-        for text in (skill, plan, accept, dev, recorder):
-            for old in ('blocks them as commands whose write target', 'blocks a relative path after',
-                        'blocks a Bash write containing', 'blocks the G3 save and commit'):
-                self.assertNotIn(old, text)
 
         def line(text, key):
             hits = [x for x in text.splitlines() if key in x]

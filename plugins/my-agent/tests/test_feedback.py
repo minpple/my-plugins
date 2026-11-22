@@ -30,7 +30,7 @@ class FeedbackTest(unittest.TestCase):
         return run_script(SCRIPT, *args, env=env)
 
     def test_data_dir_feedback_file(self):
-        """Criterion 7: the default file is <data folder>/feedback.md, not in the plugin folder."""
+        """The default file is <data folder>/feedback.md, not in the plugin folder."""
         d = Path(self.tmp.name) / 'data'
         plugin = L4.parent / 'feedback.md'
         before = plugin.read_bytes() if plugin.exists() else None

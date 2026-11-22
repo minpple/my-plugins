@@ -1,4 +1,0 @@
-model = "model-a"
-
-[hooks.state."other@x:hooks/hooks.json:stop:0:0"]
-trusted_hash = "sha256:zzz"

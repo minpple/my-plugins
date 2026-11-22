@@ -1,6 +1,9 @@
 import unittest
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 from monitor.mdfiles import read_criteria, read_intake, read_plan, read_verify
 
 FX = Path(__file__).resolve().parent / 'fixtures' / 'projects'

@@ -688,15 +688,6 @@ def copy_sources(cmd: str, cwd: Path) -> List[Path]:
     return out
 
 
-def git_mutates(cmd: str) -> bool:
-    """True when any git in `cmd` changes the repository or work tree (or `cmd` does not tokenize)."""
-    try:
-        cmds = _commands(cmd)
-    except ValueError:
-        return True
-    return any(c.words and os.path.basename(c.words[0]) == 'git' and _git_mutating(c.words[1:]) for c in cmds)
-
-
 CURL_SEND_SHORT = set('dFT')                  # -d DATA, -F FORM, -T FILE (also clustered: -sd)
 CURL_SEND_LONG = ('--data', '--form', '--upload-file', '--json', '--url-query')
 WGET_SEND_LONG = ('--post-data', '--post-file', '--body-data', '--body-file', '--method')

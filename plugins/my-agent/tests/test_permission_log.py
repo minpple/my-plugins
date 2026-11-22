@@ -96,7 +96,7 @@ class PermissionLogTest(unittest.TestCase):
         self.assertEqual(log_lines(self.task), before)
 
     def test_other_session_writes_nothing(self):
-        """Criterion 9: PermissionRequest input carries session_id (hooks reference); another session is not this task's."""
+        """PermissionRequest input carries session_id (hooks reference); another session is not this task's."""
         self.ask(session_id='s-other')
         self.hook('answer', {'hook_event_name': 'PostToolUse', 'session_id': 's-other', 'tool_name': 'Bash',
                              'tool_input': {'command': CMD}, 'tool_response': {}})
@@ -115,7 +115,7 @@ class PermissionLogTest(unittest.TestCase):
         self.assertNotIn('session', parse(log_lines(self.task)[-1]))
 
     def test_codex_permission_request_gives_no_decision(self):
-        """Criterion 8: Codex's documented output is hookSpecificOutput.decision.behavior; this hook prints nothing."""
+        """Codex's documented output is hookSpecificOutput.decision.behavior; this hook prints nothing."""
         d = json.loads((FIX / 'hook-permission-request-bash.json').read_text(encoding='utf-8'))
         self.assertEqual(d['hook_event_name'], 'PermissionRequest')
         self.hook('ask', dict(d, session_id='s-test'))

@@ -5,6 +5,9 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 from monitor.taskview import build_task
 from monitor.transcript import TranscriptCache
 from tests.fixtures.build_fixtures import CLAUDE, EXPECTED_MAIN, PROJECTS
@@ -162,10 +165,6 @@ class TaskViewTest(unittest.TestCase):
             self.assertEqual(set(t), {'id', 'key', 'project', 'folder', 'error'})
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 def write_transcript(claude, task_dir, ma_usage):
     """A main transcript with one response 30 s after each step line (and one after the task, not counted)."""
     lines = ma_usage.read_log(task_dir / 'run-log.md')
@@ -249,3 +248,7 @@ class SnapshotTest(unittest.TestCase):
             '{"windows": [{"rev": 0, "step": 1, "model": "claude-opus-5-5", "usage": {"input_tokens": 99}}]}',
             encoding='utf-8')
         self.assertIsNone(self.build('claude-sessions', '261024-cli-json-output', self.none)['main'])
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,4 +1,4 @@
-"""hosts.md: the Claude Code -> Codex name table of the shared text (task 261101-codex-port, u11)."""
+"""hosts.md: the Claude Code -> Codex name table of the shared text."""
 import re
 import unittest
 
@@ -46,8 +46,6 @@ class HostsTest(unittest.TestCase):
         self.assertGreater(text.index(self.POINTER), text.index('# my-agent\n'))
         phase_files = text[text.index('### Phase files'):text.index('## Arguments')]
         self.assertNotIn('Codex', phase_files)
-        self.assertLess(text.index('l1-orchestration/hosts.md'), 16000)
-        self.assertLess(text.index('## Arguments'), 16000)
 
     def test_skill_has_one_codex_pointer(self):
         lines = [l for l in SKILL.read_text(encoding='utf-8').splitlines() if l.lstrip('- ').startswith('Codex')]

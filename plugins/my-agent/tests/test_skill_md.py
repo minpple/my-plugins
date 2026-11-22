@@ -61,17 +61,15 @@ class SkillMdTest(unittest.TestCase):
         self.assertEqual(fm.get('name'), 'my-agent')
         self.assertEqual(fm.get('model'), 'opus')
         self.assertNotIn('hooks', fm)
-
-    def test_no_skill_dir_variable(self):
-        """The main skill lives in skills/my-agent/: its paths start from the plugin root, never from the skill folder."""
-        self.assertNotIn('CLAUDE_SKILL_DIR', self.text)
-
-    def test_no_hooks_in_frontmatter(self):
-        """The gate hooks moved to hooks.json (a skill hook gets no plugin setting env): none left in the frontmatter."""
+        # The gate hooks moved to hooks.json (a skill hook gets no plugin setting env): none left in the frontmatter.
         block = re.match(r'---\n(.*?)\n---\n', self.text, re.S).group(1)
         self.assertNotIn('hooks:', block)
         self.assertNotIn('plan-approved-check.py', block)
         self.assertNotIn('verdict-fresh-check.py', block)
+
+    def test_no_skill_dir_variable(self):
+        """The main skill lives in skills/my-agent/: its paths start from the plugin root, never from the skill folder."""
+        self.assertNotIn('CLAUDE_SKILL_DIR', self.text)
 
     def test_approval_line_written_without_substitution(self):
         """Live run: L1 wrote the Approved line with `$(date …)` and the G1b hook (rightly) refused it."""
@@ -166,7 +164,7 @@ class SkillMdTest(unittest.TestCase):
                 self.assertIn('choice=', args, f'{name}: {args}')
 
     def test_every_ask_carries_rec(self):
-        """Criterion 4: each `ask gate=` in SKILL.md and the L1 files (template or backticked prose) records rec=."""
+        """Each `ask gate=` in SKILL.md and the L1 files (template or backticked prose) records rec=."""
         seen = 0
         for path in [SKILL] + L1_FILES:
             for m in re.finditer(r'ask gate=[^`\n]*', path.read_text(encoding='utf-8')):
@@ -196,18 +194,18 @@ class SkillMdTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_revision_edits_use_headings_and_edit_tool(self):
-        """Criterion 1: sections are found by a line-start heading and edited with Edit, never cut by offset or overwritten."""
+        """Sections are found by a line-start heading and edited with Edit, never cut by offset or overwritten."""
         section = self.section('## In-flight revision', '## Abort', self.changes)
         self.assertIn('headings that start at the beginning of a line (`## Revisions`, `## Approval`)', section)
         self.assertIn('edit only that section with the Edit tool', section)
         self.assertIn('do not overwrite the whole file with Write', section)
 
     def test_defer_manual_check_scope_change(self):
-        """Criterion 2."""
+        """A scope change defers a manual check to the user."""
         self.assertIn('Scope change: criterion <n> is checked by the user later', self.changes)
 
     def test_continue_cleans_active_when_done(self):
-        """Criteria 3 and 7: a retrospective cut short leaves Status: done; continue only clears .active."""
+        """A retrospective cut short leaves Status: done; continue only clears .active."""
         section = self.section('## continue', None, self.resume)
         self.assertIn('Status: done', section)
         self.assertIn('only `.active` cleared', section)
@@ -222,7 +220,7 @@ class SkillMdTest(unittest.TestCase):
             self.assertIn(name, row)
 
     def test_retrospective_order(self):
-        """Criterion 7: tally -> gate-analyst -> copy -> chat -> feedback add L1; before the .active cleanup on both accept paths."""
+        """Tally -> gate-analyst -> copy -> chat -> feedback add L1; before the .active cleanup on both accept paths."""
         accept = (L1 / 'phases' / 'accept.md').read_text(encoding='utf-8')
         devp = (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')
         retro = self.retro[self.retro.index('## Retrospective'):]
@@ -273,7 +271,7 @@ class SkillMdTest(unittest.TestCase):
             git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'other again')
             self.assertEqual(run(), before)
 
-    # --- Plan Review rounds, L1 plan edits, profile change (task 261029-review-loop-l1-rules, u4) ---
+    # --- Plan Review rounds, L1 plan edits, profile change ---
     PLAN = L1 / 'phases' / 'plan.md'
 
     def plan_step4(self):
@@ -281,14 +279,14 @@ class SkillMdTest(unittest.TestCase):
         return plan[plan.index('## 4. Plan Review'):plan.index('## G1b plan approval')]
 
     def test_nitpick_only_applied_without_popup(self):
-        """Criterion 2: NITPICK only -> applied without a popup, one `## Decisions` line each, then G1b."""
+        """NITPICK only -> applied without a popup, one `## Decisions` line each, then G1b."""
         step = self.plan_step4()
         self.assertIn('NITPICK only', step)
         self.assertIn('without a popup', step)
         self.assertIn('- <severity> <path>:<line> <summary> → applied by L1 | applied by architect | declined', step)
 
     def test_no_plan_review_round_after_ready(self):
-        """Criterion 1: READY FOR APPROVAL never leads to another Plan Review round; only REVISE is judged again."""
+        """READY FOR APPROVAL never leads to another Plan Review round; only REVISE is judged again."""
         step = self.plan_step4()
         self.assertIn('never another Plan Review round', step)
         self.assertIn('third `REVISE`', step)
@@ -296,7 +294,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('whole list (NITPICKs included)', step)
 
     def test_l1_plan_edit_rules(self):
-        """Criterion 3: small plan.md edits by L1 before G1b, recorded as `fix ... before=G1b` with an archive."""
+        """Small plan.md edits by L1 before G1b, recorded as `fix ... before=G1b` with an archive."""
         step = self.plan_step4()
         self.assertIn('before=G1b archive=', step)
         plan = self.PLAN.read_text(encoding='utf-8')
@@ -311,7 +309,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('| Plan edit by L1 before approval', self.recorder)
 
     def test_profile_label_from_profile_line(self):
-        """Criterion 5: the label is (set by you) also when the run-log has a `profile` line."""
+        """The label is (set by you) also when the run-log has a `profile` line."""
         intake = self.intake()
         self.assertIn('the run-log has a `profile` line', intake)
         self.assertIn('keeps `--dev` as its first word', intake)
@@ -350,7 +348,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertLessEqual({'profile', 'fix'}, kinds)
 
     def test_auto_flag_rules(self):
-        """Criterion 6: `--auto` rules in ## Arguments, Flags and Intake."""
+        """`--auto` rules in ## Arguments, Flags and Intake."""
         self.assertIn('--auto', self.section('## Arguments', None))
         args = self.section('## Flags', '## Intake', self.new_task)
         for word in ('--auto', '`--Auto`', 'twice', 'either order', 'drops every flag, `--auto` included',
@@ -383,7 +381,7 @@ class SkillMdTest(unittest.TestCase):
         return self.section('## Delegated approval details', '## Check before anything leaves', self.gates)
 
     def test_delegated_g3_fix_all_open_items(self):
-        """Criterion 4: with open SHOULD-FIX or NITPICK items L1 answers G3 `Rework: fix all open items`, without a popup."""
+        """With open SHOULD-FIX or NITPICK items L1 answers G3 `Rework: fix all open items`, without a popup."""
         sec = self.delegated()
         g3 = sec[sec.index('**G3 under delegated approval:**'):]
         for word in ('answer gate=G3 choice="Rework: fix all open items" … by=L1', 'rec="Rework: fix all open items"',
@@ -397,7 +395,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('3 Verify FAILs', sec)
 
     def test_delegated_g3_take_when_nothing_is_open(self):
-        """Criteria 5 and 7: nothing open, so L1 takes, whatever the round count; open risks are listed, not a stop."""
+        """Nothing open, so L1 takes, whatever the round count; open risks are listed, not a stop."""
         sec = self.delegated()
         g3 = sec[sec.index('**G3 under delegated approval:**'):]
         for word in ('BLOCKER 0, SHOULD-FIX 0 and NITPICK 0 open', '`Accept`; dev `Commit`', 'whatever the round count',
@@ -408,7 +406,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('Commit only the files this task changed', self.dev_g3())
 
     def test_delegated_g3_cap_of_three_rounds(self):
-        """Criterion 6: 3 G3 fix rounds, then E; the count starts at the latest `delegate state=on` line or E answer."""
+        """3 G3 fix rounds, then E; the count starts at the latest `delegate state=on` line or E answer."""
         sec = self.delegated()
         g3 = sec[sec.index('**G3 under delegated approval:**'):]
         self.assertIn('ask gate=E q="Delegated approval: 3 G3 fix rounds reached" rec="Give direction"', g3)
@@ -418,7 +416,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('The G3 fix loop has its own cap of 3', sec)
 
     def test_g3_choices_unchanged_without_delegation(self):
-        """Criterion 8: delegation off, so the G3 popup, its choices and the recommended one are as before."""
+        """Delegation off, so the G3 popup, its choices and the recommended one are as before."""
         sec = self.section('## Gate reports', '## E escalation', self.gates)
         for word in ('`<Take> (Recommended)` / `Rework` / `Abort`, `rec="<Take>"`',
                      '`<Take>` / `Rework: fix all open items` / `Rework` / `Abort`',
@@ -531,7 +529,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('monitor-up.py" --data-dir "<data folder>" --task-dir "<task_dir>"', four)
 
     def test_inline_role_rule(self):
-        """Criterion 10: the Inline role bullet sits in the core rules and names the folders, the line and the no-run case."""
+        """The Inline role bullet sits in the core rules and names the folders, the line and the no-run case."""
         i = self.text.index('- **Inline role:**')
         bullet = self.text[i:self.text.index('\n', i)]
         self.assertLess(i + len(bullet), self.text.index('## Arguments'))
@@ -542,12 +540,12 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('run-log.py" inline agent=my-agent:<role>', self.recorder)
 
     def test_working_files_in_english(self):
-        """Criterion 4: working files in English; the person sees their own language (L1 translates when it shows one)."""
+        """Working files in English; the person sees their own language (L1 translates when it shows one)."""
         rules = self.text[self.text.index('### Question rules'):self.text.index('## Arguments')]
         for word in ('`scope.md`', '`## Decisions`', 'in English', 'translates a working file when it shows it'):
             self.assertIn(word, rules, word)
 
-    # --- data folder (task 261028-data-dir-config, u3) ---
+    # --- data folder ---
     DATA_SCRIPTS = ('run-log', 'usage-snapshot', 'gate-report', 'feedback', 'monitor-up', 'open-html', 'intake')
     MONITOR_SKILL = REPO / 'skills' / 'monitor' / 'SKILL.md'
 
@@ -610,7 +608,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('"Commit the task log? The essential information goes into docs/blueprint, so committing it is not recommended."',
                       self.intake_item(5))
 
-    # --- apply open feedback (task 261101-apply-open-feedback, u1) ---
+    # --- apply open feedback ---
     def section(self, start, end, text=None):
         """`text` (the skill by default) from `start` up to `end`, or to the end of the file when `end` is None."""
         text = self.text if text is None else text
@@ -624,7 +622,7 @@ class SkillMdTest(unittest.TestCase):
         i = self.new_task.index(f'\n{n}. **') + 1
         return self.new_task[i:self.new_task.index(f'\n{n + 1}. ', i)]
 
-    # --- codex review fixes (task 261104-codex-review-fixes, u6) ---
+    # --- codex review fixes ---
     def test_intake_items_in_order(self):
         section = self.section('## Intake (step 1, Router)', None, self.new_task)
         self.assertEqual(re.findall(r'^(\d+)\. \*\*', section, re.M), [str(n) for n in range(1, 12)])
@@ -704,7 +702,6 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('`New task in a worktree`', self.intake_item(1))
         self.assertIn('gitignore:', self.intake_item(5))
         self.assertIn('("Task worktree" in `changes.md`)', self.intake_item(1))
-        self.assertNotIn('## Task worktree', self.new_task)   # moved to changes.md on 2026-11-16
         section = self.section('## Task worktree', None, self.changes)
         for word in ('my-agent-task/', 'git worktree add', 'task ID'):
             self.assertIn(word, section, word)
@@ -755,7 +752,7 @@ class SkillMdTest(unittest.TestCase):
         return dev[dev.index('## G3 in the dev profile'):dev.index('## Agents used')]
 
     def test_korean_copy_before_each_gate(self):
-        """261106 criterion 5: for a Korean request L1 refreshes report-ko.json before G1a, G1b and G3."""
+        """For a Korean request L1 refreshes report-ko.json before G1a, G1b and G3."""
         section = self.section('## Gate reports', None, self.gates)
         for word in ('**Korean copy.**', 'report-ko.py" --task "<absolute task folder>" todo', '`<task folder>/report-ko.json`',
                      'In another request language, skip this bullet.', 'the source the judges read'):
@@ -844,9 +841,9 @@ class SkillMdTest(unittest.TestCase):
             self.assertNotIn('my-surrogate', text, path.name)
 
 
-    # --- agent model presets and report-style gate reports (task 261101-agent-model-config-report-b, u5) ---
+    # --- agent model presets and report-style gate reports ---
     def test_intake_models_preset(self):
-        """Criterion 3: Intake item 3 asks the preset only with 2 or more presets; item 7 and 10 carry it."""
+        """Intake item 3 asks the preset only with 2 or more presets; item 7 and 10 carry it."""
         self.assertIn('"Models preset" below item 11', self.intake_item(3))
         item = self.section('**Models preset (item 3)**', None, self.new_task)
         for word in ('Models preset', 'presets <profile>:', '2 or more presets', '`standard` is used',
@@ -858,7 +855,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('only when `Models:` was written', ten)
 
     def test_profile_change_models_preset(self):
-        """Criterion 3: a profile change at the first gate asks the preset again with the Intake popup rule."""
+        """A profile change at the first gate asks the preset again with the Intake popup rule."""
         section = self.section('## In-flight revision', 'When a message that looks like a revision', self.changes)
         bullet = section[section.index('**Profile change at the first gate'):]
         for word in ('presets --profile <new profile>', 'same popup rule as Intake item 3', '`Models:` in `intake.md`',
@@ -866,13 +863,13 @@ class SkillMdTest(unittest.TestCase):
             self.assertIn(word, bullet, word)
 
     def test_continue_checks_models_preset(self):
-        """Criterion 3: continue shows the preset again; a preset that is gone falls back to the definition values."""
+        """Continue shows the preset again; a preset that is gone falls back to the definition values."""
         sec = self.section('## continue', None, self.resume)
         for word in ('`Models:`', 'show --profile <p> --preset <name>', 'exits 1', 'definition values'):
             self.assertIn(word, sec, word)
 
     def test_delegation_passes_only_differing_fields(self):
-        """Criterion 4: model/effort come from the preset; only the pass= fields are passed; the opus retry beats it."""
+        """Model/effort come from the preset; only the pass= fields are passed; the opus retry beats it."""
         sec = self.section('## Failure handling', None, self.recorder)
         for word in ('show --profile', 'show --plan', '`## Models`', 'pass=', 'no `Models:` line', 'pass none',
                      '`model: "opus"`', 'beats the preset'):
@@ -887,7 +884,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('models', run_log_kinds())
 
     def test_gate_reports_overview_and_takeaway(self):
-        """Criterion 13: G1a and G1b open with Overview and Takeaway before the table; G1b has a Models row."""
+        """G1a and G1b open with Overview and Takeaway before the table; G1b has a Models row."""
         sec = self.section('## Gate reports', None, self.gates)
         for word in ('### Overview', '### Takeaway', 'G1a', 'G1b', 'scope summary', 'plan summary', '`Models` row',
                      '`Request changes`', '`Approve`'):
@@ -896,16 +893,15 @@ class SkillMdTest(unittest.TestCase):
         self.assertLess(sec.index('### Takeaway'), sec.index('`| Item | Value |`'))
 
     def test_gate_reports_prototype_opened_locally(self):
-        """Criterion 13: the prototype is a local file opened by open-html.py; the line replaces the full mock-up at G1b."""
+        """The prototype is a local file opened by open-html.py; the line replaces the full mock-up at G1b."""
         sec = self.section('## Gate reports', None, self.gates)
         for word in ('open-html.py', 'prototype/index.html', '--data-dir', 'opened in the browser', 'not opened',
                      '`failed:`', 'remade only when the mock-up changed', 'not published anywhere',
                      'skills/mock-up', 'capture.sh'):
             self.assertIn(word, sec, word)
-        self.assertNotIn('--task-dir', ' '.join(c for s, c in self.command_spans(PROCEDURES['gates']) if s == 'open-html'))
 
     def test_gate_reports_open_report_tab(self):
-        """Criterion 7: the gate report is read on the Report tab; the chat keeps a pointer line."""
+        """The gate report is read on the Report tab; the chat keeps a pointer line."""
         sec = self.section('## Gate reports', None, self.gates)
         for word in ('`ask` line', 'Commit message', 'Diff', '+<a>/-<b>', 'Save path',
                      'the full diff is not printed', 'Report: not opened (<reason>); task folder: <absolute task folder>',
@@ -931,7 +927,7 @@ class SkillMdTest(unittest.TestCase):
             self.assertNotIn('--task-dir', cmd)
 
     def test_no_artifact_publishing(self):
-        """Criterion 13: no stale publishing wording in the gate reports or the leave check."""
+        """No stale publishing wording in the gate reports or the leave check."""
         gate = self.section('## Gate reports', None, self.gates)
         leave = self.section('## Check before anything leaves', '## Gate reports', self.gates)
         for part in (gate, leave):
@@ -943,7 +939,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('committing', leave)
 
     def test_gate_reports_findings_table(self):
-        """Criterion 1: each gate report holds the findings table printed by findings.py."""
+        """Each gate report holds the findings table printed by findings.py."""
         sec = self.section('## Gate reports', None, self.gates)
         for word in ('l4-tools-guards/scripts/findings.py" --task "<absolute task folder>" --file',
                      '--file <scope-review|plan-review|review>', '### Scope Review findings', '### Plan Review findings',
@@ -955,7 +951,7 @@ class SkillMdTest(unittest.TestCase):
             self.assertIn('findings table (gates.md "Gate reports")', path)
 
     def test_gate_popup_text_layout(self):
-        """Criterion 2: the popup text has line breaks: question, counts line, one line per open item, next."""
+        """The popup text has line breaks: question, counts line, one line per open item, next."""
         sec = self.section('## Gate reports', None, self.gates)
         for word in ('counts line', '`BLOCKER <n> \u00b7 SHOULD-FIX <n> \u00b7 NITPICK <n> (open)`', 'No open items',
                      'more than 10', 'first 10', '`\u2026 and <k> more`', 'line breaks as written'):
@@ -969,12 +965,8 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('Report: not opened (<reason>); task folder:', sec)
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class TaskDirRulesTest(unittest.TestCase):
-    """Criterion 5: the rule texts say <task_dir>, resolved once at Intake, never the literal records folder."""
+    """The rule texts say <task_dir>, resolved once at Intake, never the literal records folder."""
     MONITOR_SKILL = REPO / 'skills' / 'monitor' / 'SKILL.md'
     AGENTS = [REPO / 'l2-design-judge' / 'agents' / 'architect.md'] + [REPO / 'l3-workers' / 'agents' / f'{n}.md' for n in ('coder', 'researcher', 'writer')]
     TASK_SCRIPTS = ('run-log', 'usage-snapshot', 'gate-report', 'monitor-up')
@@ -1011,3 +1003,7 @@ class TaskDirRulesTest(unittest.TestCase):
 
     def test_monitor_skill_names_mismatch_case(self):
         self.assertIn('(task folder mismatch', self.MONITOR_SKILL.read_text(encoding='utf-8'))
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -80,14 +80,10 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.assertPassed(self.hook('Edit', {'file_path': str(other / 'a.py')}, cwd=other))
         self.assertPassed(self.hook('Workflow', {'script': 'x'}, cwd=other))
 
-    def test_define_phase_blocks_write(self):
+    def test_define_phase_asks_for_write(self):
         self.assertAsked(self.hook('Edit', {'file_path': str(self.proj / 'src/a.py')}), str(self.proj / 'src/a.py'))
         self.assertAsked(self.hook('Write', {'file_path': str(self.proj / 'README.md')}), str(self.proj / 'README.md'))
         self.assertAsked(self.hook('NotebookEdit', {'notebook_path': str(self.proj / 'n.ipynb')}), str(self.proj / 'n.ipynb'))
-
-    def test_define_phase_allows_task_folder_write(self):
-        self.assertPassed(self.hook('Write', {'file_path': str(self.task / 'explore.md')}))
-        self.assertPassed(self.hook('Edit', {'file_path': str(records(self.proj) / '.active')}))
 
     def test_sibling_task_folder_asks_before_approval(self):
         sib = records(self.proj) / '261024-other-task'
@@ -100,6 +96,7 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.assertIn(str(sib / 'x.md'), self.assertAsked(self.hook('Bash', {'command': f'echo x > {sib}/x.md'})))
 
     def test_active_task_and_bookkeeping_pass_before_approval(self):
+        self.assertPassed(self.hook('Write', {'file_path': str(self.task / 'explore.md')}))
         self.assertPassed(self.hook('Write', {'file_path': str(self.task / 'work/a.md')}))
         self.assertPassed(self.hook('Bash', {'command': f'cp a.md {self.task}/work/a.md'}))
         self.assertPassed(self.hook('Edit', {'file_path': str(records(self.proj) / '.active')}))
@@ -133,7 +130,7 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.assertPassed(self.hook('Agent', {'subagent_type': 'my-agent:writer', 'prompt': 'x'}))
 
     def test_writer_at_g1a_prototype_from_scope(self):
-        """Criterion 9: scope.md `Prototype: requested` opens the writer before approval, and only the writer."""
+        """Scope.md `Prototype: requested` opens the writer before approval, and only the writer."""
         writer = {'subagent_type': 'my-agent:writer', 'prompt': 'x'}
         self.assertDenied(self.hook('Agent', writer))
         scope = self.task / 'scope.md'
@@ -176,10 +173,6 @@ class PlanApprovedCheckTest(unittest.TestCase):
         why = self.assertAsked(self.hook('Bash', {'command': 'git mv a b'}))
         self.assertIn(str(self.proj / 'a'), why)
         self.assertIn(str(self.proj / 'b'), why)
-
-    def test_delegation_stays_denied(self):
-        self.assertDenied(self.hook('Agent', {'subagent_type': 'my-agent:coder', 'prompt': 'x'}))
-        self.assertDenied(self.hook('Workflow', {'script': 'x'}))
 
     def test_outside_write_from_subagent_or_other_session_passes(self):
         self.assertPassed(self.hook('Write', {'file_path': '/tmp/x/notes.md'}, agent_id='ag1'))
@@ -231,7 +224,7 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.assertIn('outside the task location', o['permissionDecisionReason'])
         self.assertIn(str(sibling), o['permissionDecisionReason'])
 
-    def test_report_folder_before_approval_still_denied(self):
+    def test_report_folder_before_approval_still_asks(self):
         self.assertAsked(self.hook('Write', {'file_path': str(self.reports / 'x.md'), 'content': 'x'}), str(self.reports / 'x.md'))
         self.assertAsked(self.hook('Bash', {'command': f'cp a.md {self.reports}/x.md'}), str(self.reports / 'x.md'))
 

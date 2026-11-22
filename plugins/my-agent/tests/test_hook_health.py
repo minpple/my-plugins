@@ -1,4 +1,4 @@
-"""Hook-health check on Codex: every my-agent hook leaves a mark; data-dir.py checks them (criterion 5)."""
+"""Hook-health check on Codex: every my-agent hook leaves a mark; data-dir.py checks them."""
 import json
 import os
 import tempfile

@@ -27,9 +27,6 @@ class CdGuardTest(unittest.TestCase):
     def deny(self):
         return json.loads(self.settings.read_text(encoding='utf-8'))['permissions']['deny']
 
-    def test_rule_is_absolute_with_two_slashes(self):
-        self.assertTrue(self.rule.startswith('Cd(//'), self.rule)
-
     def test_creates_the_file_and_says_it_is_new(self):
         r = self.run_guard()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

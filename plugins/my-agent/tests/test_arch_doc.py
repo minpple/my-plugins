@@ -109,9 +109,10 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('timeline.chart_end', self.text)
         self.assertIn('went back to an earlier step', self.text)
 
-    def test_status_line_starts_with_v067(self):
+    def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.67 (2026-11-22, plugin 0.23.1:'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.68 (2026-11-22, plugin 0.23.2:'), line[:90])
+        self.assertIn('v0.67 (2026-11-22, plugin 0.23.1: Phase timeline return marks and the duration fix', line)
         self.assertIn('v0.66 (2026-11-21, plugin 0.23.0: Antigravity as a third host', line)
         self.assertIn('v0.65 (2026-11-21, plugin 0.22.1: researcher notes and the findings table', line)
         self.assertIn('v0.64 (2026-11-21, plugin 0.22.0: remote take at G3 and fixes from task retrospectives', line)
@@ -144,9 +145,11 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('plugin 0.8.0', line)
         self.assertIn('plugin 0.9.0', line)
 
-    def test_codex_ask_bullet_does_not_list_scope_guard(self):
+    def test_codex_ask_bullet_names_the_asking_hooks(self):
         bullet = next(l for l in self.text.splitlines() if l.startswith('- **On Codex (plugin 0.11.0):**'))
-        self.assertNotIn('scope-guard.py', bullet)
+        self.assertIn('plan-approved-check.py', bullet)
+        self.assertIn('verdict-fresh-check.py', bullet)
+        self.assertNotIn('scope-guard.py', bullet)   # scope-guard never asks
 
     def test_inline_text_says_first_non_empty_line(self):
         self.assertIn('first non-empty line of the result file', self.text)

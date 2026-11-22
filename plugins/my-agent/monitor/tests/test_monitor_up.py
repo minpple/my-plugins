@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))  # run directly: tests/<name>.py
 SCRIPT = ROOT / 'monitor-up.py'
 PORTS = '8791-8794'
 
@@ -26,7 +27,8 @@ def port_open(port):
         return s.connect_ex(('127.0.0.1', port)) == 0
 
 
-class MonitorUpTest(unittest.TestCase):
+class MonitorUpBase(unittest.TestCase):
+    """Shared setup and helpers; it has no tests of its own, so subclasses do not re-run each other's tests."""
     def setUp(self):
         for p in range(8791, 8795):
             if port_open(p):
@@ -79,6 +81,8 @@ class MonitorUpTest(unittest.TestCase):
         c.request('GET', '/api/health')
         return json.loads(c.getresponse().read())
 
+
+class MonitorUpTest(MonitorUpBase):
     def test_starts_when_none(self):
         out = self.up('--no-open', '--ports', PORTS)
         self.assertRegex(out, r'^monitor: http://127\.0\.0\.1:8791/ \(started\)$')
@@ -124,7 +128,7 @@ class MonitorUpTest(unittest.TestCase):
                          'monitor: not started (no free port in 8791-8791)')
 
 
-class AutostartTest(MonitorUpTest):
+class AutostartTest(MonitorUpBase):
     """`autostart` in monitor-config.json: only an explicit JSON true starts a call without --open."""
     OFF = 'monitor: not started (autostart off)'
     DEFAULT = 'monitor: not started (autostart off by default; start it with /my-agent:monitor)'

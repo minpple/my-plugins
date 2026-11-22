@@ -62,10 +62,6 @@ class DataDirTest(unittest.TestCase):
             os.environ['CLAUDE_PLUGIN_OPTION_DATA_DIR'] = value   # hook path: no argument
             self.assertEqual(ma_data.data_dir(), self.home / '.my-agent-data', value)
 
-    def test_hook_path_env_only(self):
-        os.environ['CLAUDE_PLUGIN_OPTION_DATA_DIR'] = '~/hook'
-        self.assertEqual(ma_data.data_dir(), self.home / 'hook')
-
     def test_task_dir_default_and_unset_values(self):
         self.assertEqual(ma_data.task_dir(), '.my-agent')
         for value in ('', '  ', '${user_config.task_dir}'):

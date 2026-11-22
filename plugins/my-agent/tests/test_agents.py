@@ -76,7 +76,7 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('data folder', explorer)
 
     def test_coder_process_hygiene(self):
-        """Criterion 16: coder stops what it starts, avoids the monitor's ports and shared state."""
+        """Coder stops what it starts, avoids the monitor's ports and shared state."""
         coder = (REPO / 'l3-workers' / 'agents' / 'coder.md').read_text(encoding='utf-8')
         self.assertIn('Stop every process you start', coder)
         self.assertIn('Use no port from 8765 to 8775', coder)
@@ -88,7 +88,7 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('You write no result file', coder)
 
     def test_coder_input_names_archived_judgments_and_fresh_call(self):
-        """Criterion 6: a rerun is a fresh call; the input names archived judgment paths and failed criteria."""
+        """A rerun is a fresh call; the input names archived judgment paths and failed criteria."""
         coder = (REPO / 'l3-workers' / 'agents' / 'coder.md').read_text(encoding='utf-8')
         inp = coder.split('## Input')[1].split('\n## ')[0]
         self.assertIn('archived `verify.md`/`review.md` paths', inp)
@@ -127,7 +127,7 @@ class AgentsTest(unittest.TestCase):
             self.assertTrue((REPO / rel).is_file(), rel)
 
     def test_architecture_counts_and_table_match_manifest(self):
-        """Criterion 3: ARCH 4.5 ("L2: <a>, L3: <b>, <n> in all") and its table agree with the manifest."""
+        """ARCH 4.5 ("L2: <a>, L3: <b>, <n> in all") and its table agree with the manifest."""
         arch = (REPO / 'docs' / 'build-guide' / 'my-agent-architecture.md').read_text(encoding='utf-8')
         section = arch[arch.index('### 4.5 Agent definitions'):arch.index('### 4.5.1')]
         l2 = [r for r in MANIFEST if '/l2-design-judge/' in r]
@@ -179,7 +179,7 @@ class AgentsTest(unittest.TestCase):
                 self.assertNotIn('my-dev', body)
 
     def test_working_files_in_english(self):
-        """Criterion 4: every agent writes working files and reports in English; the writer and coder name the deliverable."""
+        """Every agent writes working files and reports in English; the writer and coder name the deliverable."""
         rule = 'Write working files and reports in English; keep the headings and marker lines of the file formats as they are.'
         for rel in MANIFEST:
             fm, body = split(REPO / rel)
@@ -211,7 +211,7 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('Judge misses', body)
 
     def test_gate_analyst_popup_action_rule(self):
-        """Criterion 9: the popup-side action per clear tendency, in the agent and in ARCH 4.11 (e)."""
+        """The popup-side action per clear tendency, in the agent and in ARCH 4.11 (e)."""
         arch = (REPO / 'docs' / 'build-guide' / 'my-agent-architecture.md').read_text(encoding='utf-8')
         body = split(REPO / 'l2-design-judge' / 'agents' / 'gate-analyst.md')[1]
         for text in (body, arch):
@@ -273,7 +273,7 @@ class AgentsTest(unittest.TestCase):
                 return split(REPO / rel)[1]
 
     def test_coder_test_first_and_foreground(self):
-        """Criterion 11: coder quotes the failing output, runs long commands in the foreground with a timeout."""
+        """Coder quotes the failing output, runs long commands in the foreground with a timeout."""
         coder = self._agent('coder')
         self.assertIn('Test first', coder)
         self.assertIn('foreground', coder)
@@ -282,13 +282,13 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('run_in_background', coder)
 
     def test_bash_agents_use_absolute_paths(self):
-        """Criterion 12: every agent with Bash uses absolute paths and does not rely on an earlier cd."""
+        """Every agent with Bash uses absolute paths and does not rely on an earlier cd."""
         for name in ('coder', 'explorer', 'verifier', 'reviewer'):
             with self.subTest(agent=name):
                 self.assertIn('absolute paths', self._agent(name))
 
     def test_writer_negative_claim_and_to_confirm(self):
-        """Criterion 11: negative claims are searched with Grep; approved plans drop `To confirm` lines."""
+        """Negative claims are searched with Grep; approved plans drop `To confirm` lines."""
         w = self._agent('writer')
         self.assertIn('negative claim', w)
         self.assertIn('Grep', w)
@@ -302,7 +302,7 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('the previous `review.md` path', r)
 
     def test_verifier_run_scope(self):
-        """261106 criteria 2, 3: the verifier reads the changed-file map, runs each command once and carries untouched PASS lines."""
+        """The verifier reads the changed-file map, runs each command once and carries untouched PASS lines."""
         v = self._agent('verifier')
         self.assertIn('`changed-files.md`', v)
         self.assertIn('## Scope of each run', v)
@@ -316,7 +316,7 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('A `reverted` row is a file', v)
 
     def test_reviewer_cites_verify(self):
-        """261106 criterion 1: the reviewer cites verify.md and does not run the suites again."""
+        """The reviewer cites verify.md and does not run the suites again."""
         r = self._agent('reviewer')
         self.assertIn('`verify.md`, the changed-file map `changed-files.md`', r)
         self.assertIn('Do not run the full test suites or the check commands again', r)
@@ -380,7 +380,7 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('In the dev profile, give coder the call argument `isolation: "worktree"`', build)
 
     def test_architect_models_section(self):
-        """Criterion 5: architect writes `## Models` after `## Estimate`, from the preset lines L1 passes."""
+        """Architect writes `## Models` after `## Estimate`, from the preset lines L1 passes."""
         a = self._agent('architect')
         self.assertIn('`## Models`', a)
         self.assertLess(a.index('7. `## Estimate`'), a.index('8. `## Models`'))
@@ -394,7 +394,7 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('a preset entry for them is ignored', a)
 
     def test_plan_reviewer_models_check(self):
-        """Criterion 5: plan-reviewer checks `## Models` against the passed preset lines."""
+        """Plan-reviewer checks `## Models` against the passed preset lines."""
         p = self._agent('plan-reviewer')
         self.assertIn('**Models:**', p)
         self.assertIn('`## Models`', p)

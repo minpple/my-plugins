@@ -1,5 +1,4 @@
-"""findings.py: per-severity Found, Fixed and Open counts and the open items of a task's judgment file (criterion 3)."""
-import importlib.util
+"""findings.py: per-severity Found, Fixed and Open counts and the open items of a task's judgment file."""
 import os
 import time
 import tempfile
@@ -33,12 +32,6 @@ class FindingsTest(unittest.TestCase):
 
     def run_f(self, file='review', task=None):
         return run_script(SCRIPT, '--task', str(task or self.task), '--file', file)
-
-    def test_docstring(self):
-        spec = importlib.util.spec_from_file_location('findings', SCRIPT)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        self.assertTrue((module.__doc__ or '').strip())
 
     def test_review_older_than_the_latest_reviewer_call_fails(self):
         self.put('review.md', 'BLOCKER 0\n\n## Findings\n')

@@ -47,6 +47,11 @@ class CodexFixtures(unittest.TestCase):
         on_disk = {p.name for p in DIR.iterdir()} - {'manifest.json'}
         self.assertEqual(on_disk, set(MANIFEST['fixtures']))
         self.assertTrue(MANIFEST['codex_version'].startswith('codex-cli '))
+        self.assertLessEqual({'hook-pre-tool-use-file-change.json', 'hook-post-tool-use-file-change.json',
+                              'hook-pre-tool-use-worker-bash.json', 'hook-pre-tool-use-worker-file-change.json',
+                              'hook-subagent-start-worker-a.json', 'hook-subagent-start-worker-b.json',
+                              'hook-subagent-stop-worker-a.json', 'hook-subagent-stop-worker-b.json'},
+                             set(MANIFEST['fixtures']))
 
     def test_hook_fixtures_have_manifest_fields(self):
         for name, spec in MANIFEST['fixtures'].items():
@@ -113,14 +118,6 @@ class CodexFixtures(unittest.TestCase):
 
 class CodexSubagentFixtures(unittest.TestCase):
     """Outcome I: a worker call carries its own agent_id/agent_type."""
-
-    def test_new_fixtures_are_in_manifest(self):
-        for name in ('hook-pre-tool-use-file-change.json', 'hook-post-tool-use-file-change.json',
-                     'hook-pre-tool-use-worker-bash.json', 'hook-pre-tool-use-worker-file-change.json',
-                     'hook-subagent-start-worker-a.json', 'hook-subagent-start-worker-b.json',
-                     'hook-subagent-stop-worker-a.json', 'hook-subagent-stop-worker-b.json'):
-            with self.subTest(name):
-                self.assertIn(name, MANIFEST['fixtures'])
 
     def test_file_change_shape(self):
         for name in ('hook-pre-tool-use-file-change.json', 'hook-post-tool-use-file-change.json',
