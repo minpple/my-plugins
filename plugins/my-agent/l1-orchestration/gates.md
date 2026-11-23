@@ -16,7 +16,7 @@ L1 reads this file at the moments SKILL.md "Procedure files" gives.
 
 ## Check before anything leaves
 
-Right before a deliverable leaves the task folder, scan it for secret patterns: copying the deliverable after G3, copying `gate-report.md` in the retrospective, committing (dev profile, or a project that chose to commit `<task_dir>/`).
+Right before a deliverable leaves the task folder, scan it for secret patterns: copying the deliverable after G3, copying `gate-report.md` in the retrospective, copying the task log back to the main checkout (retro.md item 10), committing (dev profile, or a project that chose to commit `<task_dir>/`).
 
 1. `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/secret-scan.py" <file or folder that leaves>`. If there is no output (exit 0), proceed. Exit 2 (`no such path`) means the path is wrong; fix the path and scan again.
 2. On a hit, show the location (`<file>:<line>: <kind>`) and popup: `Remove those parts and proceed (Recommended)` / `Proceed as is` / `Abort`. Before and after the popup, write `ask gate=Q … rec="Remove those parts and proceed"`/`answer gate=Q` lines.
@@ -27,7 +27,7 @@ Right before a deliverable leaves the task folder, scan it for secret patterns: 
 At G1a, G1b and G3 the chat report is the full gate report; the Report tab adds detail when the monitor runs (no gate starts it). E keeps the overview table followed by `### Details`.
 
 - **Opening the Report tab.** Right before each of these popups, after its `ask` line (and at G3 after the `cost` line), run `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" --report "<absolute task folder>" --pointer --data-dir "<data folder>"`. It opens the Report tab only when the setting `report_open` in `monitor-config.json` is `true` (the default opens nothing) and prints one line, the pointer line of the chat report.
-  - It is a plugin script: no harness tool is used, so it runs the same in Claude Code and Codex. The gate goes on in every case.
+  - It is a plugin script: no harness tool is used. The gate goes on in every case.
 - **Korean copy.** When the person's request is in Korean, first, before the `ask` line of G1a, G1b and G3 (at G3 before the `cost` line), run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/report-ko.py" --task "<absolute task folder>" todo`.
   - It prints `{key: {sha, en}}` for the overview, criterion and work unit texts whose Korean copy is missing or stale. For each one write natural Korean into `<task folder>/report-ko.json` (`{"items": {"<key>": {"sha": "<printed sha>", "ko": "<Korean>"}}}`) with the Write tool, keeping the other items. Code names, file names and commands stay as written.
   - The Report tab shows the copy in 한국어 mode and English for any item without a current copy. The English task files stay the source the judges read.
@@ -37,7 +37,7 @@ At G1a, G1b and G3 the chat report is the full gate report; the Report tab adds 
 - **Table rows:** task and profile; what is being approved; key decisions; counts (files, work units or estimate); open risks or unhandled items (unexpected paths, `Plugin reload` notes, criteria checked by the person later); what each choice leads to. At G1b the table has a `Models` row: the preset and the recommended change, if any (`Approve` takes it, `Request changes` refuses it); without a change, `standard (definition values)` or the preset name. G1a and G1b add a `Prototype` row when a prototype exists.
   - G3 in the dev profile adds `Commit message` (first line, then `criteria: <numbers>`) and `Diff` (`<N> files, +<a>/-<b>` from the last line of `git diff --stat`); the full diff is not printed. G3 in the general and research profiles adds `Save path` (the exact path).
   - In E, the "Approving" row says what is stuck.
-- **Findings table** (G1a, G1b, G3; every profile that has the gate: general, research, dev). Right before the chat report run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/findings.py" --task "<absolute task folder>" --file <scope-review|plan-review|review>` (G1a, G1b, G3). The report holds the printed table under `### Scope Review findings`, `### Plan Review findings` or `### Review findings`: columns `Severity | Found | Fixed | Open`, one row per severity, shown also when every count is 0.
+- **Findings table** (G1a, G1b, G3 in order; every profile that has the gate: general, research, dev). Right before the chat report run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/findings.py" --task "<absolute task folder>" --file <scope-review|plan-review|review>`. The report holds the printed table under `### Scope Review findings`, `### Plan Review findings` or `### Review findings`: columns `Severity | Found | Fixed | Open`, one row per severity, shown also when every count is 0.
   - On `findings: skipped (…)` (the small task) one line says the judgment was skipped, in place of the table.
   - On a `findings: FAIL` line at G1a or G1b show its cause in place of the table; the gate goes on as usual. At G3 show it too; who answers is the delegated-approval rule.
 - **Popup text.** The question repeats the first two rows. At G1a, G1b and G3 it follows the SKILL.md "Question rules" layout (line breaks as written, no blank line), in this order:

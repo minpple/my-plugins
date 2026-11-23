@@ -238,3 +238,17 @@
 2. A blueprint with a line in another language stays valid for the format check until the next update rewrites it [check: command] → `test_blueprint.py:202-208`
 3. The three blueprint files of this repository contain no Hangul characters outside backticks [check: command] → the plan's Hangul check over docs/blueprint/{features,decisions,backlog}.md prints `0`
 4. my-agent is 0.23.2 in the three plugin manifests and the `my-agent` rows of both READMEs; the design document status line holds the `v0.68` entry; the maintenance notes have three 2026-11-22 entries for 0.23.2 [check: command] → `grep -n '"version"'` on the manifests (0.23.2 three times); README.md:9 and README-ko.md:9; `test_arch_doc` `test_status_line_starts_with_the_newest_entry`; maintenance-notes.md:133, :245, :295
+
+## Task log copy back
+- Purpose: Copy the task folder of a task worktree back to the main checkout in the retrospective (item 10), so the task log survives the worktree. Used by L1 and the person who owns the repository.
+- Where: plugins/my-agent/l4-tools-guards/scripts/task-log-copy.py, plugins/my-agent/tests/test_task_log_copy.py, plugins/my-agent/l1-orchestration/retro.md, plugins/my-agent/l1-orchestration/gates.md, plugins/my-agent/docs/build-guide/my-agent-architecture.md (4.6 "Task log copy back")
+- Tasks: 261123-review-task-log-copy
+- Updated: 2026-11-23
+
+1. A failed copy leaves nothing this run created: the partial target, the copied `.gitignore` and a records folder the run created are removed; a `.gitignore` or folder that existed before is never touched; the `.gitignore` is still copied before `copytree`; a part that cannot be removed stays, exit stays 1, and the line ends with `; cleanup incomplete: <what stays>` [check: command] → probe `work/log-copy-probe.py` P6 `.gitignore present: no`, P1-P5 ok; failure branch at task-log-copy.py:87-107
+2. The tests cover the failure branch (named pipe: nothing left, existing `.gitignore` kept, existing folder kept), links copied as links, and exit 2 on bad arguments; the `cleanup incomplete` message has no test [check: command] → `python3 -m unittest discover -s plugins/my-agent/tests -p test_task_log_copy.py` Ran 12 tests OK
+3. The docstring cites `architecture 4.6 "Task log copy back"` and matches the code and the architecture bullet [check: file] → task-log-copy.py:2 and :18-22; my-agent-architecture.md:677
+4. `retro.md` item 10 says that on `Abort` of the "Check before anything leaves" popup the script is not run and the task log stays only in the worktree [check: file] → retro.md:33
+5. `gates.md` "Check before anything leaves" names the item 10 copy in its trigger list, after a trim that changes no rule [check: file] → gates.md:19; trims at :30 and :40; review.md confirms no rule changed
+6. The architecture bullet states the failure behavior and `maintenance-notes.md` has dated 2026-11-23 entries [check: file] → `grep -n 'cleanup incomplete'` on my-agent-architecture.md gives line 677; maintenance-notes.md:87 and :269
+7. The whole check passes and the version stays 0.27.0 [check: command] → plugin suite Ran 1311 OK (skipped=2); `tools/` suite Ran 111 OK; `build-docs.py --check`, `build-codex.py --check`, `build-antigravity.py --check` exit 0
