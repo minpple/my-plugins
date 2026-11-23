@@ -15,16 +15,17 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 
 ### Question rules
 
-- Speak to the person in the language of their request (popups, reports). Write `scope.md`, the `## Decisions` lines and the scope summary in English; L1 translates a working file when it shows it. Popup labels in the phase and profile files are English; show them in that language with the same meaning, order and `(Recommended)` position, and record `rec=`/`choice=` as shown. File-format headings and marker lines (`## Completion criteria`, `Work unit: u1`, `Status:` …) stay in English.
-- Ask the person **everything** through an `AskUserQuestion` popup, never in prose. If the person asks back in prose, answer, then ask the same decision again in a popup.
+- Speak to the person in their request's language (popups, reports), also for the English popup labels in phase and profile files (same meaning, order, `(Recommended)` position); record `rec=`/`choice=` as written. Write `scope.md`, the `## Decisions` lines and the scope summary in English; L1 translates a working file when it shows it. File-format headings and marker lines (`## Completion criteria`, `Work unit: u1` …) stay in English.
+- Ask the person **everything** through an `AskUserQuestion` popup, never in prose. If they ask back in prose, answer, then ask the same decision again in a popup.
 - No Codex popup answer: `hosts.md` “Waiting for Codex popup responses”.
 - 2–4 choices; put the recommended one first with `(Recommended)`.
 - Ask one popup per topic. A scope question whose single recommended answer is likely to be replaced may use multi-select (recommended first) or the Other field.
-- A popup stands alone: a technical question opens with a one-line plain explanation; the question names each thing it asks about with what it contains, not by a label only the chat defines; each option says what it leads to.
-- For a popup written in a phase or profile file, use the choices as written. If another choice seems better, keep them and give the reason in one line in the question body.
-- Write an `ask` line right before a popup and an `answer` line after the answer (`recorder.md` "Recorder rules").
-- **Settled popup:** after Intake, a non-gate popup whose answer follows from the request, the files or the person's earlier answer in this task is not asked: write the `ask` line and `answer … by=L1` with the recommended choice, and show `<question> → <choice> (answered by L1)`. Always asked: G1a, G1b, G3, G2, E, Intake popups, a popup without a recommended choice, and one the person answered before with another choice or a question back. Delegated approval rules stay.
-- Subagents do not ask the person. They only return result files and reports.
+- A popup stands alone: a technical question opens with a one-line plain explanation; it names each thing it asks about by what it contains, not a chat-only label; each option says what it leads to.
+- For a popup written in a phase or profile file, use the choices as written; give a better choice's reason in one line in the question body.
+- Write an `ask` line before a popup and an `answer` line after it (`recorder.md` "Recorder rules").
+- A popup with several parts (a part: one fact or item the decision needs): the first line is the short question; each later line is `- ` and one part; the last is `- Next: …`. A line has at most two sentences; line breaks between parts, no blank line.
+- **Settled popup:** after Intake, a non-gate popup whose answer follows from the request, the files or the person's earlier answer in this task is not asked: write the `ask` line and `answer … by=L1` with the recommended choice; show `<question> → <choice> (answered by L1)`. Always asked: G1a, G1b, G3, G2, E, Intake popups, a popup without a recommended choice, one the person answered before with another choice or a question back. Delegated approval rules stay.
+- Subagents do not ask the person; they return result files and reports.
 
 ### Gates
 
@@ -42,7 +43,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 ### Delegated approval
 
 - Start: the `--auto` flag, or a message like "go ahead without asking me", confirmed once with the popup `Turn on (Recommended)` / `Keep asking me`. The state is the last `delegate` line in the run-log (also after compaction or `continue`).
-- While on, L1 answers G1a, G1b, findings popups and other non-gate popups with the recommended choice: write the `ask` line, then `answer … by=L1`, and show one chat line `<question> → <choice> (answered by L1)`.
+- While on, L1 answers G1a, G1b, findings popups and other non-gate popups with the recommended choice (`ask` line, `answer … by=L1`, chat line `<question> → <choice> (answered by L1)`).
 - Never answered by L1: G2, E, the G1a/G1b popup after the third `REVISE`, a popup without a recommended choice, the Intake item 1–5 popups and the flag popups.
 - A message that takes it back ("stop deciding for me") → `delegate state=off how=person`. G3 acceptance or Abort → `delegate state=off how=end`.
 
@@ -93,7 +94,7 @@ The monitor and the G2 dialog are outside the levels.
 
 ### Procedure files
 
-- The procedures are in `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/`. Read a file with Read at the moment its row gives, and again after `continue` or compaction when its text is no longer in context. One file per Read.
+- The procedures are in `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/`. Read a file when its row says, and again after `continue` or compaction when its text is gone from context. One file per Read.
 
 | File | Read it | Sections |
 |---|---|---|

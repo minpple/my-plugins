@@ -95,6 +95,17 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('git guard', sec)
         self.assertIn('`bypassPermissions`', sec)
 
+    def test_cd_rule_lifetime_is_stated(self):
+        s44 = self.section('- **When the hooks and the permission rules apply', '- **`deny` rules (2026-11-23')
+        self.assertIn('added at the start of Execute', s44)
+        self.assertIn('removed on every path that deletes `.active`', s44)
+        self.assertIn('cd-guard.json', s44)
+        s46 = self.section('### 4.6 ', '### 4.7 ')
+        self.assertIn('--remove', s46)
+        self.assertIn('--task', s46)
+        self.assertIn('cd-guard.json', s46)
+        self.assertNotIn('rule stays', s46)
+
     def test_cd_warning_is_recorded_as_harmless(self):
         sec = self.section('### 4.6 ', '### 4.7 ')
         self.assertIn('matches no tool', sec)
@@ -404,6 +415,9 @@ class ArchDocTest(unittest.TestCase):
                      'no my-agent rule sits in the user settings', 'scope-guard', 'session-notice', 'subagent-log',
                      'permission-log.py', 'Codex and Antigravity', 'removes them'):
             self.assertIn(word, policy, word)
+        log = next(l for l in lines[start:end] if l.startswith('  - **subagent-log'))
+        for word in ('intended exception', '`call`', '`start`', '`stop`', 'does not compare the session'):
+            self.assertIn(word, log, word)
         guard = next(l for l in lines if l.startswith('- **Permission guard (2026-11-23, plugin 0.26.0):**'))
         self.assertIn('permission-guard.py', guard)
         for word in ('`Bash|Read|Grep|Glob|mcp__.*`', '`onFailure: block`', '`bypassPermissions`', 'Claude Code only',
@@ -414,6 +428,21 @@ class ArchDocTest(unittest.TestCase):
         q44 = next(l for l in self.text.splitlines() if l.startswith('| Q44 |'))
         for word in ('only while the skill has been called and is running a task', 'permission-guard.py', 'F7'):
             self.assertIn(word, q44, word)
+
+    def test_arch_steps_remove_cd_rule_before_active(self):
+        # criterion 4: the continue, Abort and Accept steps and Q17 name the `Cd(...)` removal before the `.active` deletion
+        text = self.text
+        cont = text[text.index('**If `Status: done` (the session was cut off'):]
+        cont = cont[:cont.index('\n')]
+        abort = text[text.index('**Abort**\n\nThe procedure when'):]
+        abort = abort[abort.index('\n3. '):abort.index('\n4. ')]
+        accept = next(l for l in text.splitlines() if l.strip().startswith('3. Last,') and 'active-index.json' in l)
+        q17 = next(l for l in text.splitlines() if l.startswith('| Q17 |'))
+        for name, part, mark in (('continue', cont, 'delete only `.active`'), ('abort', abort, 'delete `.active`'),
+                                 ('accept', accept, 'delete `.active`'), ('Q17', q17, 'deletes only `.active`')):
+            self.assertIn('`Cd(...)` rule', part, name)
+            self.assertIn(mark, part, name)
+            self.assertLess(part.index('`Cd(...)` rule'), part.index(mark), name)
 
     def test_gate_section_has_the_ask_texts(self):
         section = self.section('### 4.4 ', '### 4.5 ')
@@ -492,6 +521,14 @@ class ArchDocTest(unittest.TestCase):
     def assert_words(self, text, words):
         for word in words:
             self.assertIn(word, text, word)
+
+    def test_popup_layout_and_findings_list_table_in_arch_doc(self):
+        """Criteria 8, 9: the layout rule of a multi-part popup and the findings list table rule."""
+        start = self.text.index('**Findings table and popup text at the gate approvals')
+        section = self.text[start:self.text.index('**G1b hard gate**', start)]
+        self.assert_words(section, ('List markers', '`- Next: …`', 'two sentences', 'blank line',
+                                    'findings list table', '`# | Severity | Location | Finding | Fix L1 would apply`',
+                                    'not the count table'))
 
     def test_codex_g2_answer_closes_with_its_result(self):
         line = next(l for l in self.section('### 4.7.2 ', '### 4.7.3 ').splitlines()

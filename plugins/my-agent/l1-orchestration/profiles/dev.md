@@ -34,17 +34,17 @@ G3 goes to the person; while delegated approval is on, L1 answers per gates.md "
    - Do gates.md "Check before anything leaves" on the files to commit.
    - `git add <files>`, then `git commit -m "<message>"`. The G2 permission dialog showing once more is a deliberate second check. If the judgments are not fresh, the hook (`verdict-fresh-check.py`) asks (the G2 dialog) and names the stale judgment; do not allow it for the task's commit, redo from Verify. Never use `--no-verify`.
    - Add `Delivered: commit:<short sha>` to `intake.md` and run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" deliver path=commit:<short sha> --data-dir "<data folder>" --task-dir "<task_dir>"`.
-   - Change `intake.md` to `Status: done`. On a remote take do retro.md "Remote update" now. If delegated approval is on, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" delegate state=off how=end --data-dir "<data folder>" --task-dir "<task_dir>"`. Read `retro.md` and do its "Retrospective", and last of all delete `.active` and this task's line in `<data folder>/active-index.json`.
+   - Change `intake.md` to `Status: done`. On a remote take do retro.md "Remote update" now. If delegated approval is on, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" delegate state=off how=end --data-dir "<data folder>" --task-dir "<task_dir>"`. Read `retro.md` and do its "Retrospective", then run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/cd-guard.py" --remove --location "<task location>" --task "<absolute task folder>"` and show its line, and last of all delete `.active` and this task's line in `<data folder>/active-index.json`.
 5. **Rework** and **Abort** are the same as `accept.md` step 8 items 7 and 8. On abort, do not revert the changed files; only report their list.
 
 ## Upstream check (6 Merge)
 
-Every time 6 Merge runs, after the worktree results are moved and before the check commands, so that Verify judges the code the commit will sit on.
+Every time 6 Merge runs, after the worktree results are moved and before the check commands.
 
 1. The refs to compare: the current branch's upstream (`git rev-parse --abbrev-ref @{u}`) and, when the current branch is not the remote's default branch, that branch (`git symbolic-ref --short refs/remotes/origin/HEAD`). With no remote, or neither ref, skip this check.
 2. `git fetch origin <branch>` for each ref (one call each; when it fails, say so in one chat line and skip the check), then `git rev-list --count HEAD..<ref>`. All 0: go on.
 3. Otherwise ask one popup that names each ref and its count, with `ask gate=Q … rec="Bring them in now"`/`answer gate=Q` lines: `Bring them in now (Recommended)` / `Go on without them`.
-4. Bring them in with `git merge --autostash <ref>`: git sets the uncommitted task changes aside and puts them back.
+4. Bring them in with `git merge --autostash <ref>`.
    - The merge itself conflicts (committed history against the ref): `git merge --abort`, then E: `I resolve it and say when done (Recommended)` / `Go on without them` / `Abort`.
    - Putting the task changes back conflicts: a conflict of `build.md` 6 Merge item 3 (small: L1; larger: a new coder call in the main tree, with the conflict and the notes file).
    - Record: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" merge unit=upstream files="<n> commits from <ref>" how="<fast-forward / merge commit / conflicts resolved>" by=<L1 or coder> --data-dir "<data folder>" --task-dir "<task_dir>"`

@@ -40,18 +40,18 @@ At G1a, G1b and G3 the chat report is the full gate report; the Report tab adds 
 - **Findings table** (G1a, G1b, G3; every profile that has the gate: general, research, dev). Right before the chat report run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/findings.py" --task "<absolute task folder>" --file <scope-review|plan-review|review>` (G1a, G1b, G3). The report holds the printed table under `### Scope Review findings`, `### Plan Review findings` or `### Review findings`: columns `Severity | Found | Fixed | Open`, one row per severity, shown also when every count is 0.
   - On `findings: skipped (…)` (the small task) one line says the judgment was skipped, in place of the table.
   - On a `findings: FAIL` line at G1a or G1b show its cause in place of the table; the gate goes on as usual. At G3 show it too; who answers is the delegated-approval rule.
-- **Popup text.** The question repeats the first two rows. At G1a, G1b and G3 it has line breaks between its parts, in this order (the popup shows line breaks as written):
+- **Popup text.** The question repeats the first two rows. At G1a, G1b and G3 it follows the SKILL.md "Question rules" layout (line breaks as written, no blank line), in this order:
   1. The short question.
-  2. A counts line `BLOCKER <n> · SHOULD-FIX <n> · NITPICK <n> (open)`, in the person's language.
-  3. Each open item on its own line, starting with its severity; with none, one line says there are No open items. With more than 10, the first 10, then `… and <k> more`.
-  4. What happens next.
+  2. `- ` and a counts line `BLOCKER <n> · SHOULD-FIX <n> · NITPICK <n> (open)`, in the person's language.
+  3. `- ` and each open item on its own line, starting with its severity; with none, one line says there are No open items. With more than 10, the first 10, then `… and <k> more`.
+  4. `- Next: ` and what happens next.
 
   ```text
   261120-g3-findings-auto · dev (Router) — commit this change?
-  BLOCKER 0 · SHOULD-FIX 1 · NITPICK 1 (open)
-  SHOULD-FIX gates.md:36 the cap is not named → name the cap
-  NITPICK accept.md:40 repeated word
-  Next: Commit → blueprint update, one commit, retrospective.
+  - BLOCKER 0 · SHOULD-FIX 1 · NITPICK 1 (open)
+  - SHOULD-FIX gates.md:36 the cap is not named → name the cap
+  - NITPICK accept.md:40 repeated word
+  - Next: Commit → blueprint update, one commit, retrospective.
   ```
 - **Prototype** (G1a, and G1b when one exists): built by `my-agent:writer` with the `mock-up` skill files (`${CLAUDE_PLUGIN_ROOT}/skills/mock-up/`), captured with `sh "${CLAUDE_PLUGIN_ROOT}/skills/mock-up/scripts/capture.sh" "<absolute path of prototype/index.html>"`, then opened with `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" "<absolute path of prototype/index.html>" --data-dir "<data folder>"` (no `--task-dir`). A prototype is the local file `<task_dir>/<task-id>/prototype/index.html`. The result goes in the `Prototype` row: `<local path> (opened in the browser: <window|tab>)`, or on a `failed:` line `<local path> (not opened: <reason>; open the file yourself)`. The prototype is not published anywhere. It is remade only when the mock-up changed (otherwise the existing file is opened again).
 - **G3 with open review items.** Open items are the SHOULD-FIX and NITPICK lines of `review.md` that `## Applied after review` does not list. They set the G3 choices and the recommended one in every profile (dev also: retro.md "Remote update").
