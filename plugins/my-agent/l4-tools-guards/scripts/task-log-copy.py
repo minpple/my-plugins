@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bring the task folder of a task worktree back to the main checkout (architecture 4.8.2 "Task worktree log copy").
+"""Bring the task folder of a task worktree back to the main checkout (architecture 4.6 "Task log copy back").
 
 usage: task-log-copy.py --location TASK_LOCATION --task TASK_FOLDER
 
@@ -15,10 +15,15 @@ existing target is never overwritten.
 Prints one line:
   `task-log-copy: copied <task folder> to <target>` (then ` (also .gitignore)` when that file was copied)
   `task-log-copy: nothing to do (<not a git work tree | not a linked worktree | branch is not my-agent-task/*>)`
-  `task-log-copy: not copied: <cause>`
-exit: 0 copied or nothing to do, 1 not copied (the cause is printed; nothing was written), 2 bad arguments.
+  `task-log-copy: not copied: <cause>` (then `; cleanup incomplete: <path> (<reason>)[, ...]` for a part that
+  could not be removed)
+exit: 0 copied or nothing to do, 1 not copied (the cause is printed; nothing created by this run is left: the copied
+`.gitignore`, the partial target and a records folder this run created in the main checkout are removed again, and a
+part that cannot be removed is named after `; cleanup incomplete:`), 2 bad arguments.
 """
 import argparse
+import errno
+import os
 import shutil
 import subprocess
 import sys
@@ -70,6 +75,9 @@ def run(location: Path, task: Path) -> int:
     target_ignore = main / rel.parts[0] / '.gitignore'
     if source_ignore.is_file() and not target_ignore.exists():
         gitignore = (source_ignore, target_ignore)
+    # What this run may create: folders from <main>/<task_dir> down to the target's parent that are missing now
+    # (outermost first). Nothing that existed before is ever removed again.
+    new_dirs = [d for d in reversed([target.parent, *target.parent.parents]) if main in d.parents and not d.exists()]
     try:
         if gitignore:
             target_ignore.parent.mkdir(parents=True, exist_ok=True)
@@ -77,8 +85,26 @@ def run(location: Path, task: Path) -> int:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(task, target, symlinks=True)
     except OSError as e:
-        shutil.rmtree(target, ignore_errors=True)
-        return say(f'not copied: {e}', 1)
+        left = []
+        try:
+            shutil.rmtree(target)
+        except FileNotFoundError:
+            pass
+        except OSError as err:
+            left.append(f'{target} ({err})')
+        if gitignore and (target_ignore.exists() or target_ignore.is_symlink()):
+            try:
+                target_ignore.unlink()
+            except OSError as err:
+                left.append(f'{target_ignore} ({err})')
+        for d in reversed(new_dirs):
+            if not d.exists():
+                continue
+            try:
+                os.rmdir(d)
+            except OSError as err:
+                left.append(f'{d} ({"not empty" if err.errno in (errno.ENOTEMPTY, errno.EEXIST) else err})')
+        return say(f'not copied: {e}' + (f'; cleanup incomplete: {", ".join(left)}' if left else ''), 1)
     return say(f'copied {task} to {target}' + (' (also .gitignore)' if gitignore else ''))
 
 

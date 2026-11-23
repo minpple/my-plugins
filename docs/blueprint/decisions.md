@@ -32,6 +32,7 @@
 - Only the architect gets the Edit tool and the scope-guard refusal for unresolvable plan changes applies to the architect's plan file only; other L2 agents, L3 agents and L1 are judged as before, and a Write of the whole plan is judged as before (261122-architect-edit-tool)
 - Who changes the plan does not change: a small change before approval is an L1 edit (2 task files or fewer, about 10 lines), anything else goes back to the architect; only L1 writes the approval line and the `Prototype: requested` line, and the `## Revisions` lines stay as they are (261122-architect-edit-tool)
 - The architect definition stays at or under 10,981 decoded characters, pinned by `test_architect_edit_rule_and_size` (261122-architect-edit-tool)
+- `task-log-copy.py` copies the `.gitignore` before the task folder, so the copied log never shows as untracked; a failed copy removes what the run created instead of reordering, and never touches a `.gitignore` or folder that existed before (261123-review-task-log-copy)
 
 ## Non-goals
 - The four L3 definitions, the skill file and the L1 orchestration files are measured but not edited for size, and the survey's /compact advice is not adopted (261122-reduce-agent-prompt-size)
