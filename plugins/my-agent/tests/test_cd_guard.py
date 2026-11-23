@@ -17,13 +17,16 @@ class CdGuardTest(unittest.TestCase):
         self.loc = Path(self.tmp.name).resolve() / 'proj'
         self.loc.mkdir()
         self.settings = self.loc / '.claude' / 'settings.local.json'
+        self.task = Path(self.tmp.name).resolve() / 'task'
+        self.task.mkdir()
+        self.record = self.task / 'cd-guard.json'
         self.rule = f'Cd(/{self.loc}/.claude/worktrees/agent-*/**)'
 
     def tearDown(self):
         self.tmp.cleanup()
 
     def run_guard(self, *args):
-        return run_script(SCRIPT, *(args or ('--location', str(self.loc))))
+        return run_script(SCRIPT, *(args or ('--location', str(self.loc), '--task', str(self.task))))
 
     def deny(self):
         return json.loads(self.settings.read_text(encoding='utf-8'))['permissions']['deny']
@@ -80,17 +83,96 @@ class CdGuardTest(unittest.TestCase):
                 self.assertEqual(self.settings.read_text(encoding='utf-8'), text)
 
     def test_missing_location_and_rule_characters(self):
-        r = self.run_guard('--location', str(self.loc / 'none'))
+        r = self.run_guard('--location', str(self.loc / 'none'), '--task', str(self.task))
         self.assertEqual(r.returncode, 1)
         self.assertTrue(r.stdout.startswith('cd-guard: not added: '), r.stdout)
         odd = self.loc.parent / 'a(b)'
         odd.mkdir()
-        r = self.run_guard('--location', str(odd))
+        r = self.run_guard('--location', str(odd), '--task', str(self.task))
         self.assertEqual(r.returncode, 1)
         self.assertFalse((odd / '.claude').exists())
 
     def test_bad_arguments(self):
         self.assertEqual(self.run_guard('--nope').returncode, 2)
+        self.assertEqual(self.run_guard('--location', str(self.loc)).returncode, 2)
+        self.assertEqual(self.run_guard('--remove', '--location', str(self.loc)).returncode, 2)
+        self.assertFalse(self.settings.exists())
+
+    def remove(self):
+        return self.run_guard('--remove', '--location', str(self.loc), '--task', str(self.task))
+
+    def test_add_writes_the_record(self):
+        r = self.run_guard()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(json.loads(self.record.read_text(encoding='utf-8')),
+                         {'file': str(self.settings), 'rule': self.rule})
+        self.assertEqual(self.run_guard().stdout.strip(), 'cd-guard: present')
+
+    def test_remove_takes_out_the_added_rule(self):
+        self.run_guard()
+        r = self.remove()
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, f'cd-guard: removed {self.rule} from {self.settings}'), r.stderr)
+        self.assertEqual(self.deny(), [])
+        self.assertTrue(self.record.exists())
+        before = self.settings.read_bytes()
+        r = self.remove()
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, 'cd-guard: nothing to remove (rule not in file)'))
+        self.assertEqual(self.settings.read_bytes(), before)
+
+    def test_remove_keeps_other_entries(self):
+        self.settings.parent.mkdir()
+        self.settings.write_text(json.dumps({'permissions': {'allow': ['Bash(git add *)'], 'deny': ['Read(~/.ssh/**)']},
+                                             'env': {'A': '1'}}), encoding='utf-8')
+        self.run_guard()
+        self.assertEqual(self.remove().returncode, 0)
+        data = json.loads(self.settings.read_text(encoding='utf-8'))
+        self.assertEqual(data, {'permissions': {'allow': ['Bash(git add *)'], 'deny': ['Read(~/.ssh/**)']}, 'env': {'A': '1'}})
+
+    def test_remove_keeps_the_persons_own_rule(self):
+        self.settings.parent.mkdir()
+        self.settings.write_text(json.dumps({'permissions': {'deny': [self.rule]}}), encoding='utf-8')
+        r = self.run_guard()
+        self.assertEqual(r.stdout.strip(), 'cd-guard: present')
+        self.assertFalse(self.record.exists())
+        r = self.remove()
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, 'cd-guard: nothing to remove (no record)'))
+        self.assertEqual(self.deny(), [self.rule])
+
+    def test_remove_when_absent(self):
+        r = self.remove()   # no record, no file
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, 'cd-guard: nothing to remove (no record)'))
+        self.assertFalse(self.settings.exists())
+        self.record.write_text(json.dumps({'file': str(self.settings), 'rule': self.rule}), encoding='utf-8')
+        r = self.remove()   # record, no file
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, 'cd-guard: nothing to remove (file absent)'))
+        self.assertFalse(self.settings.exists())
+        self.settings.parent.mkdir()
+        self.settings.write_text('{"permissions": {"deny": ["x"]}}', encoding='utf-8')
+        r = self.remove()   # record, rule not in the file
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, 'cd-guard: nothing to remove (rule not in file)'))
+        self.assertEqual(self.settings.read_text(encoding='utf-8'), '{"permissions": {"deny": ["x"]}}')
+
+    def test_remove_uses_the_file_the_record_stored(self):
+        other = self.loc.parent / 'moved' / '.claude' / 'settings.local.json'
+        other.parent.mkdir(parents=True)
+        other.write_text(json.dumps({'permissions': {'deny': [self.rule, 'x']}}), encoding='utf-8')
+        self.record.write_text(json.dumps({'file': str(other), 'rule': self.rule}), encoding='utf-8')
+        r = self.remove()   # --location points elsewhere than the record
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, f'cd-guard: removed {self.rule} from {other}'), r.stderr)
+        self.assertEqual(json.loads(other.read_text(encoding='utf-8'))['permissions']['deny'], ['x'])
+        self.assertFalse(self.settings.exists())
+
+    def test_remove_invalid_json_left_unchanged(self):
+        self.record.write_text(json.dumps({'file': str(self.settings), 'rule': self.rule}), encoding='utf-8')
+        self.settings.parent.mkdir()
+        for text in ('{not json', '[]', '{"permissions": {"deny": "x"}}'):
+            with self.subTest(text=text):
+                self.settings.write_text(text, encoding='utf-8')
+                r = self.remove()
+                self.assertEqual(r.returncode, 1, r.stdout)
+                self.assertEqual(len(r.stdout.strip().splitlines()), 1, r.stdout)
+                self.assertTrue(r.stdout.startswith('cd-guard: not removed: '), r.stdout)
+                self.assertEqual(self.settings.read_text(encoding='utf-8'), text)
 
     def git(self, *args):
         return subprocess.run(['git', '-C', str(self.loc), *args], capture_output=True, text=True, timeout=30)

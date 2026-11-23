@@ -527,11 +527,31 @@ class SessionFolderCheck(unittest.TestCase):
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
         lines = build.splitlines()
         i = next(k for k, l in enumerate(lines) if 'l4-tools-guards/scripts/cd-guard.py" --location "<task location>"' in l)
+        self.assertIn('--task "<absolute task folder>"', lines[i])
         self.assertIn('`.claude/settings.local.json`', lines[i])
         self.assertIn('`added` or `not added`', lines[i])
         self.assertIn('info/exclude', lines[i - 1])
         self.assertLess(i, next(k for k, l in enumerate(lines) if l.startswith('3. Hand out the work units')))
         self.assertTrue((REPO / 'l4-tools-guards' / 'scripts' / 'cd-guard.py').is_file())
+
+    def test_cd_rule_removed_before_active_is_deleted(self):
+        # criterion 4: every path that deletes `.active` removes the `Cd(...)` rule first, in the same item
+        l1 = REPO / 'l1-orchestration'
+        accept = (l1 / 'phases' / 'accept.md').read_text(encoding='utf-8')
+        dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
+        changes = (l1 / 'changes.md').read_text(encoding='utf-8')
+        resume = (l1 / 'resume.md').read_text(encoding='utf-8')
+        items = {
+            'accept': (next(l for l in accept.splitlines() if 'do its "Retrospective"' in l), 'delete `.active`'),
+            'dev': (next(l for l in dev.splitlines() if 'do its "Retrospective"' in l), 'delete `.active`'),
+            'abort': (next(l for l in changes[changes.index('## Abort'):].splitlines() if l.startswith('3. ')), 'Delete `.active`'),
+            'continue': (next(l for l in resume[resume.index('## continue'):].splitlines() if l.startswith('1. ')), 'delete `.active`'),
+        }
+        remove = 'cd-guard.py" --remove --location "<task location>" --task "<absolute task folder>"'
+        for name, (item, deletion) in items.items():
+            self.assertIn(remove, item, name)
+            self.assertIn(deletion, item, name)
+            self.assertLess(item.index(remove), item.index(deletion), name)
 
 
 if __name__ == '__main__':

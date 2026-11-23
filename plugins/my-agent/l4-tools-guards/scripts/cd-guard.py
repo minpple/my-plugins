@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Keep the session out of the coder worktrees of a task location (architecture 4.6 "Session folder guard").
 
-usage: cd-guard.py --location TASK_LOCATION
+usage: cd-guard.py --location TASK_LOCATION --task TASK_FOLDER
+       cd-guard.py --remove --location TASK_LOCATION --task TASK_FOLDER
 
 Adds the deny rule `Cd(/<resolved location>/.claude/worktrees/agent-*/**)` to
 `<location>/.claude/settings.local.json` (`permissions.deny`), creating the file when it is missing and keeping
@@ -14,7 +15,18 @@ Prints one line: `cd-guard: present`, or `cd-guard: added <rule> to <file> (<sta
 when the file was created and `; excluded from git` when the exclude line was written), or `cd-guard: not added: <cause>`.
 The note says Claude Code may warn at startup that the rule matches no tool (`Cd` is not a model-callable tool) and that
 the rule still works.
-exit: 0 added or present, 1 not added (the settings file is left as it was), 2 bad arguments.
+When it really adds the rule it first writes `<TASK_FOLDER>/cd-guard.json` (`{"file": …, "rule": …}`) and then the settings
+file, so a rule is never there without a record. `present` (the rule was already there, for example the person's own)
+writes no record.
+
+`--remove` takes one occurrence of the recorded rule out of `permissions.deny` of the recorded `file` (`<location>/.claude/settings.local.json`
+when the record has none) and keeps every other key and entry
+(an empty `deny` list too). It never deletes the record and touches nothing else in the task folder. It prints one line:
+`cd-guard: removed <rule> from <file>`, `cd-guard: nothing to remove (<no record | rule not in file | file absent>)`, or
+`cd-guard: not removed: <cause>` (invalid JSON, not a JSON object, a `deny` that is not a list, a failed write; the file
+stays as it was).
+exit: 0 added, present, removed or nothing to remove, 1 not added or not removed (the settings file is left as it was),
+2 bad arguments.
 """
 import argparse
 import json
@@ -33,9 +45,59 @@ def rule_for(location: Path) -> str:
     return f'Cd(/{location.as_posix()}/.claude/worktrees/agent-*/**)'
 
 
-def fail(cause: str) -> int:
-    print(f'cd-guard: not added: {cause}')
+RECORD = 'cd-guard.json'
+
+
+def fail(cause: str, verb: str = 'added') -> int:
+    print(f'cd-guard: not {verb}: {cause}')
     return 1
+
+
+def write_json(path: Path, data) -> None:
+    tmp = path.with_name(path.name + '.tmp')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    os.replace(tmp, path)
+
+
+def remove(location: Path, task: Path) -> int:
+    """Take the recorded rule out of the settings file; every other entry stays."""
+    def no(cause):
+        return fail(cause, 'removed')
+    try:
+        record = json.loads((task / RECORD).read_text(encoding='utf-8'))
+        rule, file = record['rule'], record.get('file')
+        if not isinstance(rule, str) or not rule or not (file is None or isinstance(file, str) and file):
+            raise ValueError
+    except FileNotFoundError:
+        print('cd-guard: nothing to remove (no record)')
+        return 0
+    except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError):
+        return no(f'{task / RECORD} cannot be read as a record')
+    path = Path(file) if file else location / FILE   # where the rule was written
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        print('cd-guard: nothing to remove (file absent)')
+        return 0
+    except (OSError, UnicodeDecodeError, ValueError):
+        return no(f'{path} cannot be read as JSON')
+    if not isinstance(data, dict):
+        return no(f'{path} is not a JSON object')
+    permissions = data.get('permissions', {})
+    if not isinstance(permissions, dict) or not isinstance(permissions.get('deny', []), list):
+        return no(f'`permissions.deny` in {path} is not a list')
+    deny = permissions.get('deny', [])
+    if rule not in deny:
+        print('cd-guard: nothing to remove (rule not in file)')
+        return 0
+    deny.remove(rule)
+    try:
+        write_json(path, data)
+    except OSError as e:
+        return no(f'cannot write {path} ({e.strerror or e})')
+    print(f'cd-guard: removed {rule} from {path}')
+    return 0
 
 
 def git(location: Path, *args):
@@ -69,15 +131,23 @@ def exclude_from_git(location: Path) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument('--location', required=True)
+    ap.add_argument('--task', required=True)
+    ap.add_argument('--remove', action='store_true')
     args = ap.parse_args()
+    verb = 'removed' if args.remove else 'added'
     if os.name == 'nt':
-        return fail('not supported on Windows')
+        return fail('not supported on Windows', verb)
     try:
         location = Path(args.location).expanduser().resolve()
+        task = Path(args.task).expanduser().resolve()
     except (OSError, RuntimeError):
-        return fail(f'cannot resolve {args.location}')
+        return fail(f'cannot resolve {args.location} or {args.task}', verb)
     if not location.is_dir():
-        return fail(f'{location} is not a folder')
+        return fail(f'{location} is not a folder', verb)
+    if args.remove:
+        return remove(location, task)
+    if not task.is_dir():
+        return fail(f'{task} is not a folder')
     if any(c in str(location) for c in RULE_BREAKERS):
         return fail(f'{location} has characters a permission rule cannot hold')
     rule, path, new = rule_for(location), location / FILE, False
@@ -96,11 +166,9 @@ def main() -> int:
         print('cd-guard: present')
         return 0
     permissions['deny'].append(rule)
-    tmp = path.with_name(path.name + '.tmp')
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
-        os.replace(tmp, path)
+        write_json(task / RECORD, {'file': str(path), 'rule': rule})   # the record first
+        write_json(path, data)
     except OSError as e:
         return fail(f'cannot write {path} ({e.strerror or e})')
     excluded = exclude_from_git(location)

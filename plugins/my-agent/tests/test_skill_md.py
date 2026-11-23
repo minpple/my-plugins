@@ -208,7 +208,8 @@ class SkillMdTest(unittest.TestCase):
         """A retrospective cut short leaves Status: done; continue only clears .active."""
         section = self.section('## continue', None, self.resume)
         self.assertIn('Status: done', section)
-        self.assertIn('only `.active` cleared', section)
+        self.assertIn('only `.active` and the `Cd(...)` rule cleared', section)
+        self.assertIn('cd-guard.py" --remove', section)
         self.assertIn('`<data folder>/active-index.json`', section)
 
     def test_l2_row_lists_manifest_agents(self):
@@ -785,6 +786,23 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('(delegated approval or a settled popup)', row)
         self.assertIn('by=L1', row)
 
+    def test_question_rules_popup_layout(self):
+        """Criterion 9: "Question rules" gives the layout of a popup question with more than one part."""
+        rules = self.section('### Question rules', '### Gates')
+        bullet = next(l for l in rules.splitlines() if '- Next:' in l)
+        for word in ('first line', 'short question', '`- `', '`- Next: …`', 'two sentences', 'blank line', 'line break'):
+            self.assertIn(word, bullet, word)
+
+    def test_findings_list_table_before_findings_popup(self):
+        """Criterion 8: Scope Review and Plan Review show a findings list table before the findings popup."""
+        define = (REPO / 'l1-orchestration' / 'phases' / 'define.md').read_text(encoding='utf-8')
+        plan = (REPO / 'l1-orchestration' / 'phases' / 'plan.md').read_text(encoding='utf-8')
+        parts = (self.section('## Scope Review', None, define), self.section('## 4. Plan Review', '## G1b plan approval', plan))
+        for part in parts:
+            self.assertIn('findings list table', part)
+            self.assertIn('`# | Severity | Location | Finding | Fix L1 would apply`', part)
+            self.assertIn('not the count table', part)
+
     def test_popup_stands_alone(self):
         """Criterion 4: a popup is understood without the chat text."""
         rules = self.section('### Question rules', '### Gates')
@@ -1076,10 +1094,17 @@ class SkillMdTest(unittest.TestCase):
                      'more than 10', 'first 10', '`\u2026 and <k> more`', 'line breaks as written'):
             self.assertIn(word, sec, word)
         self.assertLess(sec.index('The short question'), sec.index('counts line'))
-        self.assertLess(sec.index('counts line'), sec.index('What happens next'))
+        self.assertLess(sec.index('counts line'), sec.index('what happens next'))
         block = re.search(r'```text\n(.*?)```', sec, re.S).group(1).splitlines()
+        block = [l.strip() for l in block]
+        while block and not block[-1]:
+            block.pop()
         self.assertGreaterEqual(len(block), 4)
-        self.assertTrue(any(l.strip().startswith('BLOCKER 0 \u00b7 SHOULD-FIX') for l in block))
+        self.assertNotIn('', block)
+        self.assertFalse(block[0].startswith('- '))
+        self.assertTrue(all(l.startswith('- ') for l in block[1:]), block)
+        self.assertTrue(block[-1].startswith('- Next:'), block[-1])
+        self.assertTrue(any(l.startswith('- BLOCKER 0 \u00b7 SHOULD-FIX') for l in block))
         self.assertNotIn('monitor-up.py', sec)
         self.assertIn('Report: not opened (<reason>); task folder:', sec)
 
