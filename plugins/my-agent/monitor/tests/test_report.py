@@ -20,7 +20,7 @@ FINDINGS = Path(__file__).resolve().parents[2] / 'l4-tools-guards' / 'scripts' /
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'report'
 PROJECT = FIXTURE / 'project'
 FULL, ONLY, FOLLOW = '261102-full-report', '261103-intake-only', '261104-follow-up'
-KEYS = {'overview', 'timeline', 'criteria', 'units', 'review', 'plan_review', 'decisions', 'gate_report',
+KEYS = {'overview', 'timeline', 'criteria', 'units', 'background_research', 'review', 'plan_review', 'decisions', 'gate_report',
         'verdict', 'gate', 'takeaway', 'review_totals'}
 ROUNDS, G1B, G1A, G3, ABORTED, GENERAL = ('261105-review-rounds', '261106-gate-g1b', '261107-gate-g1a', '261108-gate-g3',
                                           '261109-aborted', '261110-general-running')
@@ -292,7 +292,8 @@ class ReportTest(unittest.TestCase):
         g = self.report(G1A)['gate']
         self.assertEqual(g, {'id': 'G1a', 'at': '2026-11-07T09:05:00', 'q': 'Scope confirmation: 261107-gate-g1a',
                              'purpose': 'Show the export history in the CLI.', 'criteria': 4,
-                             'non_goals': ['No change to the file format.', 'No GUI.']})
+                             'non_goals': ['No change to the file format.', 'No GUI.'],
+                             'background_research': None})
 
     def test_gate_g1b(self):
         g = self.report(G1B)['gate']
@@ -301,6 +302,7 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(g['units'], [{'id': 'u1', 'title': 'Dated export names', 'group': 'group 1'},
                                       {'id': 'u2', 'title': 'Docs', 'group': 'group 2'}])
         self.assertEqual(g['groups'], 2)
+        self.assertIsNone(g['background_research'])
         self.assertEqual(g['estimate'], ['Subagents: 6 (2 my-agent:coder plus 4 judges).', 'Workflow: none.'])
         self.assertEqual(g['models'], {'preset': 'standard (definition values)', 'recommendation': None, 'rows': [
             {'agent': 'architect', 'model': 'opus', 'effort': 'high', 'note': ''},
@@ -494,7 +496,7 @@ class KoCopyTest(unittest.TestCase):
 
     def test_matching_copy(self):
         d, src = self.build(lambda task: None)
-        self.assertEqual(set(d), KEYS)                              # still twelve keys
+        self.assertEqual(set(d), KEYS)                              # still all thirteen keys
         o = d['overview']
         self.assertEqual((o['background_ko'], o['purpose_ko']), ('한국어 background.', '한국어 purpose.'))
         c = d['criteria'][0]

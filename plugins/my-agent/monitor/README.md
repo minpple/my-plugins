@@ -86,7 +86,7 @@ The fifth tab, `5 Report`, shows one task on one page and is the gate view (the 
 - **Overview:** two labeled rows, Background and Purpose.
 - **Key Takeaway:** three labeled lines, Scope / Delivered / Next, each with a sub-line of numbers.
 - **Disclosure rows** with a one-line summary on the right: Completion criteria, Work units, Phase timeline (open), Follow-up, Decisions · review · cost. A click expands a row into the detail rows (evidence, files and tests, the gate marks and back-to points, the suggested improvements, request, cost per stretch, review findings, plan-review verdicts, decisions, gate report, task chain); open rows stay open across polls.
-- **Gate view:** G1a shows the scope summary, criteria count and non-goals; G1b the plan summary, work units, estimate, Models rows and a link to the prototype (or "no prototype"); G3 the Verify and Review results with found/fixed counts and the open SHOULD-FIX and NITPICK items.
+- **Gate view:** G1a shows the scope summary, criteria count, non-goals and the Background research row (question count and ids); G1b the plan summary, work units, estimate, Models rows, the Background research row (question count and `Not found` count) and a link to the prototype (or "no prototype"); G3 the Verify and Review results with found/fixed counts and the open SHOULD-FIX and NITPICK items.
 
 The hash `#task=<key>&tab=report` selects the task and the tab; `#task=<key>` alone still works. The tab uses the macOS system font stack; the other tabs are unchanged. The top bar has a theme switch (`Auto` / `Light` / `Dark`), remembered per browser, so the page can be checked in both modes.
 

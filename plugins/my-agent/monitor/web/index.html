@@ -1205,6 +1205,24 @@ function rpReviewSum(t, count) {
 const rpBackTip = b => L('back to ' + stepCode(b.to), stepCode(b.to) + ' 단계로 되돌아감') + (b.why ? ': ' + b.why : '');
 const rpBackLeft = (s, k) => `calc(${s.left}% + max(${s.width}%, 4px) + ${2 + 16 * k}px)`;
 const rpRoom = n => n ? 16 * n + 8 : 0;
+/* the run-log name of the Background research stretch gets its own label; any other name keeps its text */
+const rpStepName = s => s.n === 2 && s.name === 'Background-research' ? L('Background research', '배경 조사') : s.name;
+const rpBgQs = n => n === 1 ? L('1 question', '질문 1개') : L(`${n} questions`, `질문 ${n}개`);
+const rpBgNotFound = n => L(`${n} Not found`, `Not found ${n}건`);
+const rpBgState = s => s === 'done' ? L('done', '완료') : s === 'running' ? L('running', '진행 중') : s === 'stopped' ? L('stopped', '중단됨') : L('pending', '대기');
+/* Background research questions (b1, b2, ...) with state and time, above the work unit rows */
+function rpBgGroup(bg) {
+  if (!bg || !bg.length) return '';
+  const row = (q, i) => {
+    const dot = q.state === 'done' ? 'pass' : q.state === 'running' ? 'run' : '';
+    const pill = `<span class="stt${q.state === 'done' ? '' : ' other'}">${rpEsc(rpBgState(q.state))}</span>`;
+    const body = q.secs != null ? `<p>${L('Ran ', '실행 ')}${rpDur(q.secs)}.</p>`
+      : `<p>${L('No time recorded.', '기록된 시간이 없습니다.')}</p>`;
+    return rpRow('rb-' + q.id, i, rpEsc(q.id), dot, rpEsc(q.question), q.question, pill, body);
+  };
+  const head = `<div class="gh">${L('Background research', '배경 조사')}</div>`;
+  return head + '<div class="rows">' + bg.map(row).join('') + '</div>';
+}
 function rpTimeline(t) {
   const steps = (t.steps || []).map(s => ({ n: s.n, name: s.name, a: new Date(s.start), left: s.left, width: s.width, secs: s.secs }));
   if (!steps.length) return NYW('run-log.md');
@@ -1217,8 +1235,8 @@ function rpTimeline(t) {
   const tz = new Date(t0).getTimezoneOffset() * 60000, ticks = axisHtml(axisTicks(t0 - tz, t0 + span - tz));
   h += `<div class="rtl-axis">${ticks}</div>`;
   steps.forEach((s, i) => {
-    h += `<div class="rtl-row"><div class="lb">${rpEsc(stepCode(s.n))} ${rpEsc(s.name)}<small>${rpHms(s.a)} &middot; ${rpDur(s.secs)}</small></div><div class="rtl-track">` +
-      `<span class="rtl-bar" style="--i:${i};--c:${RP_COLORS[i % RP_COLORS.length]};left:${s.left}%;width:${s.width}%" title="${rpEsc(stepCode(s.n) + ' ' + s.name + ': ' + rpHms(s.a) + ', ' + rpDur(s.secs))}"></span>` +
+    h += `<div class="rtl-row"><div class="lb">${rpEsc(stepCode(s.n))} ${rpEsc(rpStepName(s))}<small>${rpHms(s.a)} &middot; ${rpDur(s.secs)}</small></div><div class="rtl-track">` +
+      `<span class="rtl-bar" style="--i:${i};--c:${RP_COLORS[i % RP_COLORS.length]};left:${s.left}%;width:${s.width}%" title="${rpEsc(stepCode(s.n) + ' ' + rpStepName(s) + ': ' + rpHms(s.a) + ', ' + rpDur(s.secs))}"></span>` +
       backs.filter(b => b.row === i).map(b => `<span class="rtl-back" role="img" aria-label="${rpEsc(rpBackTip(b))}" title="${rpEsc(rpBackTip(b))}" style="left:${rpBackLeft(s, b.slot)}">&crarr;</span>`).join('') + '</div></div>';
   });
   h += '<div class="rtl-marks">' + gates.map(g => `<span class="rtl-mark" style="left:calc(${pct(g.at)}% - 1px)"></span>`).join('') + '</div></div>';
@@ -1271,7 +1289,10 @@ function rpGateBody(gate, d) {
   const dl = rows => '<dl class="gb">' + rows.map(r => `<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join('') + '</dl>';
   if (gate.id === 'G1a') {
     const ng = gate.non_goals || [];
-    return dl([[L('Purpose', '목적'), gate.purpose ? rpEsc(gate.purpose) : '-'], [L('Non-goals', '제외 범위'), ng.length ? ng.map(rpEsc).join(' &middot; ') : L('none', '없음')]]);
+    const rows = [[L('Purpose', '목적'), gate.purpose ? rpEsc(gate.purpose) : '-'], [L('Non-goals', '제외 범위'), ng.length ? ng.map(rpEsc).join(' &middot; ') : L('none', '없음')]];
+    const bg = gate.background_research;
+    if (bg) rows.push([L('Background research', '배경 조사'), rpBgQs(bg.questions) + ' (' + (bg.ids || []).map(rpEsc).join(', ') + ')']);
+    return dl(rows);
   }
   if (gate.id === 'G1b') {
     const units = gate.units || [], m = gate.models;
@@ -1283,6 +1304,8 @@ function rpGateBody(gate, d) {
     const mr = m && m.rows ? m.rows.map(r => `${rpEsc(r.agent)} ${rpEsc(r.model)}${r.effort ? '/' + rpEsc(r.effort) : ''}`).join(' &middot; ') : '';
     rows.push([L('Models', '모델'), (mr || '-') + (m && m.recommendation ? `<br>${L('Recommended', '권장')}: ${rpEsc(m.recommendation)}` : '')]);
     rows.push([L('Prototype', '프로토타입'), gate.prototype ? `<a class="rlink" href="${rpEsc(gate.prototype)}" target="_blank" rel="noopener">${L('Open prototype', '프로토타입 열기')} &#8599;</a>` : L('No prototype', '프로토타입 없음')]);
+    const bg = gate.background_research;
+    if (bg) rows.push([L('Background research', '배경 조사'), rpBgQs(bg.questions) + ', ' + rpBgNotFound(bg.not_found || 0)]);
     return dl(rows);
   }
   if (gate.id !== 'G3') return '';
@@ -1369,7 +1392,7 @@ function rpParts(d, count) {
   const msum = [dec ? L(`${dec.length} decisions`, `결정 ${dec.length}건`) : '', rpReviewSum(d.review_totals), paid.length ? '$' + total.toFixed(2) : ''].filter(Boolean).join(' &middot; ');
   h += '<div class="group">' +
     rpDisc('rd-crit', L('Completion criteria', '완료 기준'), crit ? (hasVerdict ? `${pass} / ${crit.length} PASS` : `${crit.length}`) : '-', cb) +
-    rpDisc('rd-units', L('Work units', '작업 단위'), units ? `${done} / ${units.length} ${L('done', '완료')} &middot; ${L(`${groups} groups`, `그룹 ${groups}개`)}` : '-', ub) +
+    rpDisc('rd-units', L('Work units', '작업 단위'), units ? `${done} / ${units.length} ${L('done', '완료')} &middot; ${L(`${groups} groups`, `그룹 ${groups}개`)}` : '-', rpBgGroup(d.background_research) + ub) +
     rpDisc('rd-tl', L('Phase timeline', '단계 타임라인'), tsum, tl ? rpTimeline(tl) : NYW('run-log.md')) +
     rpDisc('rd-fu', L('Follow-up', '후속 작업'), gr ? L(`${(gr.improvements || []).length} suggestions from the gate report`, `게이트 보고서의 제안 ${(gr.improvements || []).length}건`) : '-', fu) +
     rpDisc('rd-more', L('Decisions · review · cost', '결정 · 리뷰 · 비용'), msum || '-', rpMore(d)) + '</div>';

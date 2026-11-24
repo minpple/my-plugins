@@ -1,4 +1,4 @@
-"""One task folder → the report JSON of the Report tab (twelve keys). Only reads files; a missing source gives a null key."""
+"""One task folder → the report JSON of the Report tab (thirteen keys). Only reads files; a missing source gives a null key."""
 import re
 from pathlib import Path
 
@@ -14,6 +14,8 @@ PICKED = {'yes': 'yes', 'no': 'no', 'delegated': 'delegated', 'typed (Other)': '
 GATE_MARKS = ('G1a', 'G1b', 'G3')
 REVIEW_BODY_SEVS = ('SHOULD-FIX', 'NITPICK')   # the severities listed one by one at G3 (a BLOCKER stops the task earlier)
 STATUS_WORD = {'done': 'done', 'stopped': 'aborted'}   # task status → verdict status; anything else is running
+QUESTION_LINE = re.compile(r'^-\s*(b\d+):\s*(.+?)\s+—\s+\S')   # `- b<n>: <question> — <what it decides>`
+NOT_FOUND = '- Not found:'
 REVISION_TO = {'1': 2, '2': 3}   # `revision … to=` is the phase to go back to; the Report shows the step
 
 
@@ -100,6 +102,46 @@ def _cost_from_lines(lines):
     stamped = [(l.raw.strip()[11:16], l.kind, l.f) for l in lines]
     return [{'steps': ', '.join(names), 'span': f'{start}-{end}', 'usd': None if usd is None else round(usd, 2), 'tokens': tokens}
             for start, end, names, usd, tokens in ma_gate_report.segments(stamped)]
+
+
+def _questions(scope):
+    """[(id, question)] of the well-formed `- b<n>: <question> — <what it decides>` lines under `## Background research`
+    of scope.md; a line not in this form is left out. Empty without the section."""
+    out = []
+    for line in ma_schema.section_lines(scope, 'Background research') or []:
+        m = QUESTION_LINE.match(line.strip())
+        if m:
+            out.append((m.group(1), m.group(2).split(' — ')[0].strip()))
+    return out
+
+
+def _not_found(task_dir):
+    """Number of lines starting with `- Not found:` in the `*.md` notes directly in the task's background folder
+    (0 without them)."""
+    total = 0
+    for path in sorted((task_dir / 'background').glob('*.md')):
+        total += sum(1 for l in (_text(path) or '').splitlines() if l.startswith(NOT_FOUND))
+    return total
+
+
+def _background_research(questions, lines, status):
+    """The question group: [{id, question, state, secs}] from the `call:` and `stop:` lines with `unit=<id>`,
+    or None without questions."""
+    if not questions:
+        return None
+    out = []
+    for qid, text in questions:
+        calls = [l for l in lines if l.kind == 'call' and l.f.get('unit') == qid]
+        stops = [l for l in lines if l.kind == 'stop' and l.f.get('unit') == qid]
+        if not calls:
+            state = 'pending'
+        elif len(calls) > len(stops):
+            state = 'running' if status == 'running' else 'stopped'
+        else:
+            state = 'done' if stops[-1].f.get('end') == 'ok' else 'stopped'
+        out.append({'id': qid, 'question': text, 'state': state,
+                    'secs': sum(_int(l.f.get('secs')) for l in stops) if stops else None})
+    return out
 
 
 def _timeline(task_dir, lines):
@@ -303,6 +345,15 @@ def _waiting_gate(lines):
     return waiting
 
 
+def _gate_background(gate, questions, task_dir):
+    """The `background_research` value of a G1a or G1b gate: question count with ids (G1a) or not-found count (G1b)."""
+    if not questions:
+        return None
+    if gate['id'] == 'G1a':
+        return {'questions': len(questions), 'ids': [q for q, _t in questions]}
+    return {'questions': len(questions), 'not_found': _not_found(task_dir)}
+
+
 def _gate(task, task_dir, scope, plan, verify, review, lines, totals, open_items):
     if task.get('status') != 'running':
         return None
@@ -369,18 +420,23 @@ def build_report(project, task_dir, task, followed_by):
     units = _units(plan, lines, ko) if plan is not None else None
     gate_report = _gate_report(report, decisions)
     totals, open_items = ma_schema.review_state(task_dir, review, [(l.kind, l.f) for l in lines])
+    questions = _questions(scope)
+    gate = _gate(task, task_dir, scope, plan, verify, review, lines, totals, open_items) if has_log else None
+    if gate and gate['id'] in ('G1a', 'G1b'):
+        gate['background_research'] = _gate_background(gate, questions, task_dir)
     verdict = _verdict(task, intake, scope, plan, verify, lines, timeline, overview['delivered']) if has_log else None
     return {
         'overview': overview,
         'timeline': timeline,
         'criteria': criteria,
         'units': units,
+        'background_research': _background_research(questions, lines, task.get('status')) if scope is not None else None,
         'review': _review(review),
         'plan_review': _plan_reviews(task_dir, lines),
         'decisions': decisions,
         'gate_report': gate_report,
         'verdict': verdict,
-        'gate': _gate(task, task_dir, scope, plan, verify, review, lines, totals, open_items) if has_log else None,
+        'gate': gate,
         'takeaway': _takeaway(verdict, criteria, units, verify, timeline, gate_report),
         'review_totals': totals,
     }
