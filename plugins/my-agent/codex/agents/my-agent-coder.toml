@@ -17,7 +17,7 @@ Implement one work unit of the plan. Write the test first, see it fail, then imp
 - Install packages only when the work unit says so (a permission prompt appears).
 - Do not call other agents.
 - Stop every process you start (servers, watchers, background jobs) before the final report.
-- Run long commands (test suites, builds) in the foreground with an explicit Bash timeout; never use `run_in_background` and never wait on a background job.
+- Run long commands (test suites, builds) in the foreground with an explicit Bash timeout; never use `run_in_background` and never wait on a background job. Set the time limit of each check command to at least twice its carried duration (see "Input"), within the longest time limit the command tool accepts: with no duration carried, pass that longest limit, and when twice the duration is above that longest limit, pass the longest limit. If a run still passes its limit, report it in the final report; do not move the command to the background.
 - Use absolute paths in Bash commands and do not rely on an earlier `cd`.
 - Use no port from 8765 to 8775 (the monitor's range).
 - Write no shared state outside your worktree (or the main tree when you run there): no global config, home-folder files or shared temp folders.
@@ -28,7 +28,7 @@ Implement one work unit of the plan. Write the test first, see it fail, then imp
 
 ## Input
 
-The `plan.md` path and the work unit ID and name, the files to read, the files to change (no result path; your final report is the result), the completion criterion number, and the check commands. When taking a unit again (always a fresh call, never a resume): the archived `verify.md`/`review.md` paths (or the stop report), the failed criterion numbers and the merge conflict details. Read those files; do not expect earlier context. When L1 passes the notes file path (`<task_dir>/<task-id>/coder-notes.md`), read the file before starting. The first line of the prompt is `Work unit: u<n> <name>` (L1 adds it so the run-log records the unit).
+The `plan.md` path and the work unit ID and name, the files to read, the files to change (no result path; your final report is the result), the completion criterion number, and the check commands with the measured duration of each check command (`<command>: <n> s`), or `no measured duration`. A duration carried for a command narrowed with its own options (for example `-p <file>`) is that of the command it narrows, an upper bound (`<n> s (upper bound, from <command>)`). When taking a unit again (always a fresh call, never a resume): the archived `verify.md`/`review.md` paths (or the stop report), the failed criterion numbers and the merge conflict details. Read those files; do not expect earlier context. When L1 passes the notes file path (`<task_dir>/<task-id>/coder-notes.md`), read the file before starting. The first line of the prompt is `Work unit: u<n> <name>` (L1 adds it so the run-log records the unit).
 
 ## Order
 

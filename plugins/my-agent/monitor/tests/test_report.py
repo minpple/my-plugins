@@ -287,6 +287,21 @@ class ReportTest(unittest.TestCase):
         counts, opens = self.findings(PROJECT / 'docs' / 'agent' / ROUNDS, 'plan-review')   # without the fix line: the nitpick is declined
         self.assertEqual((counts['NITPICK'], opens), ((1, 0, 1), ['NITPICK plan.md:50 A heading could be shorter.']))
 
+    def test_short_path_decision_counts_as_fixed(self):
+        """A Decisions line with the file name and line fixes an absolute-path finding, in the Report tab and in findings.py."""
+        from monitor import report
+        tmp, task, info = temp_copy(ROUNDS, 'done')
+        with tmp:
+            (task / 'plan-review.md').write_text(
+                'READY FOR APPROVAL\nRun: 3\n\n## Findings\n- SHOULD-FIX /a/rules/scope.md:14 text [ask person]\n- NITPICK /a/b.md:2 other\n\n'
+                '## Decisions\n- SHOULD-FIX scope.md:14 text → applied by L1\n- NITPICK ope.md:2 other → applied by L1\n', encoding='utf-8')
+            counts, _opens = self.findings(task, 'plan-review')
+            runs = report.build_report(PROJECT, task, info, [])['plan_review']
+        self.assertEqual(runs[-1]['fixed'], {'BLOCKER': 0, 'SHOULD-FIX': 1, 'NITPICK': 0})
+        self.assertEqual(runs[-1]['found'], {'BLOCKER': 0, 'SHOULD-FIX': 1, 'NITPICK': 1})
+        self.assertEqual(counts['SHOULD-FIX'][2], 0)
+        self.assertEqual(counts['NITPICK'][2], 1)
+
     def test_g3_answer_by_l1(self):
         """A G3 answer `by=L1` is a delegated decision row and marks the wait; a person's answer does not."""
         from monitor import report

@@ -815,11 +815,24 @@ def pairs_of_round(pairs, role='plan-reviewer'):
     return pairs[last + 1:]
 
 
+def decision_matches_finding(d_sev, d_where, f_sev, f_where) -> bool:
+    """A `## Decisions` location fits a finding location: the severity is equal and the location is the same text, or
+    both have the same numeric first and last line and the decision path is the finding path or a run of whole
+    trailing components of it (`scope.md:14` fits `/a/rules/scope.md:14`)."""
+    if d_sev != f_sev:
+        return False
+    if d_where == f_where:
+        return True
+    d_path, d_lo, d_hi = _split_location(d_where)
+    f_path, f_lo, f_hi = _split_location(f_where)
+    return d_lo is not None and (d_lo, d_hi) == (f_lo, f_hi) and bool(d_path) and _same_path(f_path, d_path)
+
+
 def judged_counts(text, pairs=()):
     """(found, fixed, open findings) of one plan-review.md or scope-review.md text. `found` and `fixed` are per severity.
     A finding is fixed when it has an `applied` outcome in `## Decisions` or when a run-log `fix … before=G1b` line
     (`pairs`; plan-review only) names it; a declined finding stays open."""
-    decided = {(sev, where) for sev, where, outcome in plan_review_decisions(text) if outcome == 'applied'}
+    decided = [(sev, where) for sev, where, outcome in plan_review_decisions(text) if outcome == 'applied']
     fixes = plan_review_fixes(pairs)
     found = {sev: 0 for sev in SEVERITIES}
     fixed = dict(found)
@@ -827,7 +840,7 @@ def judged_counts(text, pairs=()):
     for item in review_findings(text):
         sev, where = item[0], item[1]
         found[sev] += 1
-        if (sev, where) in decided or any(f_sev == sev and finding_applied(where, [rest]) for f_sev, rest in fixes):
+        if any(decision_matches_finding(d_sev, d_where, sev, where) for d_sev, d_where in decided) or any(f_sev == sev and finding_applied(where, [rest]) for f_sev, rest in fixes):
             fixed[sev] += 1
         else:
             open_items.append(item)

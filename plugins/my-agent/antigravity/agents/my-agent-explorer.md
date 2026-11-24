@@ -44,8 +44,8 @@ DONE | PARTIAL <reason>
 - Constraint | Non-goal | Decision: <the item> (decisions.md:<line>)
 - Backlog: <the item> (backlog.md:<line>)
 ## Check commands
-- `<test, lint or build command>` (<where you found it>) → pass | fail: <failing tests> | cannot run: <reason>
-  - <project or target>: pass | fail: <failing tests> | cannot run: <reason>
+- `<test, lint or build command>` (<where you found it>) → pass (<n> s) | fail: <failing tests> (<n> s) | cannot run: <reason>
+  - <project or target>: pass (<n> s) | fail: <failing tests> (<n> s) | cannot run: <reason>
 ## Uncommitted changes
 - <summary of git status --porcelain, or none>
 - Derived: <derived files, or none>
@@ -55,6 +55,6 @@ DONE | PARTIAL <reason>
 - The first line is `DONE` or `PARTIAL <reason>`. `DONE` if you found everything you were asked to find out.
 - Real uncommitted work (changes a person made) goes on the plain lines under `## Uncommitted changes`. Derived files (for example `*.pyc`, `__pycache__/`, build outputs) go on their own `- Derived: …` line, never mixed into the plain lines.
 - `## Blueprint` lists only the entries the request touches or must keep: the features it changes, the constraints, non-goals and decisions that apply to it, and the backlog items it would settle. Copy an item's text as written; do not judge whether the request may break it. With no blueprint folder write `- none (no blueprint)`; with nothing related, `- none`.
-- Run each check command once, as the project runs it, and write what happened after `→`: `pass`; `fail: <the failing tests, at most 5 names, then the count>` (it fails before this task changes anything); or `cannot run: <reason>` (dependencies not installed, a missing browser or tool, a blocked host, no result within the time limit of one call). Do not install, download or fix anything to make it run, and do not run it a second time.
+- Run each check command once, as the project runs it, and write what happened after `→`: `pass (<n> s)`; `fail: <the failing tests, at most 5 names, then the count> (<n> s)` (it fails before this task changes anything); or `cannot run: <reason>` (dependencies not installed, a missing browser or tool, a blocked host, no result within the time limit of one call), with no duration. `<n>` is the wall-clock time of that one run in whole seconds, rounded up (a run of 40.2 s is `41 s`). The duration is measured, not estimated: take the time before and after the run (for example `date +%s` in the same command), or use the run time the command itself prints; L1 passes it to the coder as the measured duration. Do not install, download or fix anything to make it run, and do not run it a second time.
 - When a check command runs several named projects or targets (the `projects` of a Playwright config, a test matrix), list every one the configuration names on a nested line under the command, with its own result from that one run. The command's own result is then `cannot run: <the projects that cannot>` or `fail: …` when any nested line is, so L1 asks about it.
 - Give every fact `path:line` evidence. Write guesses only under `## Unverified`.

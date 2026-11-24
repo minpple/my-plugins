@@ -9,6 +9,7 @@ from helpers import L4, run_script
 
 SCRIPT = L4 / 'scripts' / 'findings.py'
 TABLE = '| Severity | Found | Fixed | Open |\n|---|---|---|---|\n'
+V = {'scope-review.md': 'READY FOR CONFIRMATION', 'plan-review.md': 'READY FOR APPROVAL'}
 STEP8 = '2026-11-20 10:00:00 step: n=8 name=Review-Deliver\n'
 
 
@@ -115,6 +116,37 @@ class FindingsTest(unittest.TestCase):
         self.assertEqual(r.stdout, 'findings: plan-review.md (1 round)\n' + table([(0, 0, 0), (2, 1, 1), (1, 1, 0)]) +
                          'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 0 (open)\n- SHOULD-FIX plan.md:20 two\n')
         self.assertIn('| NITPICK | 1 | 0 | 1 |', self.run_f('scope-review').stdout)   # the run-log fix is plan-review only
+
+    def judged(self, name, finding, decision, mark=''):
+        self.put(name, f'{V[name]}\nRun: 1\n\n## Findings\n- SHOULD-FIX {finding} text{mark}\n\n## Decisions\n- SHOULD-FIX {decision} text → applied by L1\n')
+        return self.run_f(name[:-3]).stdout
+
+    def test_decision_short_path_fixes_the_finding(self):
+        for name in ('scope-review.md', 'plan-review.md'):
+            for dec in ('scope.md:14', 'rules/scope.md:14', '/a/rules/scope.md:14'):
+                self.assertIn('| SHOULD-FIX | 1 | 1 | 0 |', self.judged(name, '/a/rules/scope.md:14', dec), (name, dec))
+        for dec in ('ope.md:14', 'scope.md:15', 'plan.md:14', 'other/scope.md:14'):
+            self.assertIn('| SHOULD-FIX | 1 | 0 | 1 |', self.judged('scope-review.md', '/a/rules/scope.md:14', dec), dec)
+
+    def test_decision_exact_text_without_line_still_fixes(self):
+        self.assertIn('| SHOULD-FIX | 1 | 1 | 0 |', self.judged('scope-review.md', 'general', 'general'))
+        self.assertIn('| SHOULD-FIX | 1 | 0 | 1 |', self.judged('scope-review.md', '/a/scope.md', 'scope.md'))
+
+    def test_one_short_decision_fixes_two_files(self):
+        self.put('scope-review.md', 'READY FOR CONFIRMATION\nRun: 1\n\n## Findings\n- SHOULD-FIX /a/x/scope.md:14 one\n- SHOULD-FIX /a/y/scope.md:14 two\n\n'
+                                    '## Decisions\n- SHOULD-FIX scope.md:14 both → applied by L1\n')
+        self.assertIn('| SHOULD-FIX | 2 | 2 | 0 |', self.run_f('scope-review').stdout)
+
+    def test_ask_person_mark_is_found_and_fixed(self):
+        out = self.judged('scope-review.md', '/a/scope.md:14', 'scope.md:14', ' → ask [ask person]')
+        self.assertIn('| SHOULD-FIX | 1 | 1 | 0 |', out)
+
+    def test_old_judgment_file_with_exact_decisions_is_unchanged(self):
+        self.put('plan-review.md', 'READY FOR APPROVAL\nRun: 1\n\n## Findings\n- BLOCKER plan.md:5 a\n- SHOULD-FIX plan.md:Work-units b\n'
+                                   '- NITPICK plan.md:9 c\n\n## Decisions\n- BLOCKER plan.md:5 a → applied by L1\n'
+                                   '- SHOULD-FIX plan.md:Work-units b → applied by L1\n- NITPICK plan.md:9 c → declined\n')
+        self.assertEqual(self.run_f('plan-review').stdout, 'findings: plan-review.md (1 round)\n' + table([(1, 1, 0), (1, 1, 0), (1, 0, 1)]) +
+                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 1 (open)\n- NITPICK plan.md:9 c\n')
 
     def test_plan_review_rounds(self):
         """A second round counts the first: its findings are found and fixed; open is what the latest round leaves."""

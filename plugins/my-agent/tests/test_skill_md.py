@@ -284,8 +284,7 @@ class SkillMdTest(unittest.TestCase):
     def test_nitpick_only_applied_without_popup(self):
         """NITPICK only -> applied without a popup, one `## Decisions` line each, then G1b."""
         step = self.plan_step4()
-        self.assertIn('NITPICK only', step)
-        self.assertIn('without a popup', step)
+        self.assertIn('Unmarked SHOULD-FIX and NITPICK, `READY` and `REVISE` alike: apply them without a popup', step)
         self.assertIn('- <severity> <path>:<line> <summary> → applied by L1 | applied by architect | declined', step)
 
     def test_no_plan_review_round_after_ready(self):
@@ -294,7 +293,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('never another Plan Review round', step)
         self.assertIn('third `REVISE`', step)
         self.assertIn('Apply all (Recommended)', step)
-        self.assertIn('whole list (NITPICKs included)', step)
+        self.assertNotIn('whole list (NITPICKs included)', step)
 
     def test_l1_plan_edit_rules(self):
         """Small plan.md edits by L1 before G1b, recorded as `fix ... before=G1b` with an archive."""
@@ -401,18 +400,23 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('3 Verify FAILs', sec)
         self.assertNotIn('is for the popup shown to the person', sec)   # moved into the G3 recommendation rule
 
-    def test_g3_recommends_rework_while_should_fix_open(self):
-        """Criterion 9: the popup shown to the person recommends the rework while a SHOULD-FIX is open; the delegated G3 is unchanged."""
+    def test_g3_recommends_rework_while_any_item_open(self):
+        """Criterion 1: the popup recommends the rework at every G3 while a SHOULD-FIX or NITPICK is open, the take only with none; the delegated answer is the same."""
         sec = self.section('- **G3 with open review items.**', '## E escalation', self.gates)
         line = next(l for l in sec.splitlines() if l.startswith('  - Open items:'))
-        for word in ('is recommended while a SHOULD-FIX is open', 'at the first G3 of the task',
-                     'after a G3 Rework answer (either kind) with only NITPICK items open, `<Take>` is',
-                     'L1\'s answer under delegated approval ("G3 under delegated approval" above) is unchanged',
+        for word in ('`Rework: fix all open items (Recommended)` / `<Take>` / `Rework` / `Abort`',
+                     'at every G3 while a SHOULD-FIX or NITPICK is open, also after an earlier Rework answer',
+                     '`<Take>` only with no open item',
+                     'L1 gives the same answer under delegated approval ("G3 under delegated approval" above)',
                      'The `rec=` of the `ask` line is the recommended label'):
             self.assertIn(word, line, word)
-        self.assertLess(line.index('`Abort`'), line.index('is recommended while a SHOULD-FIX'))
-        self.assertLess(line.index('is recommended while a SHOULD-FIX'), line.index('under delegated approval'))
-        self.assertNotIn('At the first G3 of the task `Rework: fix all open items` is the recommended choice', sec)
+        self.assertNotIn('after a G3 Rework answer (either kind) with only NITPICK items open, `<Take>` is', sec)
+        self.assertNotIn('at the first G3 of the task', sec)
+        retro = (L1 / 'retro.md').read_text(encoding='utf-8')
+        self.assertIn('`Commit` is the recommended take only with no open review item', retro)
+        self.assertIn('the remote take is never recommended', retro)
+        self.assertIn('`Rework: fix all open items (Recommended)` / `Commit` / `<remote take>` / `Abort`', retro)
+        self.assertIn('with open items `Rework: fix all open items (Recommended)` / `Commit` / `Rework` / `Abort`', retro)
         # the delegated G3 steps stay as they are
         g3 = self.delegated()
         g3 = g3[g3.index('**G3 under delegated approval:**'):]
@@ -476,9 +480,9 @@ class SkillMdTest(unittest.TestCase):
         """Delegation off, so the G3 popup, its choices and the recommended one are as before."""
         sec = self.section('## Gate reports', '## E escalation', self.gates)
         for word in ('`<Take> (Recommended)` / `Rework` / `Abort`, `rec="<Take>"`',
-                     '`<Take>` / `Rework: fix all open items` / `Rework` / `Abort`',
-                     '`Rework: fix all open items` is recommended while a SHOULD-FIX is open, and at the first G3 of the task',
-                     'with only NITPICK items open, `<Take>` is'):
+                     '`Rework: fix all open items (Recommended)` / `<Take>` / `Rework` / `Abort`',
+                     '`Rework: fix all open items` is recommended at every G3 while a SHOULD-FIX or NITPICK is open',
+                     '`<Take>` only with no open item'):
             self.assertIn(word, sec, word)
         accept = self.phase('accept')
         self.assertIn('Popup: `Accept (Recommended)` / `Rework` / `Abort`', accept)
@@ -1119,7 +1123,7 @@ class SkillMdTest(unittest.TestCase):
         return sec[sec.index('- **G3 with open review items.**'):]
 
     def plan_step4_should_fix(self):
-        return next(l for l in self.phase('plan').splitlines() if 'Any SHOULD-FIX' in l)
+        return next(l for l in self.phase('plan').splitlines() if 'Marked findings (`[ask person]`' in l)
 
     def test_popup_should_fix_explanation_line(self):
         """A popup with open SHOULD-FIX items carries one line saying what a SHOULD-FIX item is."""
@@ -1158,7 +1162,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertTrue(any('problem worth fixing' in l for l in block), block)
         self.assertTrue(any('Rework: fix all open items' in l for l in block), block)
         self.assertTrue(any('Rework: fix all open items' in l and 'judged again' in l for l in block), block)
-        self.assertIn('`<Take>` / `Rework: fix all open items` / `Rework` / `Abort`', self.g3_open_items())
+        self.assertIn('`Rework: fix all open items (Recommended)` / `<Take>` / `Rework` / `Abort`', self.g3_open_items())
         self.assertIn('`Apply all (Recommended)` / `Approve without applying` / `Pick myself`',
                       self.plan_step4_should_fix())
         sec = self.section('## Scope Review', None, self.phase('define'))
@@ -1181,8 +1185,63 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('needs an open SHOULD-FIX', text)
 
     def test_nitpick_only_findings_have_no_popup(self):
-        self.assertIn('NITPICK only: apply them without a popup', self.phase('plan'))
-        self.assertIn('NITPICK only: apply them without a popup', self.phase('define'))
+        self.assertIn('apply them without a popup', self.phase('plan'))
+        self.assertIn('unmarked findings are applied without a popup', self.phase('define'))
+        self.assertNotIn('NITPICK only: apply them without a popup', self.phase('plan'))
+
+    def test_marked_findings_popup(self):
+        """Criterion 6: unmarked findings are applied without a popup (READY and REVISE); marked ones, any severity, go in one popup before the fix."""
+        line = self.plan_step4_should_fix()
+        for word in ('`[ask person]`, any severity', 'findings list table', 'one popup that lists them',
+                     'ask gate=Q … rec="Apply all"', 'with the SHOULD-FIX line', 'these findings change the scope or need your answer',
+                     '`- Next:` last', '`Apply all (Recommended)` / `Approve without applying` / `Pick myself`',
+                     'They skip only SHOULD-FIX and NITPICK items; a BLOCKER is always fixed',
+                     'No marked finding: no popup', 'Delegated approval answers `Apply all`'):
+            self.assertIn(word, line, word)
+        step4 = self.plan_step4()
+        self.assertIn('the marked-findings popup below comes first, so the fix holds the answers', step4)
+        self.assertIn('third `REVISE`', step4)
+        self.assertIn('G1b popup', step4)
+        sec = self.section('## Scope Review', None, self.phase('define'))
+        self.assertIn('unmarked findings are applied without a popup', sec)
+        self.assertIn('the popup first, then fix', sec)
+        self.assertNotIn('A fix that needs the person\'s answer', sec)
+        self.assertNotIn('NITPICK only', sec)
+
+    def test_scope_width_popup_and_richer_option(self):
+        """Criterion 7: the interview opens with the width popup; later popups offer the richer option second, first after `The richer result`."""
+        rule = ('opens with one scope-width popup (`ask gate=Q … rec="Only what was asked"`/`answer gate=Q` lines): '
+                '`Only what was asked (Recommended)` / `Related things too` / `The richer result`')
+        for name in ('dev', 'general', 'research'):
+            text = (L1 / 'profiles' / f'{name}.md').read_text(encoding='utf-8')
+            self.assertIn(rule, text, name)
+            self.assertIn('Every later scope or design popup offers the richer option second, and first with '
+                          '`(Recommended)` after `The richer result`', text, name)
+            self.assertIn('related items in the same task, plus documents, screens and tests', text, name)
+        step3 = self.section('3. **Scope interview:**', '4. **Confirm the scope:**', self.phase('define'))
+        self.assertIn("Open with the profile file's scope-width popup", step3)
+        self.assertLess(step3.index('Open with'), step3.index('Scope questions follow'))
+        self.assertLess(len("Open with the profile file's scope-width popup."), 60)
+        dev = (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')
+        small = next(l for l in dev.splitlines() if l.startswith('| Small task exception'))
+        self.assertIn('skip the Scope interview', small)
+
+    def test_person_choice_marks(self):
+        """Criterion 2: interview decisions carry `(the person's choice)`; L1's reading and answers carry none."""
+        step4 = self.section('4. **Confirm the scope:**', '5. If `scope.md`', self.phase('define'))
+        line = next(l for l in step4.splitlines() if 'Mark each line the person settled' in l)
+        for word in ("` (the person's choice)`", 'on a criterion right before its check tag', '`- Environment:` line',
+                     '`Keep it`/`Change it`', 'Person-check answer', "L1's reading and answers get no mark"):
+            self.assertIn(word, line, word)
+        self.assertLess(step4.index('Write `scope.md`'), step4.index('Mark each line'))
+
+    def test_build_hands_check_durations_to_coder(self):
+        """Criterion 3: the coder hand-off carries the measured duration of each check command, an upper bound for a narrowed one."""
+        pass_line = next(l for l in self.phase('build').splitlines() if l.lstrip().startswith('- Pass:'))
+        for word in ('`explore.md` `## Check commands`', '`<command>: <n> s`', 'carries the duration of the explorer command it is derived from',
+                     '`<n> s (upper bound, from <explorer command>)`', '`no measured duration`', '`Skipped:`', '`cannot run:`',
+                     'no Explore'):
+            self.assertIn(word, pass_line, word)
 
 
 class BackgroundResearchRulesTest(unittest.TestCase):

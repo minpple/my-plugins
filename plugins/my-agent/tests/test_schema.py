@@ -305,6 +305,22 @@ class ReportParsersTest(unittest.TestCase):
             ('NITPICK', 'plan.md:60', 'declined'), ('NITPICK', 'plan.md:61', None)])
         self.assertEqual((ma_schema.plan_review_decisions(None), ma_schema.plan_review_decisions('x')), ([], []))
 
+    def test_decision_matches_finding(self):
+        m = ma_schema.decision_matches_finding
+        self.assertTrue(m('SHOULD-FIX', 'scope.md:14', 'SHOULD-FIX', '/a/rules/scope.md:14'))
+        self.assertTrue(m('SHOULD-FIX', 'rules/scope.md:14', 'SHOULD-FIX', '/a/rules/scope.md:14'))
+        self.assertTrue(m('SHOULD-FIX', 'scope.md:3-5', 'SHOULD-FIX', '/a/scope.md:3-5'))
+        self.assertTrue(m('NITPICK', 'general', 'NITPICK', 'general'))
+        self.assertTrue(m('NITPICK', 'plan.md:Work-units', 'NITPICK', 'plan.md:Work-units'))
+        self.assertFalse(m('SHOULD-FIX', 'scope.md:14', 'NITPICK', '/a/scope.md:14'))
+        for dec in ('ope.md:14', 'scope.md:15', 'plan.md:14', 'scope.md:14-15', 'scope.md'):
+            self.assertFalse(m('SHOULD-FIX', dec, 'SHOULD-FIX', '/a/rules/scope.md:14'), dec)
+        self.assertFalse(m('SHOULD-FIX', 'scope.md', 'SHOULD-FIX', '/a/scope.md'))   # no numeric line: exact text only
+
+    def test_plan_review_decisions_keep_the_written_location(self):
+        short = '## Decisions\n- SHOULD-FIX scope.md:14 x → applied by L1\n'
+        self.assertEqual(ma_schema.plan_review_decisions(short), [('SHOULD-FIX', 'scope.md:14', 'applied')])
+
     def test_aborted_reason(self):
         self.assertEqual(ma_schema.aborted_reason('Status: aborted 2026-11-03 10:20 person stopped it\nTask: x\n'), 'person stopped it')
         self.assertEqual(ma_schema.aborted_reason('Status: aborted 2026-11-03 10:20\n'), '')

@@ -34,13 +34,15 @@ Run: <n>
 - BLOCKER <path>:<line> <problem> → <how to fix>
 - SHOULD-FIX <path>:<line> <problem> → <how to fix>
 - NITPICK <path>:<line> <problem>
+- <any finding line above> [ask person]
 
 ## Decisions
 ```
 
 - The first line is the verdict word only. If there is even one BLOCKER, `REVISE`; otherwise `READY FOR APPROVAL`.
 - `Run:` is the previous `plan-review.md` value + 1 if one exists, otherwise 1.
-- Leave `## Decisions` empty. L1 fills it, one line per applied or declined finding (a NITPICK is applied without asking; a SHOULD-FIX follows the person's popup answer).
+- End a finding that must go to the person with ` [ask person]`, after `→ <how to fix>` (after `<problem>` on a NITPICK): one that adds, removes or changes a completion criterion, a non-goal or a constraint; one that changes a line marked `(the person's choice)` in `scope.md`; one that needs the person's answer (name the question). Any severity can carry it, a NITPICK too; a marked NITPICK goes to the person like a marked SHOULD-FIX. You mark; L1 does not classify findings.
+- Leave `## Decisions` empty. L1 fills it, one line per applied or declined finding (an unmarked finding is applied without asking; a marked one follows the person's popup answer).
 
 ## Common checks (all profiles)
 

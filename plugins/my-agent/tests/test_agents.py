@@ -590,6 +590,66 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('`background/`', line)
         self.assertIn('quote check', line)
 
+    def test_scope_reviewer_reads_persons_choice_mark(self):
+        """A line marked (the person's choice) is not reported as unsettled; checks 3, 5 and 6 still apply (criterion 2)."""
+        _, body = split(REPO / 'l2-design-judge' / 'agents' / 'scope-reviewer.md')
+        common = body.split('## Common checks (profiles with G1a)')[1].split('## Checks per profile')[0]
+        para = next(l for l in common.splitlines() if "(the person's choice)" in l)
+        for word in ("ends with `(the person's choice)`", 'right before its `[check: …]` tag',
+                     'settled by the person in the Scope interview', 'Do not report it as not settled by the person',
+                     'do not ask whether the person wants it (Traceability)', 'checkability and check tags (3)',
+                     'ambiguity (5)', 'contradictions (6)', 'A scope with no such line is judged as before'):
+            self.assertIn(word, para)
+        # exception: a scope with no interview decision keeps the Traceability rule for unmarked lines
+        self.assertIn('2. **Traceability:** every completion criterion comes from the request or from a settled scope item '
+                      '(purpose, constraint, exception case). A criterion that traces to neither is a SHOULD-FIX: '
+                      'L1 asks whether the person wants it.', common)
+
+    def test_judges_mark_findings_for_the_person(self):
+        """Both judges mark findings for the person with [ask person], any severity (criterion 5, exception: marked NITPICK)."""
+        for name in ('scope-reviewer', 'plan-reviewer'):
+            with self.subTest(agent=name):
+                _, body = split(REPO / 'l2-design-judge' / 'agents' / f'{name}.md')
+                fmt = body.split('format\n\n```text\n')[1].split('```')[0]
+                self.assertIn('- <any finding line above> [ask person]', fmt)
+                rule = next(l for l in body.splitlines() if l.startswith('- End a finding that must go to the person'))
+                for word in ('` [ask person]`', 'adds, removes or changes a completion criterion, a non-goal or a constraint',
+                             "changes a line marked `(the person's choice)` in `scope.md`", "needs the person's answer",
+                             'Any severity can carry it, a NITPICK too',
+                             'a marked NITPICK goes to the person like a marked SHOULD-FIX', 'L1 does not classify'):
+                    self.assertIn(word, rule)
+        _, plan_rev = split(REPO / 'l2-design-judge' / 'agents' / 'plan-reviewer.md')
+        self.assertIn('an unmarked finding is applied without asking; a marked one follows the person\'s popup answer', plan_rev)
+        self.assertNotIn('a NITPICK is applied without asking', plan_rev)
+
+    def test_coder_time_limit_from_carried_duration(self):
+        """At least twice the carried duration, the longest limit otherwise, no background (criterion 3, exception: no duration)."""
+        coder = self._agent('coder')
+        rule = next(l for l in coder.splitlines() if l.startswith('- Run long commands'))
+        for word in ('never use `run_in_background`', 'at least twice its carried duration',
+                     'longest time limit the command tool accepts', 'with no duration carried',
+                     'when twice the duration is above that longest limit, pass the longest limit',
+                     'If a run still passes its limit, report it in the final report',
+                     'do not move the command to the background'):
+            self.assertIn(word, rule)
+        self.assertNotRegex(rule, r'\d+ ?(s|seconds|ms)\b')  # the rule names no fixed number of seconds
+        inp = coder.split('## Input')[1].split('## Order')[0]
+        for word in ('measured duration of each check command', '`no measured duration`',
+                     'narrowed with its own options (for example `-p <file>`)', 'that of the command it narrows',
+                     'an upper bound'):
+            self.assertIn(word, inp)
+
+    def test_explorer_reports_measured_duration(self):
+        """Wall-clock time of the one run, whole seconds rounded up, none on cannot run (criterion 3)."""
+        explorer = self._agent('explorer')
+        self.assertIn('→ pass (<n> s) | fail: <failing tests> (<n> s) | cannot run: <reason>', explorer)
+        rule = next(l for l in explorer.splitlines() if l.startswith('- Run each check command once'))
+        for word in ('wall-clock time of that one run', 'whole seconds, rounded up', 'no duration',
+                     'measured, not estimated', 'time before and after the run'):
+            self.assertIn(word, rule)
+        # exception: a check command without a measured duration
+        self.assertIn('`cannot run: <reason>`', rule)
+
 
 if __name__ == '__main__':
     unittest.main()

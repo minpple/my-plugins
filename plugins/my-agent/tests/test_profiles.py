@@ -82,9 +82,10 @@ class ProfilesTest(unittest.TestCase):
         self.assertLess(retro.index('## Remote update'), retro.index('## Retrospective'))
         remote = retro[retro.index('## Remote update'):retro.index('## Retrospective')]
         for text in ('git symbolic-ref --short refs/remotes/origin/HEAD', '`Commit and push`',
-                     '`Commit and merge into <default branch>`', '`Commit` stays the recommended take',
+                     '`Commit and merge into <default branch>`', '`Commit` is the recommended take only with no open review item',
+                     'the remote take is never recommended',
                      'under delegated approval L1 never answers with a remote take',
-                     '`Commit` / `<remote take>` / `Rework: fix all open items` / `Abort`', 'choice=Rework other=1',
+                     '`Rework: fix all open items (Recommended)` / `Commit` / `<remote take>` / `Abort`', 'choice=Rework other=1',
                      'git rev-list --count HEAD..origin/<default branch>', '`git push origin HEAD:<default branch>`',
                      'Count above 0: do not push', 'Never force a push', 'does not undo the commit', 'merge unit=remote'):
             self.assertIn(text, remote, text)
@@ -106,7 +107,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('never under `<task_dir>/`', read('l2-design-judge', 'agents', 'architect.md'))
         self.assertNotIn('none under `<task_dir>/`', read('l2-design-judge', 'agents', 'plan-reviewer.md'))  # plan_gaps enforces it
         explorer = read('l3-workers', 'agents', 'explorer.md')
-        self.assertIn('  - <project or target>: pass | fail: <failing tests> | cannot run: <reason>', explorer)
+        self.assertIn('  - <project or target>: pass (<n> s) | fail: <failing tests> (<n> s) | cannot run: <reason>', explorer)
         self.assertIn('several named projects or targets', explorer)
         define = read('l1-orchestration', 'phases', 'define.md')
         self.assertIn('`Run only the projects that run here (Recommended)` / `I fix the environment first` / '
@@ -271,7 +272,7 @@ class ProfilesTest(unittest.TestCase):
         retro = (REPO / 'l1-orchestration' / 'retro.md').read_text(encoding='utf-8')
         offer = next(l for l in retro.splitlines() if l.startswith('- **Offer'))
         for word in ('printenv CLAUDE_CODE_REMOTE', '`true`', 'offer no remote take',
-                     '`Commit` / `Rework` / `Abort`', '`Commit` / `Rework: fix all open items` / `Rework` / `Abort`'):
+                     '`Commit` / `Rework` / `Abort`', '`Rework: fix all open items (Recommended)` / `Commit` / `Rework` / `Abort`'):
             self.assertIn(word, offer, word)
 
     def test_remote_take_offer_unchanged_without_remote_flag(self):
@@ -514,7 +515,7 @@ class EnvironmentAndUpstreamRulesTest(unittest.TestCase):
 
     def test_explorer_runs_check_commands_once(self):
         explorer = self.read('l3-workers', 'agents', 'explorer.md')
-        self.assertIn('→ pass | fail: <failing tests> | cannot run: <reason>', explorer)
+        self.assertIn('→ pass (<n> s) | fail: <failing tests> (<n> s) | cannot run: <reason>', explorer)
         self.assertIn('Run each check command once', explorer)
         self.assertIn('install nothing', explorer)
 

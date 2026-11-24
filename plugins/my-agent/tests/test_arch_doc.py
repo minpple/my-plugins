@@ -241,7 +241,9 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.78 (2026-11-24, plugin 0.29.1:'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.79 (2026-11-24, plugin 0.30.0:'), line[:110])
+        self.assertIn('v0.78 (2026-11-24, plugin 0.29.1: three fixes from task retrospectives', line)
+        self.assertNotIn('design draft v0.78', line)
         self.assertIn('v0.77 (2026-11-24, plugin 0.29.0: review findings re-judge', line)
         self.assertIn('v0.76 (2026-11-24, plugin 0.28.1: the monitor\'s Report tab shows Background research', line)
         self.assertIn('v0.75 (2026-11-24, plugin 0.28.0: Background research (Q45)', line)
@@ -635,12 +637,97 @@ class ArchDocTest(unittest.TestCase):
 
     def test_g3_recommendation_follows_the_open_items(self):
         g3 = next(l for l in self.text.splitlines() if l.startswith('| **G3 Final acceptance**'))
-        self.assert_words(g3, ('while a SHOULD-FIX is open', 'with only NITPICK items open',
+        self.assert_words(g3, ('while any SHOULD-FIX or NITPICK is open', 'only with no open item',
                                'cost (reference, 4.8)'))
+        self.assertNotIn('while a SHOULD-FIX is open', g3)
+        self.assertNotIn('with only NITPICK items open', g3)
         self.assertNotIn('and after a G3 Rework answer Accept (Commit) is, because', g3)
         bullet = self.bullet('### 4.4 ', '### 4.5 ', '- **G3 recommendation')
-        self.assert_words(bullet, ('every G3 of the task', 'first G3', 'after a Rework answer',
-                                   'under delegated approval', 'unchanged', 'up to 3 rounds'))
+        self.assert_words(bullet, ('every G3 of the task', 'under delegated approval', 'up to 3 rounds'))
+        self.assertNotIn('first G3', bullet)
+        self.assertNotIn('after a Rework answer', bullet)
+        self.assertNotIn('Accept (Commit) at a G3 after', bullet)
+
+    def test_g3_rework_recommended_like_the_delegated_answer(self):
+        """Criteria 1, 8: the popup and the delegated answer agree at every G3."""
+        bullet = self.bullet('### 4.4 ', '### 4.5 ', '- **G3 recommendation')
+        self.assert_words(bullet, ('2026-11-24, plugin 0.30.0', '`Rework: fix all open items`',
+                                   'SHOULD-FIX or NITPICK', 'No open item: Accept (dev: Commit)',
+                                   'the same answer', 'gates.md'))
+
+    def test_remote_take_section_agrees_with_g3_recommendation(self):
+        """Criteria 1, 8: no place in the document keeps the take as always recommended."""
+        for line in self.text.splitlines():
+            self.assertNotIn('`Commit` stays the recommended take', line)
+            self.assertNotIn('`Commit` stays recommended', line)
+        remote = self.text[self.text.index('- **Remote take at G3 (2026-11-21, Q41)'):]
+        remote = remote[:remote.index('- **Verify and Review scope')]
+        self.assert_words(remote, ('`Rework: fix all open items (Recommended)` / `Commit` / `Rework` / `Abort`',
+                                   '`Commit (Recommended)` / `Rework` / `Abort`',
+                                   'only with no open review item', 'never recommended'))
+        q41 = self.line_of('| Q41 |')
+        self.assert_words(q41, ('only with no open review item',))
+        self.assertNotIn('`Commit` stays recommended', q41)
+
+    def test_revise_findings_popup_comes_before_the_fix(self):
+        """Criteria 6, 8: a REVISE in the Plan Review item does not skip the marked-findings popup."""
+        line = self.line_of('- **Plan Review findings, the same in every profile')
+        self.assertNotIn('goes back for a fix without asking', line)
+        self.assert_words(line, ('popup over the marked findings',))
+
+    def test_rule_locations_named_in_design(self):
+        """Criterion 8: the person's-choice mark is `define.md` step 4, the width pointer step 3."""
+        mark = self.line_of("**Person's-choice mark (2026-11-24, plugin 0.30.0)")
+        self.assertIn('`define.md` step 4', mark)
+        self.assertNotIn('`define.md` step 3', mark)
+        self.assertIn('`define.md` step 3 points to it', self.line_of('**Scope-width popup (2026-11-24'))
+
+    def test_persons_choice_mark_in_design(self):
+        """Criteria 2, 8: the mark in scope.md and the scope judge's reading of it."""
+        line = self.line_of("**Person's-choice mark (2026-11-24, plugin 0.30.0)")
+        self.assert_words(line, ('`(the person\'s choice)`', 'Scope interview', 'right before', '`[check:',
+                                 'answered by L1', 'scope-reviewer', 'Traceability', 'checkability'))
+
+    def test_measured_duration_in_design(self):
+        """Criteria 3, 8: explorer duration, the hand-off with the upper bound and the coder time limit."""
+        line = self.line_of('**Measured duration and time limit (2026-11-24, plugin 0.30.0)')
+        self.assert_words(line, ('explorer', 'whole seconds', 'rounded up', '`cannot run:`', 'no duration',
+                                 '`<command>: <n> s`', 'upper bound', '`no measured duration`', 'coder',
+                                 'twice', 'longest', 'foreground', 'build.md'))
+
+    def test_decision_line_matching_in_design(self):
+        """Criteria 4, 8: a Decisions line matches by file name and line, with whole components."""
+        line = self.line_of('**Decisions-line matching (2026-11-24, plugin 0.30.0)')
+        self.assert_words(line, ('`judged_counts`', 'file name', 'whole trailing', '`scope.md:14`',
+                                 '`rules/scope.md:14`', '`ope.md:14`', 'severity', 'both', 'findings.py',
+                                 'Report tab'))
+
+    def test_ask_person_mark_in_design(self):
+        """Criteria 5, 8: the mark, its three kinds and what it leaves unchanged."""
+        line = self.line_of('**Finding mark `[ask person]` (2026-11-24, plugin 0.30.0)')
+        self.assert_words(line, ('scope-reviewer', 'plan-reviewer', 'completion criterion', 'non-goal',
+                                 'constraint', "`(the person's choice)`", "the person's answer",
+                                 'any severity', 'NITPICK', 'ma_schema', 'old'))
+
+    def test_marked_findings_popup_in_design(self):
+        """Criteria 6, 8: unmarked findings are applied silently, marked ones go in one popup."""
+        line = self.line_of('**Marked findings popup (2026-11-24, plugin 0.30.0)')
+        self.assert_words(line, ('unmarked', 'without a popup', '`READY', '`REVISE`', 'one popup', 'marked',
+                                 '`Apply all (Recommended)`', '`Confirm without applying`',
+                                 '`Approve without applying`', '`Pick myself`', 'BLOCKER',
+                                 'delegated approval', 'no marked finding'))
+        scope = self.bullet('### 4.3 ', '### 4.4 ', '- **Scope Review findings')
+        plan = self.bullet('### 4.3 ', '### 4.4 ', '- **Plan Review findings')
+        for text in (scope, plan):
+            self.assertIn('marked', text)
+            self.assertNotIn('with any SHOULD-FIX one popup', text)
+
+    def test_scope_width_popup_in_design(self):
+        """Criteria 7, 8: the scope-width popup and the richer second choice."""
+        line = self.line_of('**Scope-width popup (2026-11-24, plugin 0.30.0)')
+        self.assert_words(line, ('Scope interview', '`Only what was asked (Recommended)`',
+                                 '`Related things too`', '`The richer result`', 'second', 'profile',
+                                 '`ask gate=Q', 'rec="Only what was asked"', '`answer gate=Q`', 'define.md'))
 
     def test_procedure_rules_are_described_in_their_sections(self):
         popups = self.section('### 4.4 ', '### 4.5 ')
