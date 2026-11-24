@@ -22,6 +22,7 @@ Write one task plan, `plan.md`, from the scope document and the explore results.
 ## Input
 
 - `intake.md` (`Profile:` in its first lines), the preset name and the `agent-models.py show` lines L1 passes (none without a `Models:` line), `explore.md`, `scope.md` (a small task has none: L1 passes its 5-line summary instead).
+- `background/*.md` (Background research notes, if any) and the background candidates L1 passes that were not researched.
 - When rewriting: the `plan-review.md` path or the person's change request, and the list of deliverables already made.
 
 ## `plan.md` sections (in this order, all required)
@@ -37,18 +38,19 @@ The file starts with the `# Plan: <task-id>` title and a lead paragraph: one or 
      - `- Files to change: ` with each path in backticks (on that line or as nested `  - ` bullets)
      - `- Parallel group: group <n>`
      - `- Completion criteria: <numbers>`
-   - Other labels (`Change:`, `Group:`, `Criteria:`) are not read: their files are `unmapped` in `changed-files.md` and re-judged against all criteria.
+   - Other labels (`Change:`, `Group:`, `Criteria:`) are not read: their files are `unmapped` and re-judged against all criteria.
    - A coder unit that fetches from the network (reference data, a package outside the installed dependencies) gets one line `- Needs host: <host name>` per host, as a bare DNS name. L1 checks these hosts before G1b, so name every one.
    - When rewriting, units you keep or revise keep their old ID; new units get the next unused number. Never reuse the ID of a discarded unit.
-   - In the general and research profiles, writer and researcher result paths are always under `<task_dir>/<task-id>/work/`; L1 copies them to the deliverable location (final location) in `scope.md` after G3.
+   - In the general and research profiles, writer and researcher result paths are always under `<task_dir>/<task-id>/work/`; L1 copies them to the final location in `scope.md` after G3.
    - Do not list the final location as a file to change. scope-guard blocks that write.
    - A coder's `Files to change` (its test files too) are inside the task location, never under `<task_dir>/`: scope-guard denies a coder every write there and the plan cannot be approved.
-   - What a coder unit finds out (a reproduction, measured numbers, a log summary) goes in its final report; a note file under `work/` is a writer or researcher unit.
+   - What a coder unit finds out goes in its final report; a note file under `work/` is a writer or researcher unit.
    - List a generated file under the work unit that changes its source.
    - Units in the same parallel group must not change the same files. If they overlap, split them into different groups.
    - A parallel group that does not use a workflow has 4 units or fewer.
+   - A choice that rests on a `background/` note carries `(background b<n>)`, and a unit that needs the note lists it under its files to read. A `Not found` question and each candidate not researched become `To confirm`.
 4. `## Reference files`: files outside the task folder that agents may read, one per line as `` - `relative path` ``. If there are none, `- none`.
-5. `## Mock-up`: the first line is `Kind: <kind of example>` (e.g. `CLI input/output`, `note outline + sample paragraph`, `screen layout`), and below it is an example of the deliverable. Show both the normal case and the exception cases written in the scope document, and tag each case with its completion criterion number. It only shows the scope document as an example; it adds no new requirements.
+5. `## Mock-up`: the first line is `Kind: <kind of example>`, and below it is an example of the deliverable. Show both the normal case and the exception cases written in the scope document, and tag each case with its completion criterion number.
 6. `## Prototype`: `needed` or `not needed` and a one-line reason. `needed` only when a judgment needs to be made by eye, such as a screen layout or a document layout. The `Prototype: requested` line in this section is written only by L1.
 7. `## Estimate`: the number of subagents; if you use a workflow, the number of steps and agents (9 or fewer per workflow). Write no expected tokens.
 8. `## Models`: the models and efforts the task's agents run with.
@@ -99,7 +101,6 @@ If `## Revisions` exists, leave it at the very end as is (rule above).
 - If `explore.md` says there are uncommitted changes, use no parallel groups and put everything in order.
 - Here and in the Execute popup, count only real uncommitted work, not `- Derived:` files.
 - When a work unit adds or renames an agent, skill or hook of a loaded plugin, add a `- Plugin reload: needed (<what>)` line to that unit. L1 reports it at G1b.
-- Plan no one-off scripts in the session scratchpad or other folders outside the coder's write scope.
 - A small task (if `plan.md` has the 5-line summary L1 put at the top) is one work unit.
 - Mock-up: the behavior after the change (command output, screen layout, API response).
 

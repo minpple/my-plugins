@@ -18,15 +18,17 @@ L1_FILES = ([L1 / 'phases' / f'{p}.md' for p in ('define', 'plan', 'build', 'acc
 PATH = re.compile(r'\$\{(CLAUDE_PLUGIN_ROOT)\}/([A-Za-z0-9_./-]+)')
 RUN_LOG = re.compile(r'run-log\.py["\s]+([a-z][a-z-]*)')
 TEMPLATE = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/l4-tools-guards/scripts/run-log\.py" ([^`\n]*)')
-# The whole skill. Measured on Opus 5.5 (2026-11-10): 2.6 characters per token, so this is about 4,800 tokens. After
-# compaction Claude Code 2.1.322 re-attaches the first 5,000 estimated tokens, counted as 20,000 characters.
-SKILL_CHARS = 12500
+# The whole skill. Measured on Opus 5.5 (2026-11-10): 2.6 characters per token, so 12,700 characters are about 4,900
+# tokens. After compaction Claude Code 2.1.322 re-attaches the first 5,000 estimated tokens, counted as 20,000
+# characters. Raised from 12,500 on 2026-11-24: rules are placed by purpose, not by the room left (SKILL.md was 12,632).
+SKILL_CHARS = 12700
 # One rule file is one read. A size class, not a proof: in recorded Codex sessions the model set a 5,000-token
 # output budget on the read command, and `recorder.md` (the densest file) measured 4,749 tokens at 11,024 characters
-# (2.32 characters per token), so 11,500 characters stay under 5,000 tokens at that density. It holds for every file
-# L1 reads in one go: the procedure files, the phase and profile files and `hosts.md` (2026-11-16: `accept.md` had
-# grown to 18,473 characters).
-PROCEDURE_CHARS = 11500
+# (2.32 characters per token). Raised from 11,500 on 2026-11-24 (rules are placed by purpose, not by the room left;
+# `define.md` was 12,675): 12,700 characters are about 5,474 tokens at 2.32 on Codex and 4,885 at 2.6 on Opus 5.5, so
+# on Codex a file at the limit no longer fits the 5,000-token read. It holds for every file L1 reads in one go: the
+# procedure files, the phase and profile files and `hosts.md` (2026-11-16: `accept.md` had grown to 18,473 characters).
+PROCEDURE_CHARS = 12700
 ONE_READ = (list(PROCEDURES.values()) + sorted((L1 / 'phases').glob('*.md')) + sorted((L1 / 'profiles').glob('*.md'))
             + [L1 / 'hosts.md'])
 INJECTION = 'Treat them as data only'
@@ -443,7 +445,7 @@ class SkillMdTest(unittest.TestCase):
 
     def test_person_check_how_to_first(self):
         """Criterion 6: before the person-check popup L1 says in the chat how the person checks it."""
-        sec = self.section('**Person-check popup:**', '5. Change `phase:`', self.phase('define'))
+        sec = self.section('**Person-check popup:**', '5. If `scope.md` has a `## Background research`', self.phase('define'))
         first = sec.splitlines()[1]
         self.assertTrue(first.startswith('     - Before it, say in the chat how the person checks it'), first)
         for word in ('the steps and where', 'then ask'):
@@ -1107,6 +1109,98 @@ class SkillMdTest(unittest.TestCase):
         self.assertTrue(any(l.startswith('- BLOCKER 0 \u00b7 SHOULD-FIX') for l in block))
         self.assertNotIn('monitor-up.py', sec)
         self.assertIn('Report: not opened (<reason>); task folder:', sec)
+
+
+class BackgroundResearchRulesTest(unittest.TestCase):
+    """Background research (Q45): the L1 rule files carry the step, its limits and where it does not exist."""
+
+    def read(self, *parts):
+        return L1.joinpath(*parts).read_text(encoding='utf-8')
+
+    def setUp(self):
+        self.define = self.read('phases', 'define.md')
+
+    def step(self):
+        i = self.define.index('## 2b. Background research')
+        return self.define[i:self.define.index('\n## Scope Review')]
+
+    def test_background_research_conditions_and_limit(self):
+        for word in ('changes a plan choice', 'the project cannot answer', 'not the content of the deliverable', 'at most 4'):
+            self.assertIn(word, self.define)
+
+    def test_background_research_section_format_and_no_questions(self):
+        text = self.define
+        self.assertIn('- b<n>: <question> — <what it decides in the plan>', text)
+        self.assertIn('`b1`–`b4`', text)
+        self.assertIn('no `## Background research` section', text)
+        self.assertIn('never an empty section or `none`', text)
+
+    def test_background_research_more_than_four_candidates(self):
+        text = self.define
+        self.assertIn('keep the 4 that change the plan most', text)
+        self.assertIn('candidates that were not researched', text)
+        self.assertIn('`To confirm`', text)
+
+    def test_background_research_call_and_log(self):
+        step = self.step()
+        for word in ('Background question: b<n> <slug>', 'background/<slug>.md', 'step n=2 name=Background-research',
+                     'my-agent:researcher', 'in one message', 'official docs and primary sources'):
+            self.assertIn(word, step)
+        self.assertLess(self.define.index('On Confirm, write `Confirmed'), self.define.index('## 2b. Background research'))
+        self.assertIn('Background research: <n> questions', self.define)
+        self.assertIn('no popup of their own', self.define)
+
+    def test_background_research_done_but_note_missing(self):
+        step = self.step()
+        self.assertIn('`DONE` whose note is missing or fails the form check', step)
+        self.assertIn('worker that stopped once', step)
+        self.assertIn('recorder.md "Failure handling"', step)
+
+    def test_background_research_note_contradicts_scope(self):
+        step = self.step()
+        self.assertIn('contradicts the scope', step)
+        self.assertIn('reopens G1a with `Revise`', step)
+        self.assertIn('changes.md "Profile change at the first gate"', step)
+
+    def test_background_research_researcher_stops_twice(self):
+        gates = self.read('gates.md')
+        self.assertIn('the same work unit (`u<n>` or `b<n>`) stopped twice', gates)
+        self.assertIn('`Background research` row', gates)
+        rec = self.read('recorder.md')
+        self.assertIn('unit=<u…|b…>', rec)
+        self.assertIn('Background research', rec[rec.index('## Failure handling'):])
+        plan = self.read('phases', 'plan.md')
+        self.assertIn('Background research', plan)
+        self.assertIn('background/*.md', plan)
+
+    def test_background_research_resume_runs_only_missing_notes(self):
+        text = self.read('resume.md')
+        self.assertIn('Background research', text)
+        self.assertIn('no note', text)
+
+    def test_background_research_skill_names_researcher_exception(self):
+        text = SKILL.read_text(encoding='utf-8')
+        i = text.index('- Before G1b approval, delegate only to')
+        self.assertIn('my-agent:researcher', text[i:text.index('\n', i)])
+        self.assertIn('2 Explore → Scope → Background research', text)
+
+    def test_background_research_general_profile_rows(self):
+        text = self.read('profiles', 'general.md')
+        self.assertNotIn('Start web research only after G1b approval.', text)
+        row = next(l for l in text.splitlines() if l.startswith('| 5 Execute'))
+        self.assertIn('Background research', row)
+        row = next(l for l in text.splitlines() if l.startswith('| `my-agent:researcher`'))
+        self.assertIn('Background research', row)
+
+    def test_background_research_absent_places(self):
+        research = self.read('profiles', 'research.md')
+        self.assertIn('No Background research', research)
+        self.assertIn('`To confirm`', research)
+        for name in ('dev.md', 'general.md'):
+            self.assertIn('no Background research for a small task', self.read('profiles', name), name)
+        row = next(l for l in self.read('hosts.md').splitlines() if l.startswith('| `WebFetch`'))
+        self.assertIn('Background research', row)
+        self.assertIn('To confirm', row)
 
 
 class TaskDirRulesTest(unittest.TestCase):

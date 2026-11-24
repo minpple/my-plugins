@@ -12,8 +12,8 @@ my-agent agent. It applies only while a task is active: with no `.active` a my-a
 broken `.active` is a deny). For a my-agent agent of an active task: secrets are denied for everyone, reads must stay in the agent's read
 roots, writes in its write roots. The rules start from the agent's level (ma_schema.AGENTS): an L2 agent writes only
 its own file and its Bash only reads; an L3 agent writes nothing. Roles then widen or narrow that: the verifier and
-researcher may use the web, the researcher and writer write `work/` (writer also `prototype/` and the project
-blueprint folder, 4.7.5), the coder writes the location or its worktree (also one inside a linked-worktree location)
+researcher may use the web, the researcher writes `background/` before plan approval and also `work/` after it, the
+writer writes `work/` (also `prototype/` and the project blueprint folder, 4.7.5), the coder writes the location or its worktree (also one inside a linked-worktree location)
 but not `<task_dir>/`, `.git/`, `.claude/` (hooks and settings run in L1's context) or the blueprint folder (only the
 writer writes it), and the gate-analyst reads only gate-tally.md and gate-report.md. A worktree is the coder's own
 only when its folder is `agent-<the input's agent_id>` (F19); with a `cwd` in any other worktree of the location (a
@@ -168,7 +168,8 @@ def rules(role: str, active, cwd: Path, agent_id=None) -> Optional[Rules]:
     if role == 'verifier':
         return r._replace(web=True)
     if role == 'researcher':
-        return r._replace(write=[T / 'work'], web=True)
+        roots = [T / 'background'] if not ma_plan.approved(T / 'plan.md') else [T / 'work', T / 'background']
+        return r._replace(write=roots, web=True)
     blueprint = ma_blueprint.root(L)   # None: the location is the data folder, which keeps no blueprint
     if role == 'writer':
         return r._replace(write=[T / 'work', T / 'prototype'] + ([blueprint] if blueprint else []))

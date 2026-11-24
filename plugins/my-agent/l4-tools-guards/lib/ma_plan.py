@@ -33,6 +33,16 @@ def scope_prototype_requested(scope_md: Path) -> bool:
     return prototype_text(read(scope_md))
 
 
+def scope_confirmed(scope_md: Path) -> bool:
+    """A `Confirmed ` line under `## Confirmation` in scope.md (G1a Confirm)."""
+    return ma_schema.scope_confirmed(read(scope_md))
+
+
+def scope_background_ids(scope_md: Path):
+    """The `b<n>` IDs under `## Background research` in scope.md; None when the section is missing."""
+    return ma_schema.background_ids(read(scope_md))
+
+
 def units(plan_md: Path) -> list:
     return ma_schema.units(read(plan_md))
 

@@ -21,7 +21,7 @@ The phase, profile and agent files use Claude Code names. In an Antigravity sess
 | `Read` | `read_file` | Uses `Path`, optional `StartLine` / `EndLine`. |
 | `Grep` | `grep_search` | Or search via `run_command` when `grep_search` is unavailable in the session. |
 | `Glob` | `find_by_name` | Or list paths via `run_command` when `find_by_name` is unavailable in the session. |
-| `WebSearch` | `search_web` | Available to L1, researcher and verifier. |
+| `WebSearch` | `search_web` | Available to L1, researcher and verifier; it also serves Background research. |
 | `WebFetch` | `search_web` / `read_url_content` | Use `read_url_content` when available, else `search_web`. |
 | `${CLAUDE_PLUGIN_ROOT}` in skill text | the plugin folder of the session line | Antigravity passes the text literally, not expanded. Read it as the plugin folder named on the `SessionStart` line `my-agent on Antigravity: plugin folder <path> …`. When absent, the plugin folder is two levels above `skills/my-agent/SKILL.md`. Hooks receive `$PLUGIN_ROOT` and run with the plugin folder as working directory. |
 | `$CLAUDE_CODE_SESSION_ID` | `$ANTIGRAVITY_CONVERSATION_ID` | Also printed on the `SessionStart` line (`session <id>`). `ma_host.session_id()` reads `$ANTIGRAVITY_CONVERSATION_ID` automatically. |

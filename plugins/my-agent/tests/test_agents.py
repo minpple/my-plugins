@@ -486,6 +486,48 @@ class AgentsTest(unittest.TestCase):
         steps = (docs / 'my-agent-plan-steps-2-9.md').read_text(encoding='utf-8')
         row = next(l for l in steps.splitlines() if l.lstrip().startswith('| architect | opus |'))
         self.assertIn(f"`{TABLE['architect'][2]}`", row)
+    def test_background_research_researcher(self):
+        """The researcher has two call points and writes a background note (criterion 4)."""
+        fm, body = split(REPO / 'l3-workers' / 'agents' / 'researcher.md')
+        self.assertIn('Background research', fm['description'])
+        self.assertIn('G1b', fm['description'])
+        self.assertIn('Background question: b<n> <slug>', body)
+        self.assertIn('background/', body)
+        self.assertIn('Not found', body)
+
+    def test_background_research_architect(self):
+        """The architect marks choices from notes and turns Not found into To confirm (exception: note ends with Not found)."""
+        _, body = split(REPO / 'l2-design-judge' / 'agents' / 'architect.md')
+        self.assertIn('background/*.md', body)
+        self.assertIn('(background b<n>)', body)
+        self.assertTrue(any('Not found' in l and 'To confirm' in l for l in body.splitlines()))
+        self.assertTrue(any('not researched' in l or 'not been researched' in l for l in body.splitlines()))
+
+    def test_background_research_plan_reviewer_check_11(self):
+        """Check 11 Background: contradiction is a BLOCKER, a mark without a note claim a SHOULD-FIX (criterion 4)."""
+        _, body = split(REPO / 'l2-design-judge' / 'agents' / 'plan-reviewer.md')
+        line = next(l for l in body.splitlines() if l.startswith('11. **Background:**'))
+        self.assertIn('BLOCKER', line)
+        self.assertIn('SHOULD-FIX', line)
+        self.assertIn('(background b<n>)', line)
+
+    def test_background_research_scope_reviewer(self):
+        """Three conditions, the 4-question limit, repeated ID, ID outside b1-b4, repeated slug, research profile (exceptions)."""
+        _, body = split(REPO / 'l2-design-judge' / 'agents' / 'scope-reviewer.md')
+        line = next(l for l in body.splitlines() if l.startswith('10. **Background research:**'))
+        for word in ('changes the plan', 'project cannot answer', 'not deliverable content', 'SHOULD-FIX',
+                     'More than 4', 'repeated ID', '`b1`–`b4`', 'repeated slug', 'BLOCKER'):
+            self.assertIn(word, line)
+        research = body.split('### Research · docs (research)')[1].split('### Dev (dev)')[0]
+        self.assertEqual(body.count('## Background research'), 2)   # the check and the research-profile line
+        self.assertTrue(any('## Background research' in l and 'BLOCKER' in l for l in research.splitlines()))
+
+    def test_background_research_verifier_quote_check(self):
+        """Facts taken from background/ notes get the same quote check as work/ notes (criterion 4)."""
+        _, body = split(REPO / 'l2-design-judge' / 'agents' / 'verifier.md')
+        line = next(l for l in body.splitlines() if l.startswith('- Researcher notes under'))
+        self.assertIn('`background/`', line)
+        self.assertIn('quote check', line)
 
 
 if __name__ == '__main__':

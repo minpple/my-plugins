@@ -129,6 +129,58 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.plan('# Plan\n\n## Prototype\n\nPrototype: requested\n\n## Approval\n')
         self.assertPassed(self.hook('Agent', {'subagent_type': 'my-agent:writer', 'prompt': 'x'}))
 
+    SECTION = '## Background research\n- b1: Q one? — decides a\n- b2: Q two? — decides b\n'
+    CONFIRMED = '\n## Confirmation\nConfirmed 2026-11-24 10:00\n'
+
+    def researcher(self, prompt='Background question: b2 api-y\nScope: x'):
+        return self.hook('Agent', {'subagent_type': 'my-agent:researcher', 'prompt': prompt})
+
+    def reason(self, r):
+        self.assertDenied(r)
+        return json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason']
+
+    def test_researcher_before_approval_research_profile_denied(self):
+        (self.task / 'scope.md').write_text('# Scope\n' + self.SECTION + self.CONFIRMED, encoding='utf-8')
+        (self.task / 'intake.md').write_text('Profile: research\n', encoding='utf-8')
+        self.assertIn('The research profile has no background research: a researcher runs only after plan approval.',
+                      self.reason(self.researcher()))
+
+    def test_researcher_before_approval_scope_not_confirmed_denied(self):
+        (self.task / 'scope.md').write_text('# Scope\n' + self.SECTION + '\n## Confirmation\n', encoding='utf-8')
+        self.assertIn('A researcher before approval needs a confirmed scope: scope.md has no "Confirmed" line under ## Confirmation.',
+                      self.reason(self.researcher()))
+
+    def test_researcher_before_approval_no_section_denied(self):
+        (self.task / 'scope.md').write_text('# Scope\n' + self.CONFIRMED, encoding='utf-8')
+        self.assertIn('A researcher before approval runs only for a background question: scope.md has no ## Background research section.',
+                      self.reason(self.researcher()))
+
+    def test_researcher_before_approval_no_prompt_line_denied(self):
+        (self.task / 'scope.md').write_text('# Scope\n' + self.SECTION + self.CONFIRMED, encoding='utf-8')
+        for prompt in ('x', 'Work unit: u1'):
+            with self.subTest(prompt=prompt):
+                self.assertIn('A researcher before approval needs a "Background question: b<n>" line in its prompt.',
+                              self.reason(self.researcher(prompt)))
+
+    def test_researcher_before_approval_unlisted_id_denied(self):
+        (self.task / 'scope.md').write_text('# Scope\n' + self.SECTION + self.CONFIRMED, encoding='utf-8')
+        self.assertIn('Background question b5 is not listed under ## Background research in scope.md (listed: b1, b2).',
+                      self.reason(self.researcher('Background question: b5 x')))
+
+    def test_researcher_before_approval_listed_id_passes(self):
+        (self.task / 'scope.md').write_text('# Scope\n' + self.SECTION + self.CONFIRMED, encoding='utf-8')
+        (self.task / 'intake.md').write_text('Profile: dev\n', encoding='utf-8')
+        self.assertPassed(self.researcher())
+        self.assertPassed(self.researcher('Background question: b1 x'))
+        self.assertDenied(self.hook('Agent', {'subagent_type': 'my-agent:coder', 'prompt': 'Background question: b2 x'}))
+        self.assertDenied(self.hook('Workflow', {'script': 'x'}))
+
+    def test_researcher_without_section_denied_like_before(self):
+        self.assertDenied(self.hook('Agent', {'subagent_type': 'my-agent:researcher', 'prompt': 'x'}))
+        self.assertDenied(self.hook('Agent', {'subagent_type': 'my-agent:coder', 'prompt': 'x'}))
+        self.assertDenied(self.hook('Agent', {'subagent_type': 'general-purpose', 'prompt': 'x'}))
+        self.assertDenied(self.hook('Agent', {'subagent_type': 'my-agent:writer', 'prompt': 'x'}))
+
     def test_writer_at_g1a_prototype_from_scope(self):
         """Scope.md `Prototype: requested` opens the writer before approval, and only the writer."""
         writer = {'subagent_type': 'my-agent:writer', 'prompt': 'x'}

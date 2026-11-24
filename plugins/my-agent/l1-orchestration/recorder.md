@@ -36,7 +36,7 @@ Read the lines the command prints:
 
 - `MISMATCH: …` — the configured model differs from the actual model. Tell the person in one line and continue.
   - If `MISMATCH: main session …`, L1 is not opus (the skill's `model:` applies only to the first turn). Say in one line: "The main session is <model>. By design L1 is opus, so switch with `/model opus`. Next time, open the session with `claude --model opus`." Continue even if it is not switched; do not say it again in the same task (the script prints it only once).
-- `PARTIAL: <agent> <id> unit=<u…> …` — that worker ended without a final answer (maxTurns, `end=partial`; not the same as the first line `PARTIAL <reason>` a worker writes itself). Handle it as "worker stopped once" (Failure handling below).
+- `PARTIAL: <agent> <id> unit=<u…|b…> …` — that worker ended without a final answer (maxTurns, `end=partial`; not the same as the first line `PARTIAL <reason>` a worker writes itself). Handle it as "worker stopped once" (Failure handling below).
 - `run-log: no active my-agent task …` — `.active` is missing or was not found. Fix `.active` first.
 
 **Cost (for reference):** the script reads `cost_usd` from `~/.cache/claude-sessions/statusline/<session ID>.json` and writes the `cost` line itself (`reset=1` if the value fell); L1 never types a cost. Without the file it prints `run-log: no cost line (…)`, writes nothing, and L1 continues. In the G3 report, write it only as "about $N (reference, estimated at list price)", and use it for no decision.
@@ -51,6 +51,7 @@ The record of revisions is the run-log's `revision` lines. `## Revisions` at the
 |---|---|
 | API error, rate limit | Retry once with the same model. If it happens again, E |
 | Worker stopped once (`PARTIAL`, `end=partial`) | Retry on opus as a new call (never a resume) with the same input and the stop report (call argument `model: "opus"`, which beats the preset) |
+| Background research: a researcher stops, or reports `DONE` without a valid note | The `b<n>` is the unit: the rows above and below apply to it (`unit=b<n>`); a second stop of the same `b<n>` is E |
 | Worker stopped twice | If it is a small fix L1 can make directly, make it; otherwise E. If the plan was wrong, go back to Plan |
 | Verify FAIL 1–2 times | Archive the judgment files, go back to Execute, and pass the list of failed criteria (`accept.md` "Back to Execute"); after the second FAIL on the same criterion, the fixer's new call must give a structural argument (why no other failing form remains) before the fix, or offer `Change scope` through E |
 | Verify FAIL 3 times in a row | E: `Give direction` / `Change scope` / `Abort` |

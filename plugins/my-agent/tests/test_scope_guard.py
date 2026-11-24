@@ -135,9 +135,23 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertFalse(self.denied('my-agent:researcher', 'Read', {'file_path': str(self.L / 'src/a.py')}))
         self.assertTrue(self.denied('my-agent:researcher', 'Read', {'file_path': '/Applications/x'}))
         self.assertFalse(self.denied('my-agent:researcher', 'Read', {'file_path': str(self.T / 'work/n.md')}))
-        self.assertFalse(self.denied('my-agent:researcher', 'Write', {'file_path': str(self.T / 'work/n.md')}))
+        self.assertFalse(self.denied('my-agent:researcher', 'Write', {'file_path': str(self.T / 'background/n.md')}))
         self.assertTrue(self.denied('my-agent:researcher', 'Write', {'file_path': str(self.T / 'plan.md')}))
         self.assertFalse(self.denied('my-agent:researcher', 'WebFetch', {'url': 'https://e.com', 'prompt': 'x'}))
+
+    def test_researcher_write_roots_follow_approval(self):
+        """Before approval the researcher writes only `background/`; after it also `work/` (criterion 6)."""
+        w = lambda d: self.hook('my-agent:researcher', 'Write', {'file_path': str(self.T / d / 'n.md')})
+        plan = {'file_path': str(self.T / 'plan.md')}
+        r = w('work')
+        self.assertIn('Outside the write scope of researcher:',
+                      json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason'])
+        self.assertFalse(self.denied('my-agent:researcher', 'Write', {'file_path': str(self.T / 'background/n.md')}))
+        self.assertTrue(self.denied('my-agent:researcher', 'Write', plan))
+        (self.T / 'plan.md').write_text('# Plan\n\n## Approval\n\n- Approved 2026-11-24 10:00 G1b\n')
+        for d in ('work', 'background'):
+            self.assertFalse(self.denied('my-agent:researcher', 'Write', {'file_path': str(self.T / d / 'n.md')}), d)
+        self.assertTrue(self.denied('my-agent:researcher', 'Write', plan))
 
     def test_secret_denied_for_all(self):
         (self.L / '.env').write_text('K=v')

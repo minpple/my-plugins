@@ -167,6 +167,9 @@ PROTOTYPE = re.compile(r'(?m)^\s*(?:-\s*)?Prototype:\s*requested\s*$')  # under 
 UNIT_HEAD = re.compile(r'^###\s+(u\d+)\b\s*(.*)$')                     # `### u1 <name>` under ## Work units
 UNIT_STATUS_LINE = re.compile(r'^\s*(?:-\s*)?Status:\s*([a-z]+)')
 UNIT_MARK = re.compile(r'(?m)^Work unit:\s*(u\d+)\b')                   # first prompt line L1 gives a unit's worker
+BACKGROUND_MARK = re.compile(r'(?m)^Background question:\s*(b\d+)\b')   # first prompt line of a Background research researcher
+BACKGROUND_ITEM = re.compile(r'^-\s*(b\d+):')                           # `- b<n>: <question> — …` under ## Background research
+CONFIRMED_LINE = re.compile(r'(?m)^Confirmed ')                         # under ## Confirmation, L1 only (G1a Confirm)
 MOCKUP_KIND = re.compile(r'^Kind:\s*(.*)$')                            # first line of ## Mock-up
 DELIVERED_COMMIT = 'commit:'                                           # `Delivered: commit:<sha>` / deliver path=
 
@@ -196,9 +199,29 @@ def units(text: str) -> list:
 
 
 def unit_of_prompt(prompt):
-    """`u1` from a `Work unit: u1 …` line in a worker's prompt, or None."""
+    """`u1` from a `Work unit: u1 …` line in a worker's prompt; without one, `b2` from a
+    `Background question: b2 …` line (a Background research researcher); else None."""
     m = UNIT_MARK.search(prompt or '')
+    return m.group(1) if m else background_of_prompt(prompt)
+
+
+def background_of_prompt(prompt):
+    """`b2` from a `Background question: b2 <slug>` line in a researcher's prompt, or None."""
+    m = BACKGROUND_MARK.search(prompt or '')
     return m.group(1) if m else None
+
+
+def background_ids(scope_text):
+    """The `b<n>` IDs of the `- b<n>:` lines under `## Background research` of scope.md, in order; None without the section."""
+    lines = section_lines(scope_text, 'Background research')
+    if lines is None:
+        return None
+    return [m.group(1) for m in map(BACKGROUND_ITEM.match, (l.strip() for l in lines)) if m]
+
+
+def scope_confirmed(scope_text) -> bool:
+    """True when `## Confirmation` of scope.md has a line starting with `Confirmed `."""
+    return bool(CONFIRMED_LINE.search(section(scope_text, 'Confirmation')))
 
 
 # --- report parsers (monitor Report tab; each returns None or [] for a missing or empty text) ---
@@ -399,6 +422,7 @@ def unit_details(text: str) -> list:
 CHECK_TAGS = ('command', 'file', 'URL', 'person')
 COVERS = re.compile(r'\(criteri(?:on|a)\s+(\d+(?:\s*(?:,|and)\s*\d+)*)\)')   # `(criterion 2)`, `(criteria 2, 3)`
 PROFILE_LINE = re.compile(r'(?m)^Profile:\s*([a-z]+)')
+BACKGROUND_PLAN_MARK = re.compile(r'\(background\s+(b\d+)\)')                 # `(background b2)` in plan.md
 
 
 def profile_of(intake_text):
@@ -437,7 +461,8 @@ def plan_gaps(scope_text, plan_text, profile, records=None) -> list:
     Every completion criterion (scope.md, or plan.md without one) ends with one of the four check tags; in the dev
     profile every `[check: command]` criterion has a `(criterion <n>)` mark in a work unit that lists it. With
     `records` (the task records folder), no `Files to change` path lies in it: only a coder unit has that line, and
-    scope-guard denies a coder every write there."""
+    scope-guard denies a coder every write there. Every `(background b<n>)` mark in plan.md names an ID listed under
+    `## Background research` in scope.md (with no section, every mark is a gap)."""
     rows = criteria(scope_text) or criteria(plan_text)
     if not rows:
         return ['no numbered completion criteria']
@@ -454,6 +479,10 @@ def plan_gaps(scope_text, plan_text, profile, records=None) -> list:
         for n, _text, tag in rows:
             if tag == 'command' and n not in shown:
                 gaps.append(f'criterion {n}: no test to add or check command marked `(criterion {n})` in a work unit that lists it')
+    listed_bg = background_ids(scope_text) or []
+    for b in dict.fromkeys(BACKGROUND_PLAN_MARK.findall(plan_text or '')):
+        if b not in listed_bg:
+            gaps.append(f'background {b}: not a question under ## Background research in scope.md')
     if records is not None:
         gaps += [f"{u['id']}: `{path}` is in the task records folder, which a coder cannot write "
                  '(a `Files to change` path must be in the task location)'

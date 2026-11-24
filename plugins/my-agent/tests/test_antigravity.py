@@ -361,6 +361,10 @@ class AntigravityModelsAndDocsTest(unittest.TestCase):
         for bad in ('fallback', 'workaround'):
             self.assertNotIn(bad, text.lower())
 
+    def test_background_research_on_websearch_row(self):
+        row = next(l for l in HOSTS_AGY.read_text(encoding='utf-8').splitlines() if l.startswith('| `WebSearch`'))
+        self.assertIn('Background research', row)
+
 
 if __name__ == '__main__':
     unittest.main()

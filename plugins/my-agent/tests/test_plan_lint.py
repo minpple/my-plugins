@@ -106,6 +106,30 @@ class PlanLintScriptTest(unittest.TestCase):
         self.assertEqual(r.stdout.splitlines(), ['plan-lint: FAIL criterion 1: no test to add or check command marked '
                                                  '`(criterion 1)` in a work unit that lists it'])
 
+    def lint_with_mark(self, mark, scope_ids):
+        section = ''.join(f'- {b}: A question? — decides a unit\n' for b in scope_ids or [])
+        scope = SCOPE + ('\n## Background research\n' + section if scope_ids is not None else '')
+        (self.task / 'scope.md').write_text(scope, encoding='utf-8')
+        plan = PLAN.replace('- Status: pending', f'- Status: pending\n- Note: split follows the finding (background {mark})')
+        (self.task / 'plan.md').write_text(plan, encoding='utf-8')
+        return self.run_lint('--task', str(self.task))
+
+    def test_background_mark_listed_in_scope(self):
+        r = self.lint_with_mark('b1', ['b1'])
+        self.assertEqual((r.returncode, r.stdout), (0, 'plan-lint: ok\n'), r.stderr)
+
+    def test_background_mark_not_listed_in_scope(self):
+        r = self.lint_with_mark('b3', ['b1', 'b2'])
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout.splitlines(),
+                         ['plan-lint: FAIL background b3: not a question under ## Background research in scope.md'])
+
+    def test_background_mark_without_the_section(self):
+        r = self.lint_with_mark('b1', None)
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout.splitlines(),
+                         ['plan-lint: FAIL background b1: not a question under ## Background research in scope.md'])
+
     def test_missing_plan_and_bad_arguments(self):
         r = self.run_lint('--task', str(self.task))
         self.assertEqual(r.returncode, 1)

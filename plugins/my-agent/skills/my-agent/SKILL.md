@@ -37,7 +37,7 @@ Codex: before the first question or command, read `l1-orchestration/hosts.md` in
 | G3 Final acceptance | Verify ALL PASS, Review BLOCKER 0 | Accept / Rework / Abort (dev profile: Commit / Rework / Abort) |
 | E Escalation | Verify FAIL 3 times in a row, the same work unit stopped twice, a workflow error, a merge conflict exposes a plan error | Give direction / Change scope / Abort |
 
-- Before G1b approval, delegate only to `my-agent:` explorer, scope-reviewer, architect, plan-reviewer, and write nothing outside the task folder. Until `plan.md` has an approval line, the hook `plan-approved-check.py` blocks other delegation in the `.active` session and asks (the G2 dialog) for a write outside the task folder, which the person allows only for their own request. If blocked, do not work around it; go to G1b.
+- Before G1b approval, delegate only to `my-agent:` explorer, scope-reviewer, architect, plan-reviewer, and write nothing outside the task folder. The one other agent is `my-agent:researcher`, only for a `b<n>` question confirmed at G1a (Background research). Until `plan.md` has an approval line, the hook `plan-approved-check.py` blocks other delegation in the `.active` session and asks (the G2 dialog) for a write outside the task folder, which the person allows only for their own request. If blocked, do not work around it; go to G1b.
 - At G2, never recommend "Allow for the session". Allow risky actions one at a time.
 
 ### Delegated approval
@@ -84,7 +84,7 @@ The monitor and the G2 dialog are outside the levels.
 ### Phase files
 
 - At the start of a phase, and after `continue` or compaction, re-read that phase file with Read and follow it. Read the profile file the same way, but only when its text is not in context (the first phase of a session, after compaction).
-  - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/define.md` (① Define: 1 Intake, 2 Explore → Scope)
+  - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/define.md` (① Define: 1 Intake, 2 Explore → Scope → Background research)
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/plan.md` (② Plan: 3 Plan, 4 Plan Review → G1b)
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/build.md` (③ Build: 5 Execute, 6 Merge)
   - `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/accept.md` (④ Accept: 7 Verify, 8 Review → G3)

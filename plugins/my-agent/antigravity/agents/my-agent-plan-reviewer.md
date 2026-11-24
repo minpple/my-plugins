@@ -57,6 +57,7 @@ Run: <n>
 8. **Blueprint:** the plan keeps every `Constraint`, `Non-goal` and `Decision` line under `## Blueprint` in `explore.md`. A work unit that goes against one is a BLOCKER, unless the scope (the criteria, the non-goals or a `Scope change:` line) says that item changes. Without that section, or with `- none`, there is nothing to check.
 9. **Models:** `## Models` exists and its rows match the passed preset lines (a preset is passed with the paths; none means the definition values), and every difference has a one-line reason (the Note and the `Recommendation:` line). A row that differs without a reason is otherwise SHOULD-FIX; a missing section is a BLOCKER.
 10. **After G3:** Flag a criterion only L1 can meet after G3 (the final save path, the blueprint update) as SHOULD-FIX.
+11. **Background:** when `background/*.md` notes exist, a plan that contradicts a note is a BLOCKER. A `(background b<n>)` mark that points at a claim not in the notes is a SHOULD-FIX.
 
 ## Checks per profile
 

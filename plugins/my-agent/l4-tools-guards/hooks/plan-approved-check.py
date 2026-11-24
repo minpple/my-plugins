@@ -9,16 +9,20 @@ whose `session:` differs from the input `session_id` (both set) passes. Only the
 While a task is active and its `plan.md` has no `Approved` line under `## Approval`, deny delegation and ask (the G2
 dialog) for writes, whatever the phase: a write outside the active task folder (a sibling task's folder too), or a
 Bash command whose write target cannot be told, is the person's call, allowed only for their own request. Allowed
-before approval: my-agent:explorer / scope-reviewer / architect / plan-reviewer (and writer once `Prototype: requested` is under
-plan.md's or scope.md's `## Prototype`: the G1a prototype), and writes under the active task folder (`<location>/<task_dir>/<task>/`), to the records
-folder's `.active`, or to the data folder's `active-index.json` / `projects.txt` (and `mkdir -p` of the data folder
-itself). A `.active` without `task:` → pass with a warning (C9). A task folder that is gone → pass with
-a warning. A data-folder write other than those two files is asked like any other outside write. Any error → exit 2,
-so the tool call is blocked (and `onFailure: block` covers a crash or timeout).
+before approval: my-agent:explorer / scope-reviewer / architect / plan-reviewer, and writes under the active task
+folder (`<location>/<task_dir>/<task>/`), to the records folder's `.active`, or to the data folder's
+`active-index.json` / `projects.txt` (and `mkdir -p` of the data folder itself). Two more agents pass on a condition:
+my-agent:writer once `Prototype: requested` is under plan.md's or scope.md's `## Prototype` (the G1a prototype), and
+my-agent:researcher for a Background research question (`background_denied`).
+A `.active` without `task:` → pass with a warning (C9). A task folder that is gone → pass with a warning. A
+data-folder write other than those two files is asked like any other outside write. Any error → exit 2, so the tool
+call is blocked (and `onFailure: block` covers a crash or timeout).
 
 Plan gaps (4.4 "Plan gaps"): an Edit or Write that puts the `Approved` line into the active plan.md is denied while
 `ma_schema.plan_gaps` finds a gap (a criterion without a check tag; in the dev profile a `[check: command]` criterion
-no work unit marks `(criterion <n>)`; a `Files to change` path in the task records folder). A Bash write of that line is not read; L1 writes it with Edit (plan.md item 5).
+no work unit marks `(criterion <n>)`; a `(background b<n>)` mark whose `b<n>` is not under `## Background research`
+in scope.md; a `Files to change` path in the task records folder). A Bash write of that line is not read; L1 writes
+it with Edit (plan.md item 5).
 
 After approval, a write outside the location, the data folder and the result path that plan.md / scope.md
 declare (`- Deliverable location: `…`` or `- Save path: `…``) gets `ask`: auto mode lets such a write through without a
@@ -106,6 +110,27 @@ def approval_gaps(tool: str, ti: dict, plan_md: Path, active) -> list:
     return ma_plan.gaps(active.task_dir, after) if ma_plan.approved_text(after) else []
 
 
+def background_denied(ti: dict, active):
+    """Why a researcher call before approval is denied, or None when it is a Background research call that passes.
+    Tested in this order, the first failure names the message: the profile in intake.md is not research, scope.md
+    is confirmed (a `Confirmed ` line under `## Confirmation`), it has a `## Background research` section, the
+    prompt has a `Background question: b<n>` line, that `b<n>` is listed in the section."""
+    scope_md = active.task_dir / 'scope.md'
+    if ma_schema.profile_of(ma_plan.read(active.task_dir / 'intake.md')) == 'research':
+        return 'The research profile has no background research: a researcher runs only after plan approval.'
+    if not ma_plan.scope_confirmed(scope_md):
+        return 'A researcher before approval needs a confirmed scope: scope.md has no "Confirmed" line under ## Confirmation.'
+    ids = ma_plan.scope_background_ids(scope_md)
+    if ids is None:
+        return 'A researcher before approval runs only for a background question: scope.md has no ## Background research section.'
+    asked = ma_schema.background_of_prompt(ti.get('prompt'))
+    if asked is None:
+        return 'A researcher before approval needs a "Background question: b<n>" line in its prompt.'
+    if asked not in ids:
+        return f'Background question {asked} is not listed under ## Background research in scope.md (listed: {", ".join(ids) or "-"}).'
+    return None
+
+
 def decide(inp: dict, active, tasks_dir: Path):
     """(reason, decision) for a call before approval: decision is 'deny' or 'ask'; (None, None) lets it through."""
     plan_md = active.task_dir / 'plan.md'
@@ -120,6 +145,11 @@ def decide(inp: dict, active, tasks_dir: Path):
         if agent in BEFORE_APPROVAL or (agent == 'my-agent:writer' and (
                 ma_plan.prototype_requested(plan_md) or ma_plan.scope_prototype_requested(active.task_dir / 'scope.md'))):
             return None, None
+        if agent == 'my-agent:researcher':
+            why = background_denied(ti, active)
+            if why is None:
+                return None, None
+            return reason(why)
         return reason(f'Before approval only explorer, scope-reviewer, architect and plan-reviewer get work (requested: {agent or "-"}).')
     if tool == 'Workflow':
         return reason('No workflow runs before approval.')

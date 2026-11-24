@@ -93,6 +93,35 @@ class SubagentLogTest(unittest.TestCase):
         self.hook('call', CALL)   # no unit line: no unit= field
         self.assertNotIn('unit', self.last())
 
+    def test_background_question_unit_on_call_and_stop(self):
+        """Criterion 7: a `Background question: b<n>` first line lands on call: and stop: as unit=b<n>."""
+        prompt = 'Background question: b2 rate-limit\nScope: .my-agent/x/scope.md'
+        self.hook('call', dict(CALL, tool_input=dict(CALL['tool_input'], prompt=prompt)))
+        self.assertEqual(self.last()['unit'], 'b2')
+        tr = self.root / 'bg.jsonl'
+        first = json.dumps({'type': 'user', 'timestamp': '2026-10-25T00:00:00.000Z',
+                            'message': {'role': 'user', 'content': prompt}})
+        tr.write_text(first + '\n' + FIXTURE.read_text(encoding='utf-8').split('\n', 1)[1], encoding='utf-8')
+        self.start('ag1')
+        self.stop('ag1', transcript=tr)
+        f = self.last()
+        self.assertEqual((f['unit'], f['end']), ('b2', 'ok'))
+        # a researcher that ends at maxTurns gets no SubagentStop: the sweep (run by the next start) closes it
+        claude = self.root / 'claude'
+        sub = claude / '-proj' / 's-main' / 'subagents'
+        sub.mkdir(parents=True)
+        (sub / 'agent-bg9.meta.json').write_text(json.dumps({'agentType': 'my-agent:researcher', 'finished': True}))
+        last = json.dumps({'type': 'assistant', 'timestamp': '2026-10-25T00:00:20Z', 'effort': 'low',
+                           'message': {'id': 'm1', 'model': 'claude-haiku-5-5', 'stop_reason': 'tool_use',
+                                       'content': [{'type': 'tool_use', 'name': 'WebSearch'}],
+                                       'usage': {'input_tokens': 2, 'output_tokens': 10}}})
+        (sub / 'agent-bg9.jsonl').write_text(first + '\n' + last + '\n', encoding='utf-8')
+        with (self.task / 'run-log.md').open('a', encoding='utf-8') as fh:
+            fh.write('2026-10-25 09:00:01 start: agent=my-agent:researcher id=bg9 configured=haiku effort=low\n')
+        self.start('ag2', env={'MA_CLAUDE_PROJECTS': str(claude)})
+        stops = [parse(l) for l in log_lines(self.task) if ' stop: ' in l and 'id=bg9' in l]
+        self.assertEqual([(f['unit'], f['end']) for f in stops], [('b2', 'partial')])
+
     def test_call_ignored_for_others(self):
         self.hook('call', dict(CALL, tool_input={'subagent_type': 'Explore', 'prompt': 'x'}))
         self.assertEqual(log_lines(self.task), [])

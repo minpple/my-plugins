@@ -1,4 +1,4 @@
-# ① Define: 1 Intake · 2 Explore → Scope
+# ① Define: 1 Intake · 2 Explore → Scope → Background research
 
 Step 1 Intake is the "Intake" procedure in new-task.md. This file starts at step 2. For differences per profile, follow the profile file.
 
@@ -21,12 +21,14 @@ Step 1 Intake is the "Intake" procedure in new-task.md. This file starts at step
      - `cannot run:` with nested project lines of which some run → `Run only the projects that run here (Recommended)` / `I fix the environment first` / `Judge without this command`. The first is written as `replaced by <the command limited to those projects, each one named>`.
      - `fail:` → `Failures from before this task do not count (Recommended)` / `Fix them in this task` (then a completion criterion).
      - Write each answer except a fix that worked as one line under `## Environment` in `scope.md` (small task: in the summary's constraints): `- Environment: <command> — not run here (<reason>) | replaced by <command> | fails before the task (<tests>)`. The verifier follows these lines.
+   - **Background questions:** at the end of the interview L1 writes questions for the web only when all three hold: (1) the answer changes a plan choice (work unit split, library, file layout); (2) the project cannot answer it (location, blueprint, reference files; `explore.md` `## Unverified` is the clue); (3) it is not the content of the deliverable (that stays with researcher units after G1b). Write at most 4. With more candidates, keep the 4 that change the plan most; pass the rest to the architect in the step 3 call as candidates that were not researched, and it writes each as `To confirm`. None in the research profile, for a small task, or on a host without web tools (profile file, `hosts.md`). The questions get no popup of their own: the person confirms them with the scope at G1a (`Revise` removes or edits one). Under delegated approval L1 answers G1a as it does today, which confirms them.
    - **G1a prototype:** L1 adds `## Prototype` with the line `Prototype: requested` to `scope.md` with Edit (the plan-approved check then allows `my-agent:writer` to write the prototype). It hands `<task_dir>/<task-id>/prototype/index.html` to `my-agent:writer` with `scope.md` and the `mock-up` skill files (`${CLAUDE_PLUGIN_ROOT}/skills/mock-up/SKILL.md`, `templates/canvas.html` and the matching `references/*.md`, as plan.md "G1b plan approval" item 2 lists them). L1 captures, checks and opens it as that item describes (`capture.sh`, `index.png`, `open-html.py`, the local path in the `Prototype` row), then shows G1a. The G1a popup keeps its three choices.
 4. **Confirm the scope:**
    - Write `scope.md` (`## Completion criteria` as a numbered list `1.`, `2.`; every criterion ends with one check tag: `[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`), do "Scope Review" below, and record before and after the popup.
+     - Background questions go in a `## Background research` section: one line each, `- b<n>: <question> — <what it decides in the plan>`. IDs are `b1`–`b4`, each used once, and every question has its own slug (kebab-case, for the note file name). With no questions there is no `## Background research` section (never an empty section or `none`).
      - Write no criterion only L1 can meet after G3 (the final save path, the blueprint update); name that work in the scope as done by L1 after G3.
      - Order: the Korean copy (gates.md "Gate reports"; Korean requests only), the `ask` line, the Report tab, the chat report, the popup, the `answer` line.
-     - Chat report (shown at that point; gates.md "Gate reports"): `### Overview`, `### Takeaway` (the scope summary: purpose, criteria count and non-goals; the findings applied after Scope Review, as at G1b), the overview table (with the `Prototype` row when a prototype exists) the findings table (gates.md "Gate reports") and the pointer line; no Details section. The popup follows gates.md's popup text.
+     - Chat report (shown at that point; gates.md "Gate reports"): `### Overview`, `### Takeaway` (the scope summary: purpose, criteria count and non-goals; the findings applied after Scope Review, as at G1b; with questions, the line `Background research: <n> questions`), the overview table (with the `Prototype` row when a prototype exists, and the `Background research` row with the questions) the findings table (gates.md "Gate reports") and the pointer line; no Details section. The popup follows gates.md's popup text.
      - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" ask gate=G1a q="Scope confirmation: <task-id>" rec="Confirm" --data-dir "<data folder>" --task-dir "<task_dir>"`
      - Open the Report tab: `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" --report "<absolute task folder>" --pointer --data-dir "<data folder>"` (gates.md "Gate reports"). Then show the chat report, ending with the pointer line it printed.
      - `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" answer gate=G1a choice="<Confirm/Revise/Abort>" --data-dir "<data folder>" --task-dir "<task_dir>"`
@@ -39,7 +41,16 @@ Step 1 Intake is the "Intake" procedure in new-task.md. This file starts at step
      - Write the answer into that criterion's text, before its tag.
      - On `I check it after G3`, right after the G1b approval add the `Scope change: criterion <n> is checked by the user later` line (changes.md "Adjust within approved scope").
      - There is no "decide at G3" choice. A person who later finds they cannot check before G3 uses changes.md "Adjust within approved scope" (`Scope change: criterion <n> is checked by the user later`); the verifier cites that line as the evidence, and the G3 report lists such criteria.
-5. Change `phase:` in `.active` to `2` and read `plan.md` (the phase file).
+5. If `scope.md` has a `## Background research` section, do "2b. Background research" below. Then change `phase:` in `.active` to `2` and read `plan.md` (the phase file).
+
+## 2b. Background research
+
+Right after G1a `Confirm`, before `phase:` changes to `2`. Only for the `b<n>` questions the person confirmed with the scope.
+
+1. Record: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" step n=2 name=Background-research --model <main session model ID> --data-dir "<data folder>" --task-dir "<task_dir>"`
+2. Call one `my-agent:researcher` per question, all in one message. Prompt: first line `Background question: b<n> <slug>`, then the `scope.md` path, the question, the source criteria (the scope's, or else "official docs and primary sources") and the result path: the note `<slug>.md` in the `background` folder of the task folder, `<task_dir>/<task-id>/background/<slug>.md`.
+3. Run the form check on each note (as research.md 6 Merge): the file exists and every item is `- <claim> · <source URL> · "<quote>"` or `- Not found: …`. A `DONE` whose note is missing or fails the form check counts as a worker that stopped once: say so in one line and follow recorder.md "Failure handling". A researcher that stops follows the same section.
+4. If a note contradicts the scope (a fact against a criterion or a constraint, e.g. a required API is gone), the plan does not start; the note reopens G1a with `Revise`, as changes.md "Profile change at the first gate" does, naming the note and the scope line.
 
 ## Scope Review
 

@@ -55,6 +55,7 @@ Run: <n>
 7. **Blueprint:** the scope keeps every `Constraint`, `Non-goal` and `Decision` line under `## Blueprint` in `explore.md`. A criterion against one is a BLOCKER, unless the scope says that item changes (a criterion or a non-goal naming it). Without that section, or with `- none`, there is nothing to check.
 8. **Required sections:** `## Purpose and users` (a `Background:` paragraph, a `Purpose:` paragraph, then the users line), a numbered `## Completion criteria` (`1.`, `2.`) and an empty `## Confirmation`. If one is missing, BLOCKER.
 9. **After G3:** Flag a criterion only L1 can meet after G3 (the final save path, the blueprint update) as SHOULD-FIX.
+10. **Background research:** (only when `scope.md` has a `## Background research` section) each question meets all three conditions: it changes the plan, the project cannot answer it, and it is not deliverable content; a question that fails one is a SHOULD-FIX. More than 4 questions, a repeated ID, an ID outside `b1`–`b4` or a repeated slug is a BLOCKER: these are fixed before G1a, and the hook and the plan lint parse the IDs.
 
 ## Checks per profile
 
@@ -67,6 +68,7 @@ Run: <n>
 
 - **Four items:** `scope.md` settles **Questions** (what to find out and why), **Scope** (what to cover, non-goals, period·region), **Source criteria** and **Deliverable format**. A missing item is a BLOCKER.
 - **Save path:** the deliverable format has one line ``- Save path: `<path>` `` with an absolute path (as in General). Missing or relative is a BLOCKER.
+- **No Background research:** a `## Background research` section in the scope is a BLOCKER (this profile has none; sub-questions that depend on a web fact are `To confirm` items of the plan).
 - **Answerable questions:** each question can be answered from sources the source criteria allow. A question no allowed source could answer is a SHOULD-FIX.
 
 ### Dev (dev)

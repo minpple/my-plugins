@@ -54,6 +54,7 @@ ARTIFACTS = [
     ('scope.md', ['2'], 'L1', [('l1-orchestration/phases/define.md', 'item', ('2. Explore → Scope', '4.'))]),
     ('scope-review.md', ['2'], 'my-agent:scope-reviewer',
      [('l2-design-judge/agents/scope-reviewer.md', 'h', '`scope-review.md` format')]),
+    ('background/', ['2'], 'my-agent:researcher', [('l3-workers/agents/researcher.md', 'h', 'Note format')]),
     ('plan.md', ['3', 'G1b'], 'my-agent:architect · L1 (Approval, Prototype, Revisions lines)',
      [('l2-design-judge/agents/architect.md', 'h', '`plan.md` sections')]),
     ('plan-review.md', ['4'], 'my-agent:plan-reviewer',
@@ -77,7 +78,8 @@ ARTIFACTS = [
 # The L1 procedure for each step, as the phase files write it.
 STEP_RULES = {
     '1': [(NEW_TASK, 'Intake (step 1, Router)')],
-    '2': [('l1-orchestration/phases/define.md', '2. Explore → Scope'), ('l1-orchestration/phases/define.md', 'Scope Review')],
+    '2': [('l1-orchestration/phases/define.md', '2. Explore → Scope'), ('l1-orchestration/phases/define.md', '2b. Background research'),
+          ('l1-orchestration/phases/define.md', 'Scope Review')],
     '3': [('l1-orchestration/phases/plan.md', '3. Plan')],
     '4': [('l1-orchestration/phases/plan.md', '4. Plan Review'), ('l1-orchestration/phases/plan.md', 'G1b plan approval'),
           ('l1-orchestration/phases/plan.md', 'Rewrite before approval')],

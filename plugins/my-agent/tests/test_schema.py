@@ -98,6 +98,22 @@ class SchemaTest(unittest.TestCase):
                          [('u1', 'a', 'done'), ('u12', 'b', None)])
         self.assertEqual(ma_schema.unit_of_prompt('Work unit: u3 cli\n…'), 'u3')
         self.assertIsNone(ma_schema.unit_of_prompt('see Work unit: u3'))
+        self.assertEqual(ma_schema.unit_of_prompt('Background question: b3 slug\nScope: x'), 'b3')
+        self.assertIsNone(ma_schema.unit_of_prompt('Scope: x\nplain prompt'))
+
+    def test_background_research_parsers(self):
+        self.assertEqual(ma_schema.background_of_prompt('Background question: b2 api-y-rate-limit\nScope: x'), 'b2')
+        self.assertIsNone(ma_schema.background_of_prompt('see Background question: b2'))
+        self.assertIsNone(ma_schema.background_of_prompt('Work unit: u1'))
+        self.assertIsNone(ma_schema.background_of_prompt(None))
+        scope = '# S\n## Background research\n- b1: Q one? — decides a\n- b3: Q three? — decides c\n## Confirmation\nConfirmed 2026-11-24 10:00\n'
+        self.assertEqual(ma_schema.background_ids(scope), ['b1', 'b3'])
+        self.assertIsNone(ma_schema.background_ids('# S\n## Non-goals\n- b1: x\n'))
+        self.assertEqual(ma_schema.background_ids('## Background research\n\n## Next\n'), [])
+        self.assertTrue(ma_schema.scope_confirmed(scope))
+        self.assertFalse(ma_schema.scope_confirmed('## Confirmation\n\n## Next\n'))
+        self.assertFalse(ma_schema.scope_confirmed('Confirmed 2026-11-24 10:00\n## Confirmation\n'))
+        self.assertFalse(ma_schema.scope_confirmed(''))
 
 
 class ReportParsersTest(unittest.TestCase):

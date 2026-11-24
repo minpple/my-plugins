@@ -167,11 +167,36 @@ class ArchDocTest(unittest.TestCase):
     def test_decision_log_has_q39_and_q40_once_after_q38(self):
         rows = re.findall(r'^\| (Q\d+) \|', self.text, re.M)
         self.assertEqual(len(rows), len(set(rows)), rows)
-        self.assertEqual(rows[-5:], ['Q40', 'Q41', 'Q42', 'Q43', 'Q44'])
+        self.assertEqual(rows[-5:], ['Q41', 'Q42', 'Q43', 'Q44', 'Q45'])
         q39 = next(l for l in self.text.splitlines() if l.startswith('| Q39 |'))
         q40 = next(l for l in self.text.splitlines() if l.startswith('| Q40 |'))
         self.assertIn('capped at 3 rounds', q39)
         self.assertIn('`"autostart": true`', q40)
+
+    def test_background_research_is_decision_q45(self):
+        lines = self.text.splitlines()
+        q45 = next(l for l in lines if l.startswith('| Q45 |'))
+        self.assertIn('Background research', q45)
+        q6 = next(l for l in lines if l.startswith('| Q6 |'))
+        self.assertIn('researcher for confirmed `b<n>` since Q45', q6)
+        step = self.bullet('### 4.3 ', '### 4.4 ', '- **Background research before the plan (2026-11-24, Q45):**')
+        self.assert_words(step, ('`## Background research`', '`Background question: b<n> <slug>`',
+                                 '`(background b<n>)`', 'reopens G1a with `Revise`', 'none on Codex'))
+        self.assertIn('step n=2 name=Background-research', self.section('### 4.3 ', '### 4.4 '))
+        gate = self.section('**G1b hard gate**', '- **Block when the hook fails:**')
+        self.assert_words(gate, ('profile is not research', 'scope is confirmed',
+                                 '`## Background research` section', '`Background question: b<n>`'))
+        self.assertIn('(background b<n>)', self.section('**Plan gaps', '### 4.5 '))
+        self.assertIn('unit=b<n>', self.section('### 4.7.2 ', '### 4.7.3 '))
+        tree = self.section('### 4.7 ', '### 4.7.1 ')
+        self.assertIn('background/', tree)
+        self.assertIn('<slug>.md', tree)
+
+    def test_no_line_says_web_research_waits_for_approval_without_the_exception(self):
+        after = re.compile(r'(web research|researcher)[^.\n]*only after (the )?(plan is approved|plan approval|G1b)', re.I)
+        for line in self.text.splitlines():
+            if after.search(line):
+                self.assertIn('Background research', line, line)
 
     def test_report_tab_names_return_marks(self):
         self.assertIn('timeline.backs[].row', self.text)
@@ -180,7 +205,8 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.74 (2026-11-23, plugin 0.27.0:'), line[:90])
+        self.assertTrue(line.startswith('- Status: design draft v0.75 (2026-11-24, plugin 0.28.0: Background research (Q45)'), line[:110])
+        self.assertIn('v0.74 (2026-11-23, plugin 0.27.0:', line)
         self.assertIn('v0.72 (2026-11-23, plugin 0.25.2:', line)
         self.assertIn('v0.70 (2026-11-22, plugin 0.25.0:', line)
         self.assertIn('v0.69 (2026-11-22, plugin 0.24.0:', line)
