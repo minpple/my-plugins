@@ -251,6 +251,24 @@ class ReportTest(unittest.TestCase):
             self.assertEqual(opens, [f'{s} {w} {b}'.rstrip() for s, w, b, _m in items] or ['none'], name)
             self.assertEqual(sum(totals[s]['open'] for s in ma_schema.SEVERITIES), len(items) if items else 0, name)
 
+    def test_criterion_tag_shows_as_marker(self):
+        """The Report tab and the G3 gate show ` · criterion <n>` and no raw tag; findings.py prints the same open items."""
+        from monitor import report
+        tmp, task, info = temp_copy(G3, 'running')
+        with tmp:
+            (task / 'review.md').write_text(
+                'BLOCKER 0\n\n## Findings\n- SHOULD-FIX src/cli.py:30 no unit → add one [criterion 2, 5]\n'
+                '- SHOULD-FIX src/util.py:8 two helpers [criterion none]\n- NITPICK src/app.py:70 long line (new)\n', encoding='utf-8')
+            built = report.build_report(PROJECT, task, info, [])
+            _counts, opens = self.findings(task, 'review')
+        texts = [f['text'] for f in built['review']['findings']]
+        self.assertEqual(texts, ['no unit → add one · criterion 2, 5', 'two helpers', 'long line'])
+        self.assertEqual(built['review']['findings'][2]['mark'], 'new')
+        open_items = built['gate']['review']['open']
+        self.assertEqual([i['text'] for i in open_items], texts)
+        self.assertFalse(any('[criterion' in i['text'] for i in open_items))
+        self.assertEqual(opens, [f"{i['sev']} {i['where']} {i['text']}" for i in open_items])
+
     def test_findings_command_equals_plan_review_entry(self):
         from monitor import report
         tmp, task, info = temp_copy(ROUNDS, 'done')

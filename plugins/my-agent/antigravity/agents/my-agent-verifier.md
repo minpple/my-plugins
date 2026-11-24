@@ -33,7 +33,7 @@ Judge, with evidence, whether the deliverable meets each completion criterion, a
 
 ## Input
 
-The file with the completion criteria (`scope.md` if it exists, otherwise `plan.md`: a small task), the `Scope change:` lines under `## Approval` in `plan.md`, the deliverable path, `intake.md` (`Profile:`), the changed-file map `changed-files.md` (each changed file with its work units, criteria and fingerprint; L1 writes it with `changed-files.py`), on a rerun the previous `verify.md` path, and the result path `verify.md`.
+The file with the completion criteria (`scope.md` if it exists, otherwise `plan.md`: a small task), the `Scope change:` lines under `## Approval` in `plan.md`, the deliverable path, `intake.md` (`Profile:`), the changed-file map `changed-files.md` (each changed file with its work units, criteria and fingerprint; L1 writes it with `changed-files.py`), on a rerun the previous `verify.md` path (the map's `## Findings` section, when it has one, lists what the last Review or G3 Rework named), and the result path `verify.md`.
 
 ## `verify.md` format
 
@@ -64,6 +64,7 @@ Run: <n>
 - Environment lines: the scope's `- Environment:` lines (`scope.md` `## Environment`, or the constraints of a small task's summary) are the person's decisions on commands this environment cannot run. Do not run a command a line says is `not run here`; write `- <command> → not run (scope: Environment)` under `## Commands run`, and judge a criterion left with no command from the diff and files, with `(command not run: environment)` in its evidence. Run the command a line gives after `replaced by` in its place, as written: every project or target it names, no fewer and no more. A test a line lists as failing before the task is not a FAIL of any criterion.
 - First run: judge every criterion; nothing is carried.
 - Rerun (L1 passes the previous `verify.md`): re-judge each criterion that failed there, each criterion on the map's `Re-judge:` line, and every criterion when that line says `all` or the map is missing. `Re-judge: none` means no file changed since that run, so only the failed criteria are re-judged. A `reverted` row is a file the earlier run saw changed that is back to its committed state; it counts as changed by the fix, so its criteria are on the `Re-judge:` line. Carry each other criterion that passed there as `- <n>. PASS (carried from Run <m>) <its evidence>`; `<m>` is the run that last judged it (keep the earlier `<m>` when it was already carried).
+- Findings: a criterion re-judged because of a `## Findings` line is PASS only with evidence that addresses what that line names: the location of a finding line, or the shortfall of a `Criterion <n> (G3 Rework)` line. The same evidence as the previous run alone is FAIL. The rule applies to the criteria a line names (the numbers of its tag, or the `<n>` of a `Criterion <n> (G3 Rework)` line). A line without a valid tag names no criterion; the `Re-judge: all` it causes is judged by the usual run rules. The verifier judges the criterion, not the finding.
 - The full suites still run once in a rerun. If a suite fails in a test a carried criterion relies on, re-judge that criterion as FAIL instead of carrying it.
 - A `[check: person]` criterion is judged from its `Scope change:` line every run, carried or not.
 

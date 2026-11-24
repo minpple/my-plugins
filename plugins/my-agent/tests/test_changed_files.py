@@ -1,4 +1,5 @@
 """changed-files.py: the changed-file map L1 hands to the verifier and the reviewer (accept.md step 7)."""
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -57,6 +58,8 @@ class ChangedFilesTest(unittest.TestCase):
         (self.task / 'intake.md').write_text(f'Status: active\nLocation: {self.root}\nProfile: dev\nTask: {TASK}\n',
                                              encoding='utf-8')
         (self.task / 'plan.md').write_text(PLAN, encoding='utf-8')
+        (self.task / 'scope.md').write_text(
+            '# Scope\n\n## Completion criteria\n1. one\n2. two\n3. three\n4. four\n5. five\n', encoding='utf-8')
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -304,6 +307,171 @@ class ChangedFilesTest(unittest.TestCase):
     def test_parser_tolerates_missing_text(self):
         self.assertEqual(ma_schema.changed_files_rows(None), ([], None))
         self.assertEqual(ma_schema.changed_files_rows(''), ([], None))
+
+    # --- findings merged into Re-judge and the `## Findings` section ---
+
+    B4 = '- BLOCKER web/view.html:4 broken → fix [criterion 4]'
+    S5 = '- SHOULD-FIX src/cli.py:30 exit code → return 2 [criterion 5]'
+    SN = '- SHOULD-FIX src/util.py:8 two helpers → keep one [criterion none]'
+
+    def rerun(self, lines, *extra, first='BLOCKER 1', verify='Verdict: PASS\nRun: 1\n', review=True, changed='web/view.html'):
+        """First run, archive it with a review.md of `lines` (and verify.md), change `changed`, run with --previous."""
+        shutil.rmtree(self.task / 'archive', ignore_errors=True)   # a test may rerun several cases
+        git(self.root, 'checkout', '--', '.')
+        arch = self.first_then_archive()
+        (arch / 'verify.md').write_text(verify, encoding='utf-8')
+        if changed:
+            self.write(changed, '<p>again</p>\n')
+        args = ['--previous', str(arch / ma_schema.CHANGED_FILES)]
+        if review:
+            (arch / 'review.md').write_text(f'{first}\n\n## Findings\n' + '\n'.join(lines) + '\n', encoding='utf-8')
+            args += ['--review', str(arch / 'review.md')]
+        self.arch = arch
+        return self.run_cf(*args, *extra)
+
+    def findings(self):
+        text = (self.task / ma_schema.CHANGED_FILES).read_text(encoding='utf-8')
+        return text, (text.split('## Findings\n', 1)[1].splitlines() if '## Findings' in text else None)
+
+    def test_review_blocker_rerun_adds_its_criterion(self):
+        res = self.rerun([self.B4, self.S5])
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1, 1 criterion from findings')
+        text, found = self.findings()
+        self.assertEqual(self.table()[2], '3, 4')
+        self.assertEqual(found, [self.B4])   # the SHOULD-FIX is not picked: nothing added, not copied
+        self.assertEqual(ma_schema.changed_files_rows(text)[1], '3, 4')
+
+    def test_applied_after_review_does_not_remove_a_blocker(self):
+        arch_lines = [self.B4, '', '## Applied after review', '- web/view.html:4 fixed before this review']
+        res = self.rerun(arch_lines)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '3, 4')
+        self.assertEqual(self.findings()[1], [self.B4])
+
+    def test_blocker_zero_counts_lines_not_the_first_line(self):
+        res = self.rerun([], '--rework-criterion', '2: x', first='BLOCKER 0')
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '2, 3')
+        self.assertEqual(self.findings()[1], ['- Criterion 2 (G3 Rework): x'])
+        res = self.rerun([], first='BLOCKER 0')   # nothing to add
+        self.assertEqual(self.table()[2], '3')
+        self.assertIsNone(self.findings()[1])
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
+        self.rerun(['- BLOCKER web/view.html:4 stray → fix [criterion 3]'], '--rework-criterion', '2: x', first='BLOCKER 0')
+        self.assertEqual(self.table()[2], '2, 3')
+
+    def test_g3_rework_criterion_and_picked_should_fix(self):
+        res = self.rerun([self.S5, self.SN], '--rework-criterion', '2: the message names no path',
+                         '--rework-finding', 'src/cli.py:30', first='BLOCKER 0')
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '2, 3, 5')
+        self.assertEqual(self.findings()[1], [self.S5, '- Criterion 2 (G3 Rework): the message names no path'])
+        self.assertTrue(res.stdout.strip().endswith(', 2 criteria from findings'))
+
+    def test_rework_inputs_alone(self):
+        self.rerun([self.S5], '--rework-finding', 'src/cli.py:30', first='BLOCKER 0')
+        self.assertEqual((self.table()[2], self.findings()[1]), ('3, 5', [self.S5]))
+        self.rerun([self.S5], '--rework-criterion', '4: short', first='BLOCKER 0')
+        self.assertEqual((self.table()[2], self.findings()[1]), ('3, 4', ['- Criterion 4 (G3 Rework): short']))
+
+    def test_criterion_none_adds_nothing(self):
+        res = self.rerun(['- BLOCKER a.py:1 reuse parse() [criterion none]', self.SN], '--rework-finding', 'src/util.py:8')
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '3')
+        self.assertIsNone(self.findings()[1])
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
+
+    def test_missing_or_invalid_tag_gives_all_and_is_copied(self):
+        for tagged in ('- BLOCKER web/view.html:4 off by one → use <=',
+                       '- BLOCKER web/view.html:4 x → y [criterion 9]', '- BLOCKER web/view.html:4 x → y [criterion 0]',
+                       '- BLOCKER web/view.html:4 x → y [criterion x]', '- BLOCKER web/view.html:4 x → y [criterion 2, none]'):
+            res = self.rerun([tagged])
+            self.assertEqual(self.table()[2], 'all', tagged)
+            self.assertEqual(self.findings()[1], [tagged])
+            self.assertTrue(res.stdout.strip().endswith(', 1 finding without a valid criterion tag (Re-judge: all)'), res.stdout)
+        res = self.rerun(['- SHOULD-FIX src/cli.py:30 x → y'], '--rework-finding', 'src/cli.py:30')
+        self.assertEqual(self.table()[2], 'all')
+        self.assertEqual(self.findings()[1], ['- SHOULD-FIX src/cli.py:30 x → y'])
+
+    def test_several_numbers_count_once(self):
+        res = self.rerun(['- BLOCKER a.py:1 x [criterion 2, 5]', '- BLOCKER b.py:2 y [criterion 5, 5]'])
+        self.assertEqual(self.table()[2], '2, 3, 5')
+        self.assertEqual(len(self.findings()[1]), 2)
+        self.assertTrue(res.stdout.strip().endswith(', 2 criteria from findings'))
+
+    def test_already_all_and_changed_none(self):
+        res = self.rerun([self.B4], changed='README.md')
+        self.assertEqual(self.table()[2], 'all')
+        self.assertEqual(self.findings()[1], [self.B4])
+        self.assertTrue(res.stdout.strip().endswith(', 1 criterion from findings'))
+        self.rerun(['- BLOCKER a.py:1 x [criterion 3]'], changed=None)
+        self.assertEqual(self.table()[2], '3')
+
+    def test_a_review_next_to_a_failed_verify_is_not_read(self):
+        res = self.rerun([self.B4], verify='Verdict: FAIL\nRun: 1\n- 3. FAIL x\n')
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '3')
+        self.assertIsNone(self.findings()[1])
+        self.assertTrue(res.stdout.strip().endswith(', review not read (Verify FAIL in that run)'), res.stdout)
+
+    def test_unreadable_sibling_verify_exits_2(self):
+        arch = self.first_then_archive()
+        (arch / 'review.md').write_text(f'BLOCKER 0\n\n## Findings\n{self.B4}\n', encoding='utf-8')
+        (arch / 'verify.md').write_bytes(b'\xff\xfe\x00Verdict: FAIL\n')
+        (self.task / ma_schema.CHANGED_FILES).write_text('old\n', encoding='utf-8')
+        res = self.run_cf('--previous', str(arch / ma_schema.CHANGED_FILES), '--review', str(arch / 'review.md'))
+        self.assertEqual(res.returncode, 2, res.stderr)
+        self.assertTrue(res.stdout.startswith('changed-files: cannot read'), res.stdout)
+        self.assertNotIn('Traceback', res.stderr)
+        self.assertEqual((self.task / ma_schema.CHANGED_FILES).read_text(encoding='utf-8'), 'old\n')
+
+    def test_no_review_no_section(self):
+        self.rerun([], review=False)
+        self.assertEqual((self.table()[2], self.findings()[1]), ('3', None))
+        self.rerun(['- NITPICK a.py:1 long (new)'])   # a review without BLOCKER lines
+        self.assertIsNone(self.findings()[1])
+        (self.task / 'plan.md').write_text(PLAN, encoding='utf-8')
+        self.write('web/view.html', '<p>q</p>\n')
+        res = self.run_cf()   # first run
+        self.assertEqual((self.table()[2], self.findings()[1]), ('all', None))
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+
+    def test_review_without_findings_section(self):
+        arch = self.first_then_archive()
+        (arch / 'review.md').write_text('BLOCKER 0\n', encoding='utf-8')
+        self.write('web/view.html', '<p>n</p>\n')
+        res = self.run_cf('--previous', str(arch / ma_schema.CHANGED_FILES), '--review', str(arch / 'review.md'))
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual((self.table()[2], self.findings()[1]), ('3', None))
+
+    def test_errors_exit_2_and_write_nothing(self):
+        arch = self.first_then_archive()
+        (self.task / ma_schema.CHANGED_FILES).write_text('old\n', encoding='utf-8')
+        (arch / 'review.md').write_text(f'BLOCKER 0\n\n## Findings\n{self.S5}\n', encoding='utf-8')
+        prev, rev = str(arch / ma_schema.CHANGED_FILES), str(arch / 'review.md')
+        cases = (('--review', str(arch / 'nope.md')),
+                 ('--previous', prev, '--review', rev, '--rework-criterion', '9: x'),
+                 ('--previous', prev, '--review', rev, '--rework-criterion', '2'),
+                 ('--previous', prev, '--rework-finding', 'src/cli.py:30'),
+                 ('--previous', prev, '--review', rev, '--rework-finding', 'src/cli.py:31'))
+        for extra in cases:
+            res = self.run_cf(*extra)
+            self.assertEqual(res.returncode, 2, extra)
+            self.assertTrue(res.stdout.startswith('changed-files: '), res.stdout)
+            self.assertEqual((self.task / ma_schema.CHANGED_FILES).read_text(encoding='utf-8'), 'old\n', extra)
+        self.assertIn(str(arch / 'nope.md'), self.run_cf('--review', str(arch / 'nope.md')).stdout)
+        self.assertIn('9', self.run_cf('--previous', prev, '--rework-criterion', '9: x').stdout)
+
+    def test_previous_findings_section_is_read_as_before_and_not_carried(self):
+        arch = self.first_then_archive()
+        text = (arch / ma_schema.CHANGED_FILES).read_text(encoding='utf-8')
+        (arch / ma_schema.CHANGED_FILES).write_text(text + f'\n## Findings\n{self.B4}\n', encoding='utf-8')
+        self.write('web/view.html', '<p>w</p>\n')
+        res = self.run_cf('--previous', str(arch / ma_schema.CHANGED_FILES))
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '3')
+        self.assertIsNone(self.findings()[1])
 
 
 if __name__ == '__main__':

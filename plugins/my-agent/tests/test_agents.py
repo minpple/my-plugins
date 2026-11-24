@@ -302,6 +302,40 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('(carried)', r)
         self.assertIn('the previous `review.md` path', r)
 
+    def test_reviewer_criterion_tag(self):
+        """Every BLOCKER and SHOULD-FIX line ends with a criterion tag; NITPICK lines carry none."""
+        r = self._agent('reviewer')
+        self.assertIn('- BLOCKER <path>:<line> <problem> → <how to fix> [criterion <n>]', r)
+        self.assertIn('- SHOULD-FIX <path>:<line> <problem> → <how to fix> [criterion <n>]', r)
+        self.assertIn('`[criterion 2, 5]`', r)
+        self.assertIn('`[criterion none]`', r)
+        self.assertIn('Every BLOCKER and SHOULD-FIX line ends with', r)
+        self.assertIn('NITPICK lines carry no tag and end with `(new)` or `(carried)`', r)
+
+    def test_reviewer_rechecks_previous_findings(self):
+        """The reviewer re-checks earlier BLOCKER and SHOULD-FIX findings; none-tagged ones reach no verifier."""
+        r = self._agent('reviewer')
+        v = self._agent('verifier')
+        self.assertIn('checks each of its BLOCKER and SHOULD-FIX findings again', r)
+        self.assertIn('lists one that is still present again', r)
+        self.assertIn('no verifier re-judges', r)
+        self.assertNotIn('review.md', v.split('## Input')[1].split('## `verify.md` format')[0])
+        self.assertNotIn('[criterion none]', v)
+
+    def test_verifier_findings_evidence_rule(self):
+        """A criterion re-judged because of a Findings line needs evidence that addresses the line."""
+        v = self._agent('verifier')
+        scope = v.split('## Scope of each run')[1].split('## Checks per profile')[0]
+        self.assertIn('`## Findings` section', v.split('## `verify.md` format')[0])
+        self.assertIn('re-judged because of a `## Findings` line is PASS only with evidence that addresses what that line names', scope)
+        self.assertIn('the location of a finding line', scope)
+        self.assertIn('the shortfall of a `Criterion <n> (G3 Rework)` line', scope)
+        self.assertIn('The same evidence as the previous run alone is FAIL', scope)
+        self.assertIn('applies to the criteria a line names', scope)
+        self.assertIn('A line without a valid tag names no criterion', scope)
+        self.assertIn('judges the criterion, not the finding', scope)
+        self.assertIn('The full suites still run once in a rerun', scope)
+
     def test_verifier_run_scope(self):
         """The verifier reads the changed-file map, runs each command once and carries untouched PASS lines."""
         v = self._agent('verifier')

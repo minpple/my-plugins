@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Changed-file map for Verify and Review (accept.md step 7): each changed file with its work units, criteria and fingerprint.
 
-usage: changed-files.py --task TASK_FOLDER [--previous EARLIER_CHANGED_FILES_MD]
+usage: changed-files.py --task TASK_FOLDER [--previous EARLIER_CHANGED_FILES_MD] [--review ARCHIVED_REVIEW_MD]
+                        [--rework-criterion "<n>: <shortfall>"]... [--rework-finding "<path>:<line>"]...
 
-Writes <task folder>/changed-files.md and prints one line `changed-files: <N> files, <M> unmapped[, <K> changed since Run <r>]`.
+Writes <task folder>/changed-files.md and prints one line
+`changed-files: <N> files, <M> unmapped[, <K> changed since Run <r>][, <F> criteria from findings][, <k> finding(s) without a valid criterion tag (Re-judge: all)][, review not read (Verify FAIL in that run)]`.
 Files: in the dev profile with a git task location, `git diff --name-only HEAD` plus the untracked files, without the
 task records folder; otherwise the files under <task folder>/work/ and deliverable/, plus each file a unit lists under
 `Files to change` that exists in the task location (code a coder changed in place where git cannot list it).
@@ -15,7 +17,13 @@ re-judged when that file's own criteria are listed (or `all`).
 With --previous, `Since previous` is `changed` or `same`, a file of the previous map that is no longer changed is a
 `reverted` row (once: a row already `reverted` there is left out, so later maps do not keep it), and `Re-judge:` is the union of the criteria of the changed rows (`all` when one of them is unmapped or
 shared, `none` when nothing changed). Without it, `Re-judge: all`.
-exit: 0 written, 1 intake.md or plan.md missing (or the map could not be written), 2 bad arguments or --previous names no file.
+Findings (a rerun after Back to Execute): the criteria of every `- BLOCKER` line under `## Findings` of --review (`## Applied after review`
+is not read), of each --rework-criterion and of the SHOULD-FIX lines whose location --rework-finding names are added to `Re-judge:`
+(`all` stays `all`; a line without a valid `[criterion <n>[, <m>…]]` tag makes it `all`; `[criterion none]` adds nothing). Those lines
+are copied to a `## Findings` section after the table, with one `- Criterion <n> (G3 Rework): <shortfall>` line per --rework-criterion.
+A --review whose sibling verify.md says `Verdict: FAIL` is a copy from an earlier run and is not read.
+exit: 0 written, 1 intake.md or plan.md missing (or the map could not be written), 2 bad arguments, --previous or --review names no file,
+a --rework-criterion that is no completion criterion or has no shortfall, a --rework-finding without --review or matching no SHOULD-FIX line.
 """
 import argparse
 import hashlib
@@ -71,6 +79,20 @@ def shared(path: str) -> bool:
     return name in ('conftest.py', 'ma_schema.py') or in_tests and (name == 'helpers.py' or '/fixtures/' in f'/{path}')
 
 
+REWORK_CRITERION = re.compile(r'^\s*(\d+)\s*:\s*(\S.*?)\s*$')
+
+
+def review_lines(text: str):
+    """[(severity, location, line as written, tag value or None)] of the `## Findings` bullets of a review.md."""
+    out = []
+    for raw in ma_schema.section_lines(text, 'Findings') or []:
+        line = raw.strip()
+        m = ma_schema.FINDING_LINE.match(line)
+        if m:
+            out.append((m.group(1), m.group(2), line, ma_schema.split_finding_criterion(m.group(3))[1]))
+    return out
+
+
 def fingerprint(path: Path) -> str:
     try:
         return hashlib.sha1(path.read_bytes()).hexdigest()[:12]
@@ -82,6 +104,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument('--task', required=True)
     ap.add_argument('--previous')
+    ap.add_argument('--review')
+    ap.add_argument('--rework-criterion', action='append', default=[])
+    ap.add_argument('--rework-finding', action='append', default=[])
     try:
         args = ap.parse_args(argv)
     except SystemExit:
@@ -93,10 +118,57 @@ def main(argv=None) -> int:
     previous = Path(args.previous).resolve() if args.previous else None
     if previous is not None and not previous.is_file():
         return say(f'no such previous map: {previous}', 2)
+    review = Path(args.review).resolve() if args.review else None
+    if review is not None and not review.is_file():
+        return say(f'no such review: {review}', 2)
+    if args.rework_finding and review is None:
+        return say('--rework-finding needs --review', 2)
     itext, ptext = intake.read_text(encoding='utf-8'), plan.read_text(encoding='utf-8')
     location = Path(field(itext, 'Location') or task.parent.parent)
     top = git(location, 'rev-parse', '--show-toplevel') if field(itext, 'Profile') == 'dev' else None
     units = unit_paths(ptext)
+
+    scope = task / 'scope.md'
+    valid = {n for n, _t, _c in ma_schema.criteria(scope.read_text(encoding='utf-8') if scope.is_file() else ptext)}
+    if not valid:
+        valid = {n for n, _t, _c in ma_schema.criteria(ptext)}
+    rework = []   # [(n, shortfall)]
+    for value in args.rework_criterion:
+        m = REWORK_CRITERION.match(value)
+        if not m:
+            return say(f'--rework-criterion needs "<n>: <shortfall>": {value}', 2)
+        if int(m.group(1)) not in valid:
+            return say(f'--rework-criterion {int(m.group(1))} is not a completion criterion of the task', 2)
+        rework.append((int(m.group(1)), m.group(2)))
+    found, review_skipped = [], False   # found: (line as written, tag numbers, or None when the tag is invalid)
+    if review is not None:
+        sibling = review.with_name('verify.md')
+        verify_text = ''
+        if sibling.is_file():
+            try:
+                verify_text = sibling.read_text(encoding='utf-8')
+            except (OSError, UnicodeDecodeError) as exc:
+                return say(f'cannot read {sibling}: {exc}', 2)
+        if re.search(r'(?m)^Verdict:\s*FAIL\b', verify_text):
+            review_skipped = True   # a copy left over from an earlier run: no Review ran in this one
+        else:
+            try:
+                lines = review_lines(review.read_text(encoding='utf-8'))
+            except (OSError, UnicodeDecodeError) as exc:
+                return say(f'cannot read review {review}: {exc}', 2)
+            picked = set(args.rework_finding)
+            unmatched = sorted(picked - {loc for sev, loc, _line, _tag in lines if sev == 'SHOULD-FIX'})
+            if unmatched:
+                return say(f'--rework-finding {unmatched[0]} matches no SHOULD-FIX line of {review}', 2)
+            for sev, loc, line, tag in lines:
+                if sev == 'BLOCKER' or sev == 'SHOULD-FIX' and loc in picked:
+                    nums = ma_schema.finding_tag_numbers(tag)
+                    if nums == 'none':
+                        continue
+                    found.append((line, nums if nums and all(n in valid for n in nums) else None))
+    if review_skipped and args.rework_finding:
+        return say(f'--rework-finding {args.rework_finding[0]} matches no SHOULD-FIX line: the review is not read '
+                   '(Verify FAIL in that run)', 2)
     in_place = {}
 
     if top:
@@ -179,6 +251,14 @@ def main(argv=None) -> int:
     else:
         nums = sorted({int(n) for r in changed for n in re.findall(r'\d+', r[2])})
         rejudge = ', '.join(map(str, nums)) or 'none'
+    from_findings = {n for _l, nums in found if nums for n in nums} | {n for n, _s in rework}
+    invalid = sum(1 for _l, nums in found if nums is None)
+    if rejudge != ma_schema.ALL_CRITERIA:
+        if invalid:
+            rejudge = ma_schema.ALL_CRITERIA
+        elif from_findings:
+            have = {int(n) for n in re.findall(r'\d+', rejudge)}
+            rejudge = ', '.join(map(str, sorted(have | from_findings)))
 
     run_text = '?' if run is None else str(run)
     lines = [f'# Changed files: {task.name}', f'Base: {base}',
@@ -186,12 +266,21 @@ def main(argv=None) -> int:
              f'Re-judge: {rejudge}', '',
              '| File | Units | Criteria | Fingerprint | Since previous |', '|---|---|---|---|---|']
     lines += [f'| {" | ".join(r)} |' for r in rows]
+    copied = [line for line, _n in found] + [f'- Criterion {n} (G3 Rework): {s}' for n, s in rework]
+    if copied:
+        lines += ['', '## Findings'] + copied
     try:
         (task / ma_schema.CHANGED_FILES).write_text('\n'.join(lines) + '\n', encoding='utf-8')
     except OSError as exc:
         return say(f'cannot write {task / ma_schema.CHANGED_FILES}: {exc}', 1)
     unmapped = sum(1 for r in rows if r[1] == 'unmapped')
     tail = f', {len(changed)} changed since Run {run_text}' if previous else ''
+    if from_findings:
+        tail += f', {len(from_findings)} criteri{"on" if len(from_findings) == 1 else "a"} from findings'
+    if invalid:
+        tail += f', {invalid} finding{"" if invalid == 1 else "s"} without a valid criterion tag (Re-judge: all)'
+    if review_skipped:
+        tail += ', review not read (Verify FAIL in that run)'
     print(f'changed-files: {len(rows)} files, {unmapped} unmapped{tail}')
     return 0
 

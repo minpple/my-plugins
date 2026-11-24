@@ -1,6 +1,7 @@
 """ma_schema is the one source of shared words: definitions write them, parsers read them (handoff C3, C5, A1)."""
 import importlib.util
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -312,6 +313,50 @@ class ReportParsersTest(unittest.TestCase):
         self.assertIsNone(ma_schema.aborted_reason('Status: active\n'))
         self.assertIsNone(ma_schema.aborted_reason(None))
         self.assertIsNone(ma_schema.aborted_reason(''))
+
+    def test_review_findings_criterion_tag(self):
+        text = ('BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 first → fix [criterion 2, 5]\n'
+                '- SHOULD-FIX b.py:2 second [criterion none]\n- SHOULD-FIX c.py:3 third → fix [criterion 3]\n'
+                '- SHOULD-FIX d.py:4 fourth [criterion x]\n- NITPICK e.py:5 fifth (new)\n- NITPICK f.py:6 sixth (carried)\n'
+                '- SHOULD-FIX g.py:7 tag then mark [criterion 4] (new)\n- SHOULD-FIX h.py:8 mark then tag (carried) [criterion 4]\n')
+        found = ma_schema.review_findings(text)
+        self.assertEqual([f[2] for f in found], ['first → fix · criterion 2, 5', 'second', 'third → fix · criterion 3',
+                                                 'fourth · criterion x', 'fifth', 'sixth', 'tag then mark · criterion 4',
+                                                 'mark then tag · criterion 4'])
+        self.assertEqual([f[3] for f in found], [None, None, None, None, 'new', 'carried', 'new', 'carried'])
+        self.assertFalse(any('[criterion' in f[2] for f in found))
+
+    def test_split_finding_criterion(self):
+        self.assertEqual(ma_schema.split_finding_criterion('text → fix [criterion 2, 5]'), ('text → fix', '2, 5'))
+        self.assertEqual(ma_schema.split_finding_criterion('text [criterion none] (new)'), ('text (new)', 'none'))
+        self.assertEqual(ma_schema.split_finding_criterion('text [criterion 3]'), ('text', '3'))
+        self.assertEqual(ma_schema.split_finding_criterion('text (new)'), ('text (new)', None))
+        self.assertEqual(ma_schema.split_finding_criterion('a [criterion 3] in the middle'), ('a [criterion 3] in the middle', None))
+
+    def test_finding_tag_numbers(self):
+        self.assertEqual(ma_schema.finding_tag_numbers('2, 5, 2'), (2, 5))
+        self.assertEqual(ma_schema.finding_tag_numbers('none'), 'none')
+        for bad in ('2, none', 'x', '', None):
+            self.assertIsNone(ma_schema.finding_tag_numbers(bad), bad)
+        self.assertEqual(ma_schema.finding_tag_numbers('0'), (0,))   # whether a number is a criterion of the task: changed-files.py
+        self.assertEqual(ma_schema.finding_criterion_label('5, 2'), ' · criterion 2, 5')
+        self.assertEqual((ma_schema.finding_criterion_label('none'), ma_schema.finding_criterion_label(None)), ('', ''))
+
+    def test_review_state_ignores_tags(self):
+        tagged = 'BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 x [criterion 2]\n- SHOULD-FIX b.py:2 y [criterion none]\n- NITPICK c.py:3 z (new)\n'
+        plain = 'BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 x\n- SHOULD-FIX b.py:2 y\n- NITPICK c.py:3 z (new)\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            t_tag, open_tag = ma_schema.review_state(tmp, tagged, [])
+            t_plain, open_plain = ma_schema.review_state(tmp, plain, [])
+        self.assertEqual(t_tag, t_plain)
+        self.assertEqual([(s, w, m) for s, w, _b, m in open_tag], [(s, w, m) for s, w, _b, m in open_plain])
+        self.assertEqual([b for _s, _w, b, _m in open_plain], ['x', 'y', 'z'])
+
+    def test_plan_review_ignores_tags(self):
+        pr = 'REVISE\nRun: 2\n\n## Findings\n- BLOCKER p:1 a [criterion 2]\n- NITPICK q b\n'
+        self.assertEqual(ma_schema.plan_review(pr), {'verdict': 'REVISE', 'run': 2, 'blockers': 1, 'should_fix': 0, 'nitpicks': 1})
+        sr = 'READY FOR APPROVAL\nRun: 1\n\n## Findings\n- SHOULD-FIX scope.md:3 c [criterion 2]\n'
+        self.assertEqual(ma_schema.plan_review(sr), {'verdict': 'READY FOR APPROVAL', 'run': 1, 'blockers': 0, 'should_fix': 1, 'nitpicks': 0})
 
     def test_existing_parsers_unchanged(self):
         text = '## Purpose and users\n\nFirst.\nSecond line.\n\nUsers: x\n'

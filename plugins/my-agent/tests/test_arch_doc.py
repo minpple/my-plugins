@@ -203,9 +203,17 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('timeline.chart_end', self.text)
         self.assertIn('went back to an earlier step', self.text)
 
+    def test_verify_review_scope_names_the_findings_rejudge_rules(self):
+        para = re.search(r'^- \*\*Verify and Review scope .*$', self.text, re.M).group(0)
+        for token in ('[criterion <n>]', '[criterion none]', '--review', '--rework-criterion',
+                      '--rework-finding', '## Findings', 'same evidence as the previous run',
+                      '`Re-judge: all`', 'Applied after review', 'Verdict: FAIL', 'plugin 0.29.0'):
+            self.assertIn(token, para)
+
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.76 (2026-11-24, plugin 0.28.1: the monitor\'s Report tab shows Background research'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.77 (2026-11-24, plugin 0.29.0: review findings re-judge'), line[:110])
+        self.assertIn('v0.76 (2026-11-24, plugin 0.28.1: the monitor\'s Report tab shows Background research', line)
         self.assertIn('v0.75 (2026-11-24, plugin 0.28.0: Background research (Q45)', line)
         self.assertIn('v0.74 (2026-11-23, plugin 0.27.0:', line)
         self.assertIn('v0.72 (2026-11-23, plugin 0.25.2:', line)

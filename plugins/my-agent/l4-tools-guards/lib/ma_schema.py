@@ -234,6 +234,7 @@ REVIEW_BLOCKERS = re.compile(r'^BLOCKER\s+(\d+)\b')
 SEVERITIES = ('BLOCKER', 'SHOULD-FIX', 'NITPICK')
 FINDING_LINE = re.compile(r'^-\s*(BLOCKER|SHOULD-FIX|NITPICK)\s+(\S+)\s*(.*)$')
 FINDING_MARK = re.compile(r'\s*\((new|carried)\)\s*$')
+FINDING_CRITERION = re.compile(r'\s*\[criterion\s*([^\]]*?)\s*\](?=\s*(?:\((?:new|carried)\)\s*)?$)')
 IMPROVEMENT_LINE = re.compile(r'^-\s*\[(L\d),\s*([a-z]+)\]\s*(.*\S)\s*$')
 SUMMARY_ITEM = re.compile(r'^\s*\d+\.\s+(.*\S)\s*$')
 UNIT_KEY = re.compile(r'^(?:-\s*)?([A-Z][A-Za-z ]*?):\s*(.*)$')
@@ -291,15 +292,50 @@ def review_blockers(text: str):
     return None
 
 
+def split_finding_criterion(body: str):
+    """(body without the criterion tag, the tag's value or None). The tag `[criterion <value>]` is read at the line end
+    or directly before a trailing `(new)`/`(carried)` mark; the returned body keeps that mark."""
+    body = (body or '').strip()
+    m = FINDING_CRITERION.search(body)
+    if not m:
+        return body, None
+    return (body[:m.start()] + body[m.end():]).strip(), m.group(1)
+
+
+def finding_tag_numbers(value):
+    """The sorted tuple of ints of a tag value (`2, 5`), `'none'` for `none`, or None for a malformed or empty value."""
+    if value is None:
+        return None
+    value = value.strip()
+    if value == 'none':
+        return 'none'
+    parts = [p.strip() for p in value.split(',')]
+    if not all(p.isdigit() for p in parts):
+        return None
+    return tuple(sorted({int(p) for p in parts}))
+
+
+def finding_criterion_label(value) -> str:
+    """The display marker of a tag value: ` · criterion 2, 5`, '' for `none` or no tag, ` · criterion <value>` when malformed."""
+    numbers = finding_tag_numbers(value)
+    if value is None or numbers == 'none':
+        return ''
+    if numbers is None:
+        return (' · criterion ' + value.strip()).rstrip()
+    return ' · criterion ' + ', '.join(str(n) for n in numbers)
+
+
 def review_findings(text: str) -> list:
-    """[(severity, where, text, mark)] of the `## Findings` bullets of review.md; mark is `new`, `carried` or None."""
+    """[(severity, where, text, mark)] of the `## Findings` bullets of review.md; mark is `new`, `carried` or None.
+    The `[criterion …]` tag is not in `text`; `finding_criterion_label` of it is appended."""
     out = []
     for line in section_lines(text, 'Findings') or []:
         m = FINDING_LINE.match(line.strip())
         if m:
-            body = m.group(3).strip()
+            body, tag = split_finding_criterion(m.group(3))
             mark = FINDING_MARK.search(body)
-            out.append((m.group(1), m.group(2), FINDING_MARK.sub('', body) if mark else body, mark.group(1) if mark else None))
+            body = (FINDING_MARK.sub('', body) if mark else body).strip()
+            out.append((m.group(1), m.group(2), body + finding_criterion_label(tag), mark.group(1) if mark else None))
     return out
 
 

@@ -101,7 +101,7 @@ class ProfilesTest(unittest.TestCase):
         accept = read('l1-orchestration', 'phases', 'accept.md')
         self.assertIn('Then run the findings command (gates.md "Gate reports"); on `findings: FAIL` (no `review.md`, or one '
                       'older than this call) call a new reviewer once.', accept)
-        self.assertIn('G3 Rework: the shortfalls named, with criterion numbers>"', accept)
+        self.assertIn('G3 Rework: the shortfalls named, with criterion numbers, and the picked SHOULD-FIX locations>"', accept)
         self.assertIn('After the Write, Read `review.md` once', read('l2-design-judge', 'agents', 'reviewer.md'))
         self.assertIn('never under `<task_dir>/`', read('l2-design-judge', 'agents', 'architect.md'))
         self.assertNotIn('none under `<task_dir>/`', read('l2-design-judge', 'agents', 'plan-reviewer.md'))  # plan_gaps enforces it
@@ -552,6 +552,21 @@ class SessionFolderCheck(unittest.TestCase):
             self.assertIn(remove, item, name)
             self.assertIn(deletion, item, name)
             self.assertLess(item.index(remove), item.index(deletion), name)
+
+
+class AcceptReviewReworkInputTest(unittest.TestCase):
+    """The Accept phase hands the review and the G3 Rework input to the map step."""
+
+    def test_accept_passes_the_review_and_rework_input(self):
+        """2026-11-24: the map step gets --previous and --review on every rerun and the G3 Rework input."""
+        accept = (REPO / 'l1-orchestration' / 'phases' / 'accept.md').read_text(encoding='utf-8')
+        verify = accept[accept.index('## 7. Verify'):accept.index('## Back to Execute')]
+        for token in ('--previous', '--review', '--rework-criterion "<n>: <shortfall>"',
+                      '--rework-finding "<path>:<line>"', 'Verify FAIL', 'Review BLOCKER', 'G3 `Rework`', 'exit 2'):
+            self.assertIn(token, verify, token)
+        self.assertIn('the picked SHOULD-FIX locations', accept)
+        self.assertIn('When only Review is redone, without Verify, do both:', accept)
+        self.assertLess(len(accept), 12700)
 
 
 if __name__ == '__main__':

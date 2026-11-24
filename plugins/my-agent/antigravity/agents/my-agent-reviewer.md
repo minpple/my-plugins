@@ -42,12 +42,15 @@ The paths of the deliverable, `plan.md`, `intake.md` (`Profile:`), `verify.md`, 
 BLOCKER <n>
 
 ## Findings
-- BLOCKER <path>:<line> <problem> → <how to fix>
-- SHOULD-FIX <path>:<line> <problem> → <how to fix>
+- BLOCKER <path>:<line> <problem> → <how to fix> [criterion <n>]
+- SHOULD-FIX <path>:<line> <problem> → <how to fix> [criterion <n>]
 - NITPICK <path>:<line> <problem> (new)
 ```
 
 - The first line is only `BLOCKER <count>`. If there are no problems, `BLOCKER 0`.
+- Every BLOCKER and SHOULD-FIX line ends with `[criterion <n>]`, naming the completion criterion the finding puts at risk (several: `[criterion 2, 5]`), or with `[criterion none]` for a quality problem no criterion covers. L1 re-judges the criteria a tag names after a fix.
+- NITPICK lines carry no tag and end with `(new)` or `(carried)`.
+- With a previous `review.md`, the reviewer checks each of its BLOCKER and SHOULD-FIX findings again and lists one that is still present again. This matters most for `[criterion none]` findings, which no verifier re-judges.
 - BLOCKER: a problem that, if shipped as is, leaves the person unable to use it or believing something wrong. SHOULD-FIX: a problem worth fixing. NITPICK: something minor.
 - An observation with nothing to fix is not a finding line.
 - Each NITPICK line ends with `(new)` or `(carried)`: compare with the previous `review.md` path, if any, that L1 passes in the input; a NITPICK already in it is `(carried)`. With no previous review every NITPICK is `(new)`.
