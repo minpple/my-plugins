@@ -78,6 +78,7 @@ Run: <n>
 - **Feasibility:** open the files and functions the plan mentions and confirm they exist. If the plan changes something that does not exist, BLOCKER.
 - **Impact:** find the callers of changed functions and settings with Grep; if the plan misses a caller, BLOCKER.
 - **Tests:** every work unit has tests to add and check commands. If not, BLOCKER.
+- **Check command form:** a unit's check command not derived from a check command in `explore.md` `## Check commands` is a SHOULD-FIX. Derived means the same command from the same folder, narrowed only with its own options. With no runnable check command in `explore.md`, this check adds nothing. SHOULD-FIX because the verifier still runs the explorer's commands.
 - **Test coverage:** judge the tests to add against the scope (`scope.md`), not only that they exist.
   - Criteria: every `[check: command]` criterion has a test to add, or a check command the plan names for it that is not a test (build, lint), that really shows it. A criterion with neither is a BLOCKER.
   - Exception cases: every exception case in the scope has a test to add tagged with it. A missing case is a SHOULD-FIX that names the case.

@@ -210,9 +210,39 @@ class ArchDocTest(unittest.TestCase):
                       '`Re-judge: all`', 'Applied after review', 'Verdict: FAIL', 'plugin 0.29.0'):
             self.assertIn(token, para)
 
+    def line_of(self, marker):
+        found = [l for l in self.text.splitlines() if marker in l]
+        self.assertEqual(len(found), 1, marker)
+        return found[0]
+
+    def test_explanation_lines_in_design(self):
+        line = self.line_of('**Explanation lines (2026-11-24, plugin 0.29.1)')
+        for word in ('SHOULD-FIX', '`Rework: fix all open items`', 'judged again', '`Re-judge: all`',
+                     'no new popup, gate or choice'):
+            self.assertIn(word, line)
+
+    def test_remote_take_not_offered_in_remote_session(self):
+        text = self.text[self.text.index('- **Remote take at G3 (2026-11-21, Q41)'):]
+        text = text[:text.index('- **Verify and Review scope')]
+        for word in ('printenv CLAUDE_CODE_REMOTE`', 'is `true`', 'is unset or has any other value'):
+            self.assertIn(word, text)
+
+    def test_worktree_removal_refused_in_design(self):
+        line = self.line_of('- **Worktree removal after the compare (#83):**')
+        for word in ('refused', 'one attempt', 'keeps that worktree and its branch', '"Open risks"',
+                     'no popup', 'no `git worktree unlock`'):
+            self.assertIn(word, line)
+
+    def test_check_command_form_in_design(self):
+        line = self.line_of('**Check command form (2026-11-24, plugin 0.29.1)')
+        for word in ('`python3 -m unittest discover -s tests -p <file>`', 'architect', 'plan-reviewer',
+                     'SHOULD-FIX', '`explore.md`'):
+            self.assertIn(word, line)
+
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.77 (2026-11-24, plugin 0.29.0: review findings re-judge'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.78 (2026-11-24, plugin 0.29.1:'), line[:110])
+        self.assertIn('v0.77 (2026-11-24, plugin 0.29.0: review findings re-judge', line)
         self.assertIn('v0.76 (2026-11-24, plugin 0.28.1: the monitor\'s Report tab shows Background research', line)
         self.assertIn('v0.75 (2026-11-24, plugin 0.28.0: Background research (Q45)', line)
         self.assertIn('v0.74 (2026-11-23, plugin 0.27.0:', line)

@@ -243,6 +243,44 @@ class ProfilesTest(unittest.TestCase):
         for word in ('a difference: keep the worktree', 'name the files in one chat line', '"Open risks" row of G3', 'no popup'):
             self.assertIn(word, diff, word)
 
+    def test_merge_keeps_worktree_when_removal_is_refused(self):
+        """Criterion 6: a refused worktree removal gets one attempt, then the worktree and branch are kept."""
+        dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
+        row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
+        remove = row.index('`git worktree remove --force <worktree>`')
+        delete = row.index('`git branch -D <branch>`')
+        tail = row[delete:]
+        self.assertIn('removal is refused', tail)
+        for word in ('one attempt only per worktree', 'keep that worktree and its branch', 'no `git branch -D`',
+                     'one chat line', '"Open risks" row of G3', 'Ask no popup', 'go on with the next worktree'):
+            self.assertIn(word, tail, word)
+        after = row[remove:]
+        self.assertNotIn('git worktree unlock', after.replace('no `git worktree unlock`', ''))
+        self.assertIn('no `git worktree unlock`', after)
+        self.assertIn('kill', after)
+
+    def test_merge_refusal_is_per_worktree(self):
+        """Exception: several worktrees refuse removal; each is handled on its own."""
+        dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
+        row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
+        for word in ('the path of each kept worktree', 'Each worktree is handled on its own', 'the others are removed as usual'):
+            self.assertIn(word, row, word)
+
+    def test_no_remote_take_in_remote_session(self):
+        """Criterion 7: a remote (cloud) session is offered no remote take."""
+        retro = (REPO / 'l1-orchestration' / 'retro.md').read_text(encoding='utf-8')
+        offer = next(l for l in retro.splitlines() if l.startswith('- **Offer'))
+        for word in ('printenv CLAUDE_CODE_REMOTE', '`true`', 'offer no remote take',
+                     '`Commit` / `Rework` / `Abort`', '`Commit` / `Rework: fix all open items` / `Rework` / `Abort`'):
+            self.assertIn(word, offer, word)
+
+    def test_remote_take_offer_unchanged_without_remote_flag(self):
+        """Exception: the variable unset or another value (or another host) keeps the existing offer."""
+        retro = (REPO / 'l1-orchestration' / 'retro.md').read_text(encoding='utf-8')
+        offer = next(l for l in retro.splitlines() if l.startswith('- **Offer'))
+        self.assertIn('unset or has any other value, the offer below applies', offer)
+        self.assertIn('Commit and push', offer)
+
     def test_check_tags_in_scope_rules(self):
         """Every criterion line gets one check tag; four tag values are named."""
         tags = ('[check: command]', '[check: file]', '[check: URL]', '[check: person]')

@@ -27,7 +27,7 @@ Write one task plan, `plan.md`, from the scope document and the explore results.
 
 ## `plan.md` sections (in this order, all required)
 
-The file starts with the `# Plan: <task-id>` title and a lead paragraph: one or two sentences on what the plan builds (not a `Profile:` line or a pointer to the criteria). The G1b Report view shows it as the plan summary.
+The file starts with the `# Plan: <task-id>` title and a lead paragraph (one or two sentences on what the plan builds, not a `Profile:` line or a pointer to the criteria), which the G1b Report view shows as the plan summary.
 
 1. `## Scope summary` (only when there is no `scope.md`: a small task): purpose, non-goals, deliverable location (an absolute path (no `~`, no relative path)).
 2. `## Completion criteria` (only when there is no `scope.md`: a small task): a numbered list `1.`, `2.`; it carries each criterion's check tag (`[check: command]`, `[check: file]`, `[check: URL]` or `[check: person]`) unchanged. Other tasks use the numbers and tags in `scope.md` as is.
@@ -38,32 +38,32 @@ The file starts with the `# Plan: <task-id>` title and a lead paragraph: one or 
      - `- Files to change: ` with each path in backticks (on that line or as nested `  - ` bullets)
      - `- Parallel group: group <n>`
      - `- Completion criteria: <numbers>`
-   - Other labels (`Change:`, `Group:`, `Criteria:`) are not read: their files are `unmapped` and re-judged against all criteria.
-   - A coder unit that fetches from the network (reference data, a package outside the installed dependencies) gets one line `- Needs host: <host name>` per host, as a bare DNS name. L1 checks these hosts before G1b, so name every one.
+   - Other labels (`Change:`, `Group:`, `Criteria:`) are not read: their files are `unmapped`, judged against all criteria.
+   - A coder unit that fetches from the network (reference data, a new package) gets one line `- Needs host: <host name>` per host, as a bare DNS name. L1 checks them before G1b, so name every one.
    - When rewriting, units you keep or revise keep their old ID; new units get the next unused number. Never reuse the ID of a discarded unit.
-   - In the general and research profiles, writer and researcher result paths are always under `<task_dir>/<task-id>/work/`; L1 copies them to the final location in `scope.md` after G3.
+   - In the general and research profiles, writer and researcher results are under `<task_dir>/<task-id>/work/`; L1 copies them to the `scope.md` location after G3.
    - Do not list the final location as a file to change. scope-guard blocks that write.
-   - A coder's `Files to change` (its test files too) are inside the task location, never under `<task_dir>/`: scope-guard denies a coder every write there and the plan cannot be approved.
+   - A coder's `Files to change` (its test files too) are inside the task location, never under `<task_dir>/` (scope-guard denies it; the plan cannot be approved).
    - What a coder unit finds out goes in its final report; a note file under `work/` is a writer or researcher unit.
    - List a generated file under the work unit that changes its source.
    - Units in the same parallel group must not change the same files. If they overlap, split them into different groups.
-   - A parallel group that does not use a workflow has 4 units or fewer.
-   - A choice that rests on a `background/` note carries `(background b<n>)`, and a unit that needs the note lists it under its files to read. A `Not found` question and each candidate not researched become `To confirm`.
+   - A parallel group without a workflow has 4 units or fewer.
+   - A choice that rests on a `background/` note carries `(background b<n>)`; a unit that needs the note lists it under its files to read. A `Not found` question and each unresearched candidate become `To confirm`.
 4. `## Reference files`: files outside the task folder that agents may read, one per line as `` - `relative path` ``. If there are none, `- none`.
-5. `## Mock-up`: the first line is `Kind: <kind of example>`, and below it is an example of the deliverable. Show both the normal case and the exception cases written in the scope document, and tag each case with its completion criterion number.
-6. `## Prototype`: `needed` or `not needed` and a one-line reason. `needed` only when a judgment needs to be made by eye, such as a screen layout or a document layout. The `Prototype: requested` line in this section is written only by L1.
-7. `## Estimate`: the number of subagents; if you use a workflow, the number of steps and agents (9 or fewer per workflow). Write no expected tokens.
+5. `## Mock-up`: the first line is `Kind: <kind of example>`, then an example of the deliverable. Show the normal case and the exception cases in the scope document, and tag each case with its completion criterion number.
+6. `## Prototype`: `needed` or `not needed` and a one-line reason. `needed` only when a judgment must be made by eye (a screen or document layout). The `Prototype: requested` line in this section is written only by L1.
+7. `## Estimate`: the number of subagents; with a workflow, its steps and agents (9 or fewer). Write no expected tokens.
 8. `## Models`: the models and efforts the task's agents run with.
    - The line `Preset: <name>`, then the table `| Agent | Model | Effort | Note |`.
    - One row per agent the task uses from step 3 on: architect, plan-reviewer, the workers in `## Work units`, writer when a prototype is made, verifier, reviewer, gate-analyst. Agents the plan does not use get no row; a preset entry for them is ignored.
    - Take the values from the preset lines L1 passes (`agent-models.py show` output).
-   - Every difference from the passed preset lines (a recommended change of preset or of one agent) is shown in that row's Note and as one line `Recommendation: <change> — <reason>`, with a one-line reason.
+   - Every difference from the passed preset lines (a recommended change of preset or of one agent) goes in that row's Note and in one line `Recommendation: <change> — <reason>`.
    - Without a recommendation the Note cells are empty and there is no `Recommendation:` line.
-   - Without a preset (L1 passes no `Models:` line), the line is `Preset: standard (definition values)` and the rows carry the definition values.
+   - With no `Models:` line from L1, write `Preset: standard (definition values)` and the definition values in the rows.
 9. `## Existing work` (when rewriting, if deliverables already exist): a table `| Target | Decision | Reason |`.
-   - The decision is keep / revise / discard for notes and drafts in `work/`.
-   - It is merge / redo / discard for an unmerged coder worktree.
-   - It is keep / revise / revert for code already merged (dev).
+   - Decisions: keep / revise / discard for notes and drafts in `work/`;
+   - merge / redo / discard for an unmerged coder worktree;
+   - keep / revise / revert for code already merged (dev).
    - A revert and a worktree discard are each a work unit of their own.
 10. `## Approval`: leave empty. Only L1 writes this section.
 
@@ -73,11 +73,11 @@ If `## Revisions` exists, leave it at the very end as is (rule above).
 
 ### General (general)
 
-- The units make one deliverable. If it is a document and there are two or more units:
+- The units make one deliverable. For a document with two or more units:
   - the last unit is one where `my-agent:writer` combines the `work/` results of the earlier units into one deliverable (`work/final.md`, or a file under `work/` that fits the deliverable format);
   - L1 does not make the deliverable, so in 6 Merge it hands off that unit and only checks it.
-- Mock-up: the first few rows of a table, or a document's outline and a sample paragraph.
-- A unit that needs facts from the web is a `my-agent:researcher` unit with one note `work/<slug>.md` (claim · source URL · quote); the writer unit that uses the note lists it under its files to read.
+- Mock-up: the first rows of a table, or an outline and a sample paragraph.
+- A unit that needs web facts is a `my-agent:researcher` unit with one note `work/<slug>.md` (claim · source URL · quote); the writer unit that uses the note lists it under its files to read.
 - A unit that needs code is a `my-agent:coder` unit: write its `Files to change` (paths in the task location, changed in place) and its check commands. Coder units get no worktree, so no two coder units share a parallel group.
 - Every `[check: command]` criterion names the command that shows it, in the criterion or as a check command of a unit that carries it.
 - Use subagents only. Do not plan a workflow.
@@ -87,11 +87,12 @@ If `## Revisions` exists, leave it at the very end as is (rule above).
 - Write in this order: sub-questions → research units → synthesis structure. A research unit is one researcher per sub-question, and its result is a `work/<slug>.md` note.
 - The last unit is one where writer places the notes into the synthesis structure (6 Merge).
 - Mock-up: the final note's outline and 1 sample paragraph (in claim · source URL · quote format).
-- With 5 or more research units you may plan a workflow: in `## Estimate`, write the number of workflow steps and the number of `agent()` calls (all `my-agent:researcher`). With 4 or fewer, keep them in one parallel group.
+- With 5 or more research units you may plan a workflow: in `## Estimate`, write its steps and `agent()` calls (all `my-agent:researcher`). With 4 or fewer, use one parallel group.
 
 ### Dev (dev)
 
-- A work unit is one piece of code, with the tests to add and the check commands (tests, lint, from `explore.md`).
+- A work unit is one piece of code with its tests to add and check commands (tests, lint).
+- A unit's check command is one from `explore.md` `## Check commands`, run from the same folder, narrowed only with its own options: `python3 -m unittest discover -s tests -p <file>`, never `python3 -m unittest tests.<module>`. With no narrowing option, use the whole command. With no runnable check command there, this adds nothing.
 - Write each test to add as its test file, what it checks, and what it covers: `(criterion <n>)` or `(exception: <case>)`. `plan-lint.py` and the G1b hook read these marks: a unit that lists the criterion without one cannot be approved.
 - Every `[check: command]` criterion and every exception case in the scope gets at least one test.
 - A criterion a test cannot show gets the same `(criterion <n>)` mark on its check command (build, lint) instead.

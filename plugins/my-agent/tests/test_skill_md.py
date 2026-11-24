@@ -1110,6 +1110,80 @@ class SkillMdTest(unittest.TestCase):
         self.assertNotIn('monitor-up.py', sec)
         self.assertIn('Report: not opened (<reason>); task folder:', sec)
 
+    def popup_text(self):
+        sec = self.section('## Gate reports', '## E escalation', self.gates)
+        return sec[sec.index('- **Popup text.**'):sec.index('- **Prototype**')]
+
+    def g3_open_items(self):
+        sec = self.section('## Gate reports', '## E escalation', self.gates)
+        return sec[sec.index('- **G3 with open review items.**'):]
+
+    def plan_step4_should_fix(self):
+        return next(l for l in self.phase('plan').splitlines() if 'Any SHOULD-FIX' in l)
+
+    def test_popup_should_fix_explanation_line(self):
+        """A popup with open SHOULD-FIX items carries one line saying what a SHOULD-FIX item is."""
+        text = self.popup_text()
+        for word in ('a problem worth fixing', 'does not block', 'G1a, G1b and G3'):
+            self.assertIn(word, text, word)
+        line = self.plan_step4_should_fix()
+        for word in ('Question rules', 'a problem worth fixing', 'does not block', '`- Next:` last'):
+            self.assertIn(word, line, word)
+
+    def test_g3_rework_and_rejudge_line(self):
+        """The G3 question says what Rework: fix all open items does and what is judged again."""
+        sec = self.g3_open_items()
+        for word in ('Verify and Review run again', 'the criteria the fix touches or the open items name',
+                     '`[criterion <n>]`', 'keep their earlier verdict', 'remote take'):
+            self.assertIn(word, sec, word)
+
+    def test_g3_rework_line_says_all_when_rejudge_is_all(self):
+        sec = self.g3_open_items()
+        for word in ('no valid `[criterion <n>]` tag', 'no `changed-files.md`', 'every criterion is judged again',
+                     'Re-judge: all'):
+            self.assertIn(word, sec, word)
+
+    def test_explanation_lines_keep_popup_layout(self):
+        text = self.popup_text()
+        self.assertLess(text.index('counts line'), text.index('a problem worth fixing'))
+        self.assertLess(text.index('a problem worth fixing'), text.index('`- Next: `'))
+        block = re.search(r'```text\n(.*?)```', text, re.S).group(1).splitlines()
+        block = [l.strip() for l in block]
+        while block and not block[-1]:
+            block.pop()
+        self.assertNotIn('', block)
+        self.assertFalse(block[0].startswith('- '))
+        self.assertTrue(all(l.startswith('- ') for l in block[1:]), block)
+        self.assertTrue(block[-1].startswith('- Next:'), block[-1])
+        self.assertTrue(any('problem worth fixing' in l for l in block), block)
+        self.assertTrue(any('Rework: fix all open items' in l for l in block), block)
+        self.assertTrue(any('Rework: fix all open items' in l and 'judged again' in l for l in block), block)
+        self.assertIn('`<Take>` / `Rework: fix all open items` / `Rework` / `Abort`', self.g3_open_items())
+        self.assertIn('`Apply all (Recommended)` / `Approve without applying` / `Pick myself`',
+                      self.plan_step4_should_fix())
+        sec = self.section('## Scope Review', None, self.phase('define'))
+        self.assertIn('`Apply all (Recommended)` / `Confirm without applying` / `Pick myself`', sec)
+        self.assertIn('`plan.md` step 4', sec)
+        self.assertIn('SHOULD-FIX line', sec)
+
+    def test_rework_line_only_at_g3(self):
+        self.assertIn('at G3 with open items', self.popup_text())
+        step4 = self.plan_step4_should_fix()
+        self.assertNotIn('re-judge', step4.lower())
+        self.assertNotIn('judged again', step4)
+        sec = self.section('## Scope Review', None, self.phase('define'))
+        self.assertNotIn('re-judge', sec.lower())
+        self.assertNotIn('judged again', sec)
+
+    def test_no_explanation_line_without_open_items(self):
+        text = self.popup_text()
+        self.assertIn('with no open item at G3, neither line is shown', text)
+        self.assertIn('needs an open SHOULD-FIX', text)
+
+    def test_nitpick_only_findings_have_no_popup(self):
+        self.assertIn('NITPICK only: apply them without a popup', self.phase('plan'))
+        self.assertIn('NITPICK only: apply them without a popup', self.phase('define'))
+
 
 class BackgroundResearchRulesTest(unittest.TestCase):
     """Background research (Q45): the L1 rule files carry the step, its limits and where it does not exist."""

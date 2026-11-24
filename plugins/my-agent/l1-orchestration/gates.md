@@ -18,7 +18,7 @@ L1 reads this file at the moments SKILL.md "Procedure files" gives.
 
 Right before a deliverable leaves the task folder, scan it for secret patterns: copying the deliverable after G3, copying `gate-report.md` in the retrospective, copying the task log back to the main checkout (retro.md item 10), committing (dev profile, or a project that chose to commit `<task_dir>/`).
 
-1. `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/secret-scan.py" <file or folder that leaves>`. If there is no output (exit 0), proceed. Exit 2 (`no such path`) means the path is wrong; fix the path and scan again.
+1. `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/secret-scan.py" <file or folder that leaves>`. If there is no output (exit 0), proceed. Exit 2 (`no such path`): fix the path and scan again.
 2. On a hit, show the location (`<file>:<line>: <kind>`) and popup: `Remove those parts and proceed (Recommended)` / `Proceed as is` / `Abort`. Before and after the popup, write `ask gate=Q … rec="Remove those parts and proceed"`/`answer gate=Q` lines.
 3. To remove and proceed, L1 fixes only those lines (`fix` line) and repeats item 1.
 
@@ -26,10 +26,10 @@ Right before a deliverable leaves the task folder, scan it for secret patterns: 
 
 At G1a, G1b and G3 the chat report is the full gate report; the Report tab adds detail when the monitor runs (no gate starts it). E keeps the overview table followed by `### Details`.
 
-- **Opening the Report tab.** Right before each of these popups, after its `ask` line (and at G3 after the `cost` line), run `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" --report "<absolute task folder>" --pointer --data-dir "<data folder>"`. It opens the Report tab only when the setting `report_open` in `monitor-config.json` is `true` (the default opens nothing) and prints one line, the pointer line of the chat report.
-  - It is a plugin script: no harness tool is used. The gate goes on in every case.
+- **Opening the Report tab.** Right before each of these popups, after its `ask` line (and at G3 after the `cost` line), run `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" --report "<absolute task folder>" --pointer --data-dir "<data folder>"`. It opens the Report tab only when the setting `report_open` in `monitor-config.json` is `true` (the default opens nothing) and prints the pointer line of the chat report.
+  - A plugin script, no harness tool; the gate goes on in every case.
 - **Korean copy.** When the person's request is in Korean, first, before the `ask` line of G1a, G1b and G3 (at G3 before the `cost` line), run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/report-ko.py" --task "<absolute task folder>" todo`.
-  - It prints `{key: {sha, en}}` for the overview, criterion and work unit texts whose Korean copy is missing or stale. For each one write natural Korean into `<task folder>/report-ko.json` (`{"items": {"<key>": {"sha": "<printed sha>", "ko": "<Korean>"}}}`) with the Write tool, keeping the other items. Code names, file names and commands stay as written.
+  - It prints `{key: {sha, en}}` for the overview, criterion and work unit texts whose Korean copy is missing or stale. For each one write natural Korean into `<task folder>/report-ko.json` (`{"items": {"<key>": {"sha": "<printed sha>", "ko": "<Korean>"}}}`), keeping the other items. Code names, file names and commands stay as written.
   - The Report tab shows the copy in 한국어 mode and English for any item without a current copy. The English task files stay the source the judges read.
   - In another request language, skip this bullet.
 - **Chat report** at these gates: `### Overview` (background and purpose, a few lines of prose in the person's language), `### Takeaway` (Scope, Delivered, Next: one line each; G1a: the scope summary, i.e. purpose, criteria count and non-goals; G1b: the plan summary, i.e. work units, order and estimate), the table `| Item | Value |` of 5–8 rows, and the pointer line: the line the `--pointer` call printed, as it is. No `### Details`.
@@ -43,20 +43,24 @@ At G1a, G1b and G3 the chat report is the full gate report; the Report tab adds 
 - **Popup text.** The question repeats the first two rows. At G1a, G1b and G3 it follows the SKILL.md "Question rules" layout (line breaks as written, no blank line), in this order:
   1. The short question.
   2. `- ` and a counts line `BLOCKER <n> · SHOULD-FIX <n> · NITPICK <n> (open)`, in the person's language.
-  3. `- ` and each open item on its own line, starting with its severity; with none, one line says there are No open items. With more than 10, the first 10, then `… and <k> more`.
-  4. `- Next: ` and what happens next.
+  3. Explanation lines, each its own plain `- ` line of at most two sentences, in the person's language: at G1a, G1b and G3, what a SHOULD-FIX is (a problem worth fixing that does not block the gate); at G3 with open items, the `Rework: fix all open items` line (below). The SHOULD-FIX line needs an open SHOULD-FIX; with no open item at G3, neither line is shown.
+  4. `- ` and each open item on its own line, starting with its severity; with none, one line says there are No open items. With more than 10, the first 10, then `… and <k> more`.
+  5. `- Next: ` and what happens next.
 
   ```text
   261120-g3-findings-auto · dev (Router) — commit this change?
   - BLOCKER 0 · SHOULD-FIX 1 · NITPICK 1 (open)
+  - A SHOULD-FIX is a problem worth fixing that does not block the gate.
+  - Rework: fix all open items fixes them, then Verify and Review run again; only the criteria it touches or the items name are judged again.
   - SHOULD-FIX gates.md:36 the cap is not named → name the cap
   - NITPICK accept.md:40 repeated word
   - Next: Commit → blueprint update, one commit, retrospective.
   ```
-- **Prototype** (G1a, and G1b when one exists): built by `my-agent:writer` with the `mock-up` skill files (`${CLAUDE_PLUGIN_ROOT}/skills/mock-up/`), captured with `sh "${CLAUDE_PLUGIN_ROOT}/skills/mock-up/scripts/capture.sh" "<absolute path of prototype/index.html>"`, then opened with `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" "<absolute path of prototype/index.html>" --data-dir "<data folder>"` (no `--task-dir`). A prototype is the local file `<task_dir>/<task-id>/prototype/index.html`. The result goes in the `Prototype` row: `<local path> (opened in the browser: <window|tab>)`, or on a `failed:` line `<local path> (not opened: <reason>; open the file yourself)`. The prototype is not published anywhere. It is remade only when the mock-up changed (otherwise the existing file is opened again).
+- **Prototype** (G1a, and G1b when one exists): built by `my-agent:writer` with the `mock-up` skill files (`${CLAUDE_PLUGIN_ROOT}/skills/mock-up/`), captured with `sh "${CLAUDE_PLUGIN_ROOT}/skills/mock-up/scripts/capture.sh" "<absolute path of prototype/index.html>"`, then opened with `python3 "${CLAUDE_PLUGIN_ROOT}/monitor/open-html.py" "<absolute path of prototype/index.html>" --data-dir "<data folder>"` (no `--task-dir`). A prototype is the local file `<task_dir>/<task-id>/prototype/index.html`. The result goes in the `Prototype` row: `<local path> (opened in the browser: <window|tab>)`, or on a `failed:` line `<local path> (not opened: <reason>; open the file yourself)`. The prototype is not published anywhere. It is remade only when the mock-up changed; otherwise the file is opened again.
 - **G3 with open review items.** Open items are the SHOULD-FIX and NITPICK lines of `review.md` that `## Applied after review` does not list. They set the G3 choices and the recommended one in every profile (dev also: retro.md "Remote update").
   - No open items: `<Take> (Recommended)` / `Rework` / `Abort`, `rec="<Take>"`.
   - Open items: `<Take>` / `Rework: fix all open items` / `Rework` / `Abort`. `Rework: fix all open items` is recommended while a SHOULD-FIX is open, and at the first G3 of the task; after a G3 Rework answer (either kind) with only NITPICK items open, `<Take>` is. L1's answer under delegated approval ("G3 under delegated approval" above) is unchanged. The `rec=` of the `ask` line is the recommended label.
+  - With open items the question has one plain line on `Rework: fix all open items`: the items are fixed, then Verify and Review run again; only the criteria the fix touches or the open items name (`[criterion <n>]`) are judged again, the others keep their earlier verdict. With an open SHOULD-FIX with no valid `[criterion <n>]` tag, or with no `changed-files.md`, the line says every criterion is judged again (`Re-judge: all`). It shows for the remote take in place of `Rework`.
   - On `Rework: fix all open items`: ask no follow-up question; the shortfalls are all the open items. Go on as for `Rework` (accept.md step 8 item 7). On `Rework` the person names the shortfalls.
 
 ## E escalation

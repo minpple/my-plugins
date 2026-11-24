@@ -511,6 +511,33 @@ class AgentsTest(unittest.TestCase):
         self.assertTrue(any('change an existing plan with Edit' in line and 'a full rewrite, yourself with Write' in line
                             for line in body.splitlines()))
 
+    def dev_section(self, name):
+        """The text of the '### Dev (dev)' section of an L2 agent."""
+        body = (REPO / 'l2-design-judge' / 'agents' / name).read_text(encoding='utf-8')
+        return body.split('### Dev (dev)', 1)[1].split('\n### ', 1)[0]
+
+    def test_architect_check_command_form(self):
+        """A unit's check command is the explorer's command, same folder, narrowed by its own options (criterion 4)."""
+        dev = self.dev_section('architect.md')
+        for text in ('`explore.md` `## Check commands`', 'same folder', 'only with its own options',
+                     '`python3 -m unittest discover -s tests -p <file>`', '`python3 -m unittest tests.<module>`',
+                     'no narrowing option', 'whole command'):
+            self.assertIn(text, dev)
+
+    def test_plan_reviewer_check_command_form(self):
+        """The plan-reviewer flags a unit check command not derived from the explorer's commands (criterion 5)."""
+        dev = self.dev_section('plan-reviewer.md')
+        line = next(l for l in dev.splitlines() if l.startswith('- **Check command form:**'))
+        for text in ('`explore.md` `## Check commands`', 'SHOULD-FIX', 'same folder', 'its own options'):
+            self.assertIn(text, line)
+
+    def test_check_command_form_without_explorer_command(self):
+        """Both rules add nothing when explore.md gives no runnable check command (exception: no explorer check command)."""
+        for name in ('architect.md', 'plan-reviewer.md'):
+            dev = self.dev_section(name)
+            self.assertIn('no runnable check command', dev)
+            self.assertIn('adds nothing', dev)
+
     def test_architect_tools_match_docs(self):
         """The architect's tools in 4.5 and in the plan-steps doc follow TABLE (criterion 6)."""
         docs = REPO / 'docs' / 'build-guide'
