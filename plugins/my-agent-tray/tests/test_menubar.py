@@ -497,7 +497,7 @@ class MenubarTest(unittest.TestCase):
     # ---- data folder from the setting ----
 
     def clean_env(self, **extra):
-        env = {k: v for k, v in os.environ.items() if k not in ('MA_DATA_DIR', 'MA_TASKS_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR')}
+        env = {k: v for k, v in os.environ.items() if k not in ('MA_DATA_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR')}
         env.update(extra)
         return env
 

@@ -1,10 +1,6 @@
-"""ma_data (data folder resolution) and data-dir.py: MA_DATA_DIR > MA_TASKS_DIR (deprecated) > setting > ~/.my-agent-data, per-file overrides first."""
+"""ma_data (data folder resolution) and data-dir.py: MA_DATA_DIR > setting > ~/.my-agent-data, per-file overrides first."""
 import json
-import contextlib
-import io
 import os
-import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -29,11 +25,8 @@ class DataDirTest(unittest.TestCase):
         for k in VARS:
             os.environ.pop(k, None)
         os.environ['HOME'] = str(self.home)
-        self.saved_warned = ma_data._warned_old_env
-        ma_data._warned_old_env = True  # in-process tests stay quiet; the warning tests reset it
 
     def tearDown(self):
-        ma_data._warned_old_env = self.saved_warned
         for k, v in self.saved.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -135,42 +128,14 @@ class DataDirTest(unittest.TestCase):
         os.environ['MA_DATA_DIR'] = str(self.root / 'd')
         self.assertEqual(ma_data.data_dir(), self.root / 'd')
 
-    def test_data_dir_env_beats_old_env(self):
-        os.environ['MA_DATA_DIR'] = str(self.root / 'new')
+    def test_old_env_name_is_ignored(self):
         os.environ['MA_TASKS_DIR'] = str(self.root / 'old')
-        self.assertEqual(ma_data.data_dir(str(self.root / 'arg')), self.root / 'new')
-        r = self.run_clean('--data-dir', '~/x', MA_DATA_DIR='/tmp/new', MA_TASKS_DIR='/tmp/old')
-        self.assertEqual((r.stdout, r.stderr), ('/tmp/new\n', ''))  # no deprecation warning when the new name wins
-
-    def test_empty_data_dir_env_falls_to_old_env(self):
-        os.environ['MA_DATA_DIR'] = PLACEHOLDER
-        os.environ['MA_TASKS_DIR'] = str(self.root / 'old')
-        self.assertEqual(ma_data.data_dir(), self.root / 'old')
-
-    def test_old_env_still_works_and_warns_once(self):
+        self.assertEqual(ma_data.data_dir(), self.home / '.my-agent-data')
+        self.assertEqual(ma_data.data_dir(str(self.root / 'arg')), self.root / 'arg')
         r = self.run_clean('--data-dir', '~/x', MA_TASKS_DIR='/tmp/old')
-        self.assertEqual(r.stdout, '/tmp/old\n')
-        self.assertEqual(r.stderr.count('MA_TASKS_DIR is deprecated, use MA_DATA_DIR'), 1)
-        # one warning per process, however often the folder is resolved
-        code = ("import sys; sys.path.insert(0, %r); import ma_data; "
-                "[ma_data.data_dir() for _ in range(3)]; ma_data.projects_file(); ma_data.report_dir()" % str(L4 / 'lib'))
-        r = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True,
-                           env={'MA_TASKS_DIR': str(self.root / 'old'), 'HOME': str(self.home)})
-        self.assertEqual(r.stderr.count('deprecated'), 1)
-
-    def test_old_env_warning_in_process(self):
-        os.environ['MA_TASKS_DIR'] = str(self.root / 'old')
-        ma_data._warned_old_env = False
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            self.assertEqual(ma_data.data_dir(), self.root / 'old')
-            self.assertEqual(ma_data.data_dir(), self.root / 'old')
-        self.assertEqual(err.getvalue().count('MA_TASKS_DIR is deprecated, use MA_DATA_DIR'), 1)
-
-    def test_old_env_beats_setting_and_arg(self):
-        os.environ['MA_TASKS_DIR'] = str(self.root / 'old')
-        os.environ['CLAUDE_PLUGIN_OPTION_DATA_DIR'] = str(self.root / 'setting')
-        self.assertEqual(ma_data.data_dir(str(self.root / 'arg')), self.root / 'old')
+        self.assertEqual((r.stdout, r.stderr), (f'{self.home}/x\n', ''))
+        os.environ['MA_DATA_DIR'] = str(self.root / 'new')
+        self.assertEqual(ma_data.data_dir(), self.root / 'new')
 
     def test_task_dir_unchanged_by_data_dir_names(self):
         os.environ['MA_DATA_DIR'] = 'docs/a'
