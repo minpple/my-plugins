@@ -155,7 +155,7 @@ class ReportTabTest(unittest.TestCase):
         self.assertIn('review_totals', self.code)
 
     def test_gate_views(self):
-        for g in ("'G1a'", "'G1b'", "'G3'"):
+        for g in ("'G1-A'", "'G1-B'", "'G3'"):
             self.assertIn(g, self.code)
         self.assertIn('target="_blank" rel="noopener"', self.code)
         self.assertIn('gate.prototype', self.code)

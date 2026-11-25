@@ -4,7 +4,7 @@ import Foundation
 
 // Duplicate of STEP_NAME and STEP_CODE in web/index.html; change both together.
 let stepNames: [Int: String] = [
-    1: "Intake", 2: "Explore → Scope", 3: "Plan", 4: "Plan Review → G1b",
+    1: "Intake", 2: "Explore → Scope", 3: "Plan", 4: "Plan Review → G1-B",
     5: "Execute", 6: "Merge · Self-check", 7: "Verify", 8: "Review → Deliver",
 ]
 let stepCodes: [Int: String] = [1: "1A", 2: "1B", 3: "2A", 4: "2B", 5: "3A", 6: "3B", 7: "4A", 8: "4B"]

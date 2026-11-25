@@ -11,7 +11,7 @@ import ma_schema
 SENTENCE = re.compile(r'^(.*?[.!?])(?:\s|$)')
 TALLY_COST = 'Cost and tokens per stretch'
 PICKED = {'yes': 'yes', 'no': 'no', 'delegated': 'delegated', 'typed (Other)': 'typed', 'prose reply': 'typed'}
-GATE_MARKS = ('G1a', 'G1b', 'G3')
+GATE_MARKS = ('G1-A', 'G1-B', 'G3')
 REVIEW_BODY_SEVS = ('SHOULD-FIX', 'NITPICK')   # the severities listed one by one at G3 (a BLOCKER stops the task earlier)
 STATUS_WORD = {'done': 'done', 'stopped': 'aborted'}   # task status → verdict status; anything else is running
 QUESTION_LINE = re.compile(r'^-\s*(b\d+):\s*(.+?)\s+—\s+\S')   # `- b<n>: <question> — <what it decides>`
@@ -149,24 +149,24 @@ def _timeline(task_dir, lines):
     g3_ask = g3_answer = wait_step = wait_by = None
     for l in lines:
         if l.kind == 'step' and l.f.get('n'):
-            n = _int(l.f['n'])
+            n = ma_schema.step_index(l.f['n'])
             if l.f.get('back'):
                 backs.append({'from': cur, 'to': 5, 'at': _iso(l.ts), 'why': l.f['back'], 'row': len(steps) - 1 if steps else None})
             steps.append({'n': n, 'name': l.f.get('name', ''), 'start': _iso(l.ts)})
             starts.append(l.ts)
             cur = n
-        elif l.kind == 'revision' and (l.f.get('before') == ma_schema.PLAN_EDIT_GATE or l.f.get('to') in REVISION_TO):
-            to = 3 if l.f.get('before') == ma_schema.PLAN_EDIT_GATE else REVISION_TO[l.f['to']]
+        elif l.kind == 'revision' and (ma_schema.gate_name(l.f.get('before')) == ma_schema.PLAN_EDIT_GATE or l.f.get('to') in REVISION_TO):
+            to = 3 if ma_schema.gate_name(l.f.get('before')) == ma_schema.PLAN_EDIT_GATE else REVISION_TO[l.f['to']]
             backs.append({'from': cur, 'to': to, 'at': _iso(l.ts), 'why': l.f.get('why', ''),
                           'row': len(steps) - 1 if steps else None})
-        elif l.kind == 'ask' and l.f.get('gate') in GATE_MARKS:
-            if l.f['gate'] == 'G3':
+        elif l.kind == 'ask' and ma_schema.gate_name(l.f.get('gate')) in GATE_MARKS:
+            if ma_schema.gate_name(l.f['gate']) == 'G3':
                 g3_asks.append(l.ts)
-            if not any(g['id'] == l.f['gate'] for g in gates):
-                gates.append({'id': l.f['gate'], 'at': _iso(l.ts)})
-                if l.f['gate'] == 'G3':
+            if not any(g['id'] == ma_schema.gate_name(l.f['gate']) for g in gates):
+                gates.append({'id': ma_schema.gate_name(l.f['gate']), 'at': _iso(l.ts)})
+                if ma_schema.gate_name(l.f['gate']) == 'G3':
                     g3_ask, wait_step = l.ts, cur
-        elif l.kind == 'answer' and l.f.get('gate') == 'G3' and g3_ask is not None:
+        elif l.kind == 'answer' and ma_schema.gate_name(l.f.get('gate')) == 'G3' and g3_ask is not None:
             g3_answer, wait_by = l.ts, l.f.get('by')
     end = g3_ask or (lines[-1].ts if lines else None)
     cost = _cost_from_tally(_text(task_dir / 'gate-tally.md'))
@@ -258,7 +258,7 @@ def _review(text):
 def _plan_reviews(task_dir, lines):
     """One entry per distinct Run across archive/*/plan-review.md and plan-review.md; a later copy replaces an earlier one.
     `found` counts the findings of a run per severity; `fixed` those with an `applied` line in its Decisions or a
-    run-log `fix … before=G1b` line `Plan Review <SEVERITY> <where> …`."""
+    run-log `fix … before=G1-B` line `Plan Review <SEVERITY> <where> …`."""
     files = sorted(task_dir.glob('archive/*/plan-review.md')) + [task_dir / 'plan-review.md']
     runs = {}
     for i, path in enumerate(files):
@@ -322,13 +322,13 @@ def _verdict(task, intake, scope, plan, verify, lines, timeline, delivered):
         elif l.kind == 'abort' and l.f.get('why'):
             reason = l.f['why']
         elif l.kind == 'step' and l.f.get('n'):
-            step = {'n': _int(l.f['n']), 'name': l.f.get('name', '')}
+            step = {'n': ma_schema.step_index(l.f['n']), 'name': l.f.get('name', '')}
     status = STATUS_WORD.get(task.get('status'), 'running')
     if reason is None:
         reason = ma_schema.aborted_reason(intake)
     rows = ma_schema.criteria(scope) or ma_schema.criteria(plan)
     criteria = {'pass': _passed(verify, len(rows)), 'total': len(rows)} if rows and verify is not None else None
-    g3 = next((l.ts for l in lines if l.kind == 'ask' and l.f.get('gate') == 'G3'), None)
+    g3 = next((l.ts for l in lines if l.kind == 'ask' and ma_schema.gate_name(l.f.get('gate')) == 'G3'), None)
     usd = [c['usd'] for c in timeline['cost'] if c['usd'] is not None]
     return {'status': status, 'delivered': delivered, 'commit': commit, 'tag': None, 'reason': reason or None,
             'step': step if status != 'done' else None, 'criteria': criteria,
@@ -336,20 +336,20 @@ def _verdict(task, intake, scope, plan, verify, lines, timeline, delivered):
 
 
 def _waiting_gate(lines):
-    """The latest ask line of G1a, G1b or G3 with no later answer of the same gate, or None."""
+    """The latest ask line of G1-A, G1-B or G3 with no later answer of the same gate, or None."""
     waiting = None
     for i, l in enumerate(lines):
-        if l.kind == 'ask' and l.f.get('gate') in GATE_MARKS \
-                and not any(m.kind == 'answer' and m.f.get('gate') == l.f['gate'] for m in lines[i + 1:]):
+        if l.kind == 'ask' and ma_schema.gate_name(l.f.get('gate')) in GATE_MARKS \
+                and not any(m.kind == 'answer' and ma_schema.gate_name(m.f.get('gate')) == ma_schema.gate_name(l.f['gate']) for m in lines[i + 1:]):
             waiting = l
     return waiting
 
 
 def _gate_background(gate, questions, task_dir):
-    """The `background_research` value of a G1a or G1b gate: question count with ids (G1a) or not-found count (G1b)."""
+    """The `background_research` value of a G1-A or G1-B gate: question count with ids (G1-A) or not-found count (G1-B)."""
     if not questions:
         return None
-    if gate['id'] == 'G1a':
+    if gate['id'] == 'G1-A':
         return {'questions': len(questions), 'ids': [q for q, _t in questions]}
     return {'questions': len(questions), 'not_found': _not_found(task_dir)}
 
@@ -360,12 +360,12 @@ def _gate(task, task_dir, scope, plan, verify, review, lines, totals, open_items
     ask = _waiting_gate(lines)
     if ask is None:
         return None
-    gate = {'id': ask.f['gate'], 'at': _iso(ask.ts), 'q': ask.f.get('q', '')}
-    if gate['id'] == 'G1a':
+    gate = {'id': ma_schema.gate_name(ask.f['gate']), 'at': _iso(ask.ts), 'q': ask.f.get('q', '')}
+    if gate['id'] == 'G1-A':
         rows = ma_schema.criteria(scope) or ma_schema.criteria(plan)
         gate.update(purpose=ma_schema.overview_texts(scope, plan)[1], criteria=len(rows),
                     non_goals=ma_schema.section_bullets(scope, 'Non-goals'))
-    elif gate['id'] == 'G1b':
+    elif gate['id'] == 'G1-B':
         lead = ma_schema.plan_lead(plan)
         units = [{'id': u['id'], 'title': u['title'], 'group': u['group']} for u in _units(plan, lines) or []]
         proto = (task_dir / 'prototype' / 'index.html').is_file()
@@ -422,7 +422,7 @@ def build_report(project, task_dir, task, followed_by):
     totals, open_items = ma_schema.review_state(task_dir, review, [(l.kind, l.f) for l in lines])
     questions = _questions(scope)
     gate = _gate(task, task_dir, scope, plan, verify, review, lines, totals, open_items) if has_log else None
-    if gate and gate['id'] in ('G1a', 'G1b'):
+    if gate and gate['id'] in ('G1-A', 'G1-B'):
         gate['background_research'] = _gate_background(gate, questions, task_dir)
     verdict = _verdict(task, intake, scope, plan, verify, lines, timeline, overview['delivered']) if has_log else None
     return {

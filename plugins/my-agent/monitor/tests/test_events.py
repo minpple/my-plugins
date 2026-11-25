@@ -267,7 +267,20 @@ class EventsTest(unittest.TestCase):
         self.assertIn('delegated approval on (flag)', tx)
         self.assertIn('delegated approval off (person)', tx)
         subs = {x['tx']: x['sub'] for x in e.log if x['k'] == 'popup'}
-        self.assertEqual(subs, {'G1a Scope?': 'Confirm · answered by L1', 'G1b Plan?': 'Approve'})
+        self.assertEqual(subs, {'G1-A Scope?': 'Confirm · answered by L1', 'G1-B Plan?': 'Approve'})
+
+    def test_popup_events_carry_the_new_gate_name(self):
+        """An old `G1a` ask and a new `G1-A` ask give the same popup gate."""
+        for gate in ('G1a', 'G1-A'):
+            e = synth(f'2026-10-29 04:06:10 ask: gate={gate} q="Scope?" rec=Confirm')
+            self.assertEqual([x['tx'] for x in e.log if x['k'] == 'popup'], ['G1-A Scope?'], gate)
+            self.assertEqual(e.waiting, {'gate': 'G1-A', 'q': 'Scope?'}, gate)
+            self.assertEqual(e.gates, {'G1-A': 'wait'}, gate)
+
+    def test_lettered_step_lines_give_the_step_index(self):
+        e = synth('2026-10-29 04:00:01 step: n=1A name=Intake rev=0', '2026-10-29 04:00:02 step: n=2A name=Plan rev=0',
+                  '2026-10-29 04:00:03 step: n=3 name=Plan')
+        self.assertEqual([s[1] for s in e.step_enter], [1, 3, 3])
 
     def test_profile_and_plan_edit_items(self):
         e = synth('2026-10-29 03:12:40 profile: from=dev to=general back=2 archive=archive/a',

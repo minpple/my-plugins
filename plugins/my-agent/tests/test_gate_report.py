@@ -64,8 +64,8 @@ class GateReportTest(unittest.TestCase):
                          '2026-10-26 23:01:00 answer: gate=G1a choice="Request changes"',
                          '2026-10-26 23:02:00 ask: gate=G1a q="Scope confirmation" rec=Confirm',
                          '2026-10-26 23:03:00 answer: gate=G1a choice=Confirm')
-        self.assertEqual(self.rows(out), [['1', 'G1a', 'Scope confirmation', 'Confirm', 'Request changes', 'no', ''],
-                                          ['2', 'G1a', 'Scope confirmation', 'Confirm', 'Confirm', 'yes', '']])
+        self.assertEqual(self.rows(out), [['1', 'G1-A', 'Scope confirmation', 'Confirm', 'Request changes', 'no', ''],
+                                          ['2', 'G1-A', 'Scope confirmation', 'Confirm', 'Confirm', 'yes', '']])
 
     def test_old_ask_without_rec(self):
         out = self.tally('2026-10-26 23:00:00 ask: gate=Q q="Open the monitor"',
@@ -258,7 +258,7 @@ class GateReportTest(unittest.TestCase):
             '2026-10-29 04:09:00 profile: from=dev to=general back=2 archive=a',
             '2026-10-29 04:10:00 delegate: state=off how=end')
         rows = self.rows(out)
-        self.assertEqual(rows[0][1:], ['G1a', 'Scope?', 'Confirm', 'Confirm', 'delegated', 'answered by L1'])
+        self.assertEqual(rows[0][1:], ['G1-A', 'Scope?', 'Confirm', 'Confirm', 'delegated', 'answered by L1'])
         self.assertEqual(rows[1][6], '')
         for row in ('| Delegated answers | 1 |', '| Plan edits by L1 before approval | 1 |', '| L1 small fixes | 1 |',
                     '| Delegated approval | 04:00 on (flag), 04:10 off (end) |',
@@ -345,7 +345,7 @@ class GateReportTest(unittest.TestCase):
         for word in ('Delegated', 'Profile changes', 'Plan edits by L1'):
             self.assertNotIn(word, out)
         self.assertIn('| L1 small fixes | 1 |', out)
-        self.assertEqual(self.rows(out)[0][1:], ['G1a', 'Q', 'A', 'A', 'yes', ''])
+        self.assertEqual(self.rows(out)[0][1:], ['G1-A', 'Q', 'A', 'A', 'yes', ''])
 
     def test_cost_stretches_and_tokens(self):
         out = self.tally(
@@ -360,10 +360,10 @@ class GateReportTest(unittest.TestCase):
             '2026-10-26 23:50:00 step: n=7 name=Verify',
             '2026-10-26 23:55:00 cost: session=s1 usd=4.00',
             '2026-10-26 23:56:00 stop: id=a3 tokens=7')
-        self.assertIn('| 23:00–23:00 | 1 Intake | not recorded | 0 |', out)
-        self.assertIn('| 23:00–23:20 | 3 Plan | 2.50 | 1,000 |', out)
-        self.assertIn('| 23:20–23:40 | 5 Execute | not recorded | 2,500 |', out)
-        self.assertIn('| 23:40–23:55 | 7 Verify | 0.50 | 0 |', out)
+        self.assertIn('| 23:00–23:00 | 1A Intake | not recorded | 0 |', out)
+        self.assertIn('| 23:00–23:20 | 2A Plan | 2.50 | 1,000 |', out)
+        self.assertIn('| 23:20–23:40 | 3A Execute | not recorded | 2,500 |', out)
+        self.assertIn('| 23:40–23:55 | 4A Verify | 0.50 | 0 |', out)
         self.assertIn('| 23:55– | - | not recorded | 7 |', out)
 
     def test_cost_baseline_gives_intake_a_value(self):
@@ -375,8 +375,8 @@ class GateReportTest(unittest.TestCase):
             '2026-10-26 23:20:00 cost: session=s1 usd=2.90',
             '2026-10-26 23:21:00 step: n=4 name=Plan-Review',
             '2026-10-26 23:30:00 cost: session=s1 usd=3.00')
-        self.assertIn('| 23:00–23:20 | 1 Intake, 2 Explore-Scope, 3 Plan | 2.50 | 0 |', out)
-        self.assertIn('| 23:20–23:30 | 4 Plan-Review | 0.10 | 0 |', out)
+        self.assertIn('| 23:00–23:20 | 1A Intake, 1B Explore-Scope, 2A Plan | 2.50 | 0 |', out)
+        self.assertIn('| 23:20–23:30 | 2B Plan-Review | 0.10 | 0 |', out)
 
     def test_cost_baseline_is_per_session(self):
         out = self.tally(
@@ -385,8 +385,8 @@ class GateReportTest(unittest.TestCase):
             '2026-10-26 23:10:00 cost: session=s2 usd=5.00',
             '2026-10-26 23:20:00 step: n=3 name=Plan',
             '2026-10-26 23:30:00 cost: session=s1 usd=1.40')
-        self.assertIn('| 23:00–23:10 | 1 Intake | not recorded | 0 |', out)
-        self.assertIn('| 23:10–23:30 | 3 Plan | 1.00 | 0 |', out)
+        self.assertIn('| 23:00–23:10 | 1A Intake | not recorded | 0 |', out)
+        self.assertIn('| 23:10–23:30 | 2A Plan | 1.00 | 0 |', out)
 
     def test_cost_every_step_stretch_has_a_value(self):
         out = self.tally(
@@ -413,7 +413,7 @@ class GateReportTest(unittest.TestCase):
         self.assertEqual(len(with_steps), 4, table)
         for cells in with_steps:
             self.assertNotEqual(cells[2], 'not recorded', cells)
-        self.assertIn('| 09:00–09:20 | 1 Intake, 2 Explore-Scope, 3 Plan | 0.60 | 0 |', out)
+        self.assertIn('| 09:00–09:20 | 1A Intake, 1B Explore-Scope, 2A Plan | 0.60 | 0 |', out)
 
     def agent_files(self, session, agent_id, agent_type='my-agent:coder', meta=True):
         folder = self.claude / '-proj' / session / 'subagents'
@@ -522,10 +522,27 @@ class GateReportTest(unittest.TestCase):
         r = run_script(SCRIPT, 'check', '--bogus', env=self.env)
         self.assertEqual(r.returncode, 2)
 
+    def test_tally_of_a_mixed_log_names_steps_by_id(self):
+        out = self.tally('2026-10-26 23:00:00 step: n=5 name=Execute',
+                         '2026-10-26 23:10:00 cost: session=s1 usd=1.00',
+                         '2026-10-26 23:20:00 step: n=3A name=Execute',
+                         '2026-10-26 23:30:00 cost: session=s1 usd=2.00')
+        self.assertIn('| 23:00–23:10 | 3A Execute |', out)
+        self.assertIn('| 23:10–23:30 | 3A Execute |', out)
+        self.assertNotIn('5 Execute', out)
+
+    def test_decision_table_counts_old_and_new_gate_names_as_one_gate(self):
+        out = self.tally('2026-10-26 23:00:00 ask: gate=G1a q="Scope?" rec=Confirm',
+                         '2026-10-26 23:01:00 answer: gate=G1-A choice=Confirm',
+                         '2026-10-26 23:02:00 ask: gate=G1-A q="Scope?" rec=Confirm',
+                         '2026-10-26 23:03:00 answer: gate=G1a choice=Confirm')
+        self.assertEqual(self.rows(out), [['1', 'G1-A', 'Scope?', 'Confirm', 'Confirm', 'yes', ''],
+                                          ['2', 'G1-A', 'Scope?', 'Confirm', 'Confirm', 'yes', '']])
+
     def test_no_cost_lines(self):
         out = self.tally('2026-10-26 23:00:00 step: n=1 name=Intake',
                          '2026-10-26 23:01:00 stop: id=a1 tokens=1234')
-        self.assertIn('| 23:00– | 1 Intake | not recorded | 1,234 |', out)
+        self.assertIn('| 23:00– | 1A Intake | not recorded | 1,234 |', out)
 
     def test_no_decisions_and_no_log(self):
         r = self.run_gr('tally')   # no run-log at all
@@ -574,13 +591,13 @@ class GateReportTest(unittest.TestCase):
 
     def test_old_run_log_fixture_parses(self):
         """Lines from before rec=/other=1 (run-log.py's own output) read as 'unknown'."""
-        run_script(L4 / 'scripts' / 'run-log.py', 'ask', 'gate=G1b', 'q=Approve the plan?', '--cwd', str(self.proj),
+        run_script(L4 / 'scripts' / 'run-log.py', 'ask', 'gate=G1-B', 'q=Approve the plan?', '--cwd', str(self.proj),
                    env=self.env)
-        run_script(L4 / 'scripts' / 'run-log.py', 'answer', 'gate=G1b', 'choice=Approve', '--cwd', str(self.proj),
+        run_script(L4 / 'scripts' / 'run-log.py', 'answer', 'gate=G1-B', 'choice=Approve', '--cwd', str(self.proj),
                    env=self.env)
         r = self.run_gr('tally')
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(self.rows(r.stdout), [['1', 'G1b', 'Approve the plan?', '(not recorded)', 'Approve', 'unknown', '']])
+        self.assertEqual(self.rows(r.stdout), [['1', 'G1-B', 'Approve the plan?', '(not recorded)', 'Approve', 'unknown', '']])
 
     def test_new_fields_keep_the_monitor_parsing(self):
         from helpers import events
@@ -666,10 +683,10 @@ class SegmentsTest(unittest.TestCase):
                  ('23:10', 'stop', {'tokens': '500'}),
                  ('23:20', 'cost', {'usd': '3.50', 'session': 's'})]
         segs = ma_gate_report.segments(lines)
-        self.assertEqual(segs, [['23:00', '23:05', ['1 Intake'], None, 0], ['23:05', '23:20', ['2 Plan'], 2.5, 500]])
+        self.assertEqual(segs, [['23:00', '23:05', ['1A Intake'], None, 0], ['23:05', '23:20', ['1B Plan'], 2.5, 500]])
         text = ma_gate_report.tally_text(lines)
-        self.assertIn('| 23:00–23:05 | 1 Intake | not recorded | 0 |', text)
-        self.assertIn('| 23:05–23:20 | 2 Plan | 2.50 | 500 |', text)
+        self.assertIn('| 23:00–23:05 | 1A Intake | not recorded | 0 |', text)
+        self.assertIn('| 23:05–23:20 | 1B Plan | 2.50 | 500 |', text)
 
 
 if __name__ == '__main__':

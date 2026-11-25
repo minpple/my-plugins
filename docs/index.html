@@ -423,7 +423,7 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
         <div class="cell"><span class="no">01</span><span class="lab">Levels<small>orchestration · judges · workers · tools</small></span><span class="val">4</span></div>
         <div class="cell"><span class="no">02</span><span class="lab">Phases<small>Define · Plan · Build · Accept, in 8 steps</small></span><span class="val">4</span></div>
         <div class="cell"><span class="no">03</span><span class="lab">Agents<small>5 judges (L2) · 4 workers (L3)</small></span><span class="val">9</span></div>
-        <div class="cell"><span class="no">04</span><span class="lab">Gates where you answer<small>G1a · G1b · G2 · G3 · E</small></span><span class="val">5</span></div>
+        <div class="cell"><span class="no">04</span><span class="lab">Gates where you answer<small>G1-A · G1-B · G2 · G3 · E</small></span><span class="val">5</span></div>
         <div class="cell"><span class="no">05</span><span class="lab">Profiles<small>general · research · dev</small></span><span class="val">3</span></div>
       </div>
     </div>
@@ -485,7 +485,7 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
   <section class="split" aria-labelledby="gate-title">
     <figure class="visual">
       <div class="chat">
-        <div class="who"><span class="chip gb">G1b</span>Plan approval · general profile</div>
+        <div class="who"><span class="chip gb">G1-B</span>Plan approval · general profile</div>
         <h4>Overview</h4>
         <p>A three-part onboarding guide for new support staff, written from the current help-center articles.</p>
         <h4>Takeaway</h4>
@@ -510,9 +510,10 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
       <div class="eyebrow">Human in the loop</div>
       <h2 id="gate-title">Decisions come to you at fixed gates.</h2>
       <p>my-agent stops at set points, shows a short report in the chat and asks by popup. At plan approval it pastes the whole mock-up of the deliverable; when the result has to be seen to be judged, like a screen, a prototype HTML file can be opened in the browser first.</p>
+      <p>Every popup starts with a label line such as <code>[1B] Explore → Scope · Q</code>. Before each gate popup one <code>pre-gate.py</code> call prints the counts line <code>BLOCKER · 0 / SHOULD-FIX · 1 / NITPICK · 0</code> (open counts), a findings table with one column per round (Found / Fixed / Open) and the open items. At G1-B and G3 the writer writes the gate report into <code>report/</code>, so L1 does not.</p>
       <div class="gates">
-        <div><span class="chip ga">G1a</span><span>Scope: what will and will not be done<small>Confirm / edit / stop</small></span></div>
-        <div><span class="chip ga">G1b</span><span>Plan: the work units and the mock-up<small>Approve / request changes / stop</small></span></div>
+        <div><span class="chip ga">G1-A</span><span>Scope: what will and will not be done<small>Confirm / edit / stop</small></span></div>
+        <div><span class="chip ga">G1-B</span><span>Plan: the work units and the mock-up<small>Approve / request changes / stop</small></span></div>
         <div><span class="chip gg">G3</span><span>Result: the deliverable and where it goes<small>Accept / rework / stop</small></span></div>
       </div>
       <p class="src"><b>Source:</b> <span class="mono">plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/l1-orchestration/phases/plan.md, plugins/my-agent/l1-orchestration/phases/accept.md</span></p>
@@ -544,7 +545,7 @@ footer li { margin-top: 4px; overflow-wrap: anywhere; }
 
       <section id="p-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
         <h2>The flow of one task (general profile example)</h2>
-        <p class="arrow-line">① Define → G1a approval → ② Plan → G1b approval → ③ Build → ④ Accept → G3 approval</p>
+        <p class="arrow-line">① Define → G1-A approval → ② Plan → G1-B approval → ③ Build → ④ Accept → G3 approval</p>
         <div id="flow-note"></div>
         <div class="track" id="track" role="group" aria-label="Choose a step"></div>
         <div class="step-card" id="step-card" aria-live="polite"></div>
@@ -712,7 +713,7 @@ claude plugin install my-agent@my-plugins</pre>
     ['Four levels and the role of the main session',
      `<p>The work is split into four levels.</p>` +
      `<div class="mini-box"><table class="mini"><thead><tr><th>Level</th><th>Who</th><th>What it does</th><th>What it does not do</th></tr></thead><tbody>` +
-     `<tr><td><span class="chip lv1">L1</span></td><td>Main session (the my-agent skill itself)</td><td>Runs the phases, delegates, merges results, asks the person, and records</td><td>Does not produce deliverables (code, notes, drafts, plans) itself. The only exceptions are a small fix that a verdict points to (2 files or fewer, about 10 lines) and a small <code>plan.md</code> edit before G1b</td></tr>` +
+     `<tr><td><span class="chip lv1">L1</span></td><td>Main session (the my-agent skill itself)</td><td>Runs the phases, delegates, merges results, asks the person, and records</td><td>Does not produce deliverables (code, notes, drafts, plans) itself. The only exceptions are a small fix that a verdict points to (2 files or fewer, about 10 lines) and a small <code>plan.md</code> edit before G1-B</td></tr>` +
      `<tr><td><span class="chip lv2">L2</span></td><td>scope-reviewer · architect · plan-reviewer · verifier · reviewer · gate-analyst</td><td>Plan, judge, and interpret decisions</td><td>Do not change deliverables or delegate further down</td></tr>` +
      `<tr><td><span class="chip lv3">L3</span></td><td>explorer · researcher · writer · coder</td><td>Do one assigned work unit</td><td>Do not touch files out of scope or delegate further down</td></tr>` +
      `<tr><td><span class="chip lv4">L4</span></td><td>Tools and MCP · hooks · permission rules · scripts</td><td>Run, record, and block</td><td>Do not judge</td></tr>` +
@@ -727,7 +728,7 @@ claude plugin install my-agent@my-plugins</pre>
      `<p>my-agent also installs in Antigravity (<code>agy</code>), by the same pattern as Codex: a name table (<code>l1-orchestration/hosts-antigravity.md</code>), the same code adapter (<code>l4-tools-guards/lib/ma_host.py</code>) and generated files (<code>build-antigravity.py</code>: the Antigravity manifest, a <code>hooks.json</code> at the plugin root and the ten agents). A rule file only Antigravity loads (<code>rules/AGENTS.md</code>) sends the session to the name table, so the skill text is unchanged. Antigravity loads agent definitions from <code>~/.gemini/config/agents/</code>; Intake checks the ten my-agent roles there and asks before installing them (<code>build-antigravity.py --install-agents</code>). A gate hook's ask becomes Antigravity's own one-time prompt (<code>force_ask</code>). Model presets apply through the <code>antigravity</code> section of <code>agent-models.json</code>. Antigravity has no subagent start and stop events and no permission-request event, so those run-log lines are not written, and tokens and cost are not read. As of 0.23.0 this is checked with <code>agy plugin validate --strict</code> and unit tests only: no task has yet been run end to end in Antigravity.</p>` +
      src('plugins/my-agent/docs/build-guide/my-agent-architecture.md (4.15), plugins/my-agent/l1-orchestration/hosts-antigravity.md, README.md')],
     ['Why groups of four',
-     `<p>According to the design document, a person takes part directly in maintaining this system, so it applies Cowan's theory that people hold about four things in memory at a time across the whole structure: 4 levels, 4 components per level, 4 phases, 4 kinds of gates (G1·G2·G3·E, counting G1a and G1b as one G1; section 3.2 lists them as five), and at most 4 popup choices. The document states that this theory is about human memory, not a basis for agent performance.</p>` +
+     `<p>According to the design document, a person takes part directly in maintaining this system, so it applies Cowan's theory that people hold about four things in memory at a time across the whole structure: 4 levels, 4 components per level, 4 phases, 4 kinds of gates (G1·G2·G3·E, counting G1-A and G1-B as one G1; section 3.2 lists them as five), and at most 4 popup choices. The document states that this theory is about human memory, not a basis for agent performance.</p>` +
      src('plugins/my-agent/docs/build-guide/my-agent-architecture.md')]
   ];
   ov.forEach(function (o) {
@@ -740,7 +741,7 @@ claude plugin install my-agent@my-plugins</pre>
 
   /* ---------- 2. flow ---------- */
   document.getElementById('flow-note').appendChild(disc('Details: the example request',
-    `<p>The example request is "write a document in several parts" (the basis for such requests being my-agent's target is <code>plugins/my-agent/skills/my-agent/SKILL.md</code>). On the normal path of the general profile, the person answers three times, at G1a, G1b and G3.</p>` +
+    `<p>The example request is "write a document in several parts" (the basis for such requests being my-agent's target is <code>plugins/my-agent/skills/my-agent/SKILL.md</code>). On the normal path of the general profile, the person answers three times, at G1-A, G1-B and G3.</p>` +
     src('plugins/my-agent/l1-orchestration/profiles/general.md')));
 
   var steps = [
@@ -748,9 +749,9 @@ claude plugin install my-agent@my-plugins</pre>
       text: `The person sends a request. The main session (L1) looks at the request and picks a profile. If the user named a profile, it follows that. Document work counts as general. Then it creates the task folder and sets the task ID.`,
       src: 'plugins/my-agent/skills/my-agent/SKILL.md' },
     { n: '①', title: '① Define', gate: false,
-      text: `If the request relates to existing files or a project, the explorer looks at the relevant files and current behavior and reports back; if the request is enough on its own, nothing is delegated. Then L1 asks, by popup, for the purpose, the completion criteria, what will not be done, and where the deliverable goes. Items the request already answers are not asked. Before G1a, the scope-reviewer judges the scope against the request, and L1 fixes what it finds. If a plan choice depends on a fact only the web can give, L1 lists up to 4 questions in the scope, and right after G1a one researcher per confirmed question writes a note before the plan (Background research).`,
+      text: `If the request relates to existing files or a project, the explorer looks at the relevant files and current behavior and reports back; if the request is enough on its own, nothing is delegated. Then L1 asks, by popup, for the purpose, the completion criteria, what will not be done, and where the deliverable goes. Items the request already answers are not asked. Before G1-A, the scope-reviewer judges the scope against the request, and L1 fixes what it finds. If a plan choice depends on a fact only the web can give, L1 lists up to 4 questions in the scope, and right after G1-A one researcher per confirmed question writes a note before the plan (Background research).`,
       src: 'plugins/my-agent/l1-orchestration/phases/define.md, plugins/my-agent/l1-orchestration/profiles/general.md' },
-    { n: 'G1a', title: 'G1a Scope confirmation', gate: true,
+    { n: 'G1-A', title: 'G1-A Scope confirmation', gate: true,
       text: `L1 opens the task's Report tab, which shows the purpose, the completion criteria and what will not be done, and keeps the chat report short. Then the person answers in a popup (confirm / revise / stop). Nothing is planned before this answer.`,
       src: 'plugins/my-agent/l1-orchestration/phases/define.md, plugins/my-agent/l2-design-judge/agents/scope-reviewer.md' },
     { n: '②', title: '② Plan', gate: false,
@@ -759,7 +760,7 @@ claude plugin install my-agent@my-plugins</pre>
     { n: '②', title: '② Plan review', gate: false,
       text: `The plan-reviewer reviews the plan separately. L1 does not pass along the explanation of the architect, who wrote it. If the files changed by all work units add up to fewer than 3, this review can be skipped. Small findings are fixed by L1; large ones make the architect rewrite.`,
       src: 'plugins/my-agent/l1-orchestration/phases/plan.md, plugins/my-agent/l1-orchestration/profiles/general.md' },
-    { n: 'G1b', title: 'G1b Plan approval', gate: true,
+    { n: 'G1-B', title: 'G1-B Plan approval', gate: true,
       text: `L1 opens the task's Report tab in the monitor, which shows the plan summary, work units, estimate and, if one exists, a link to the prototype, and keeps the chat report short. Then the person answers in a popup (approve / request changes / stop). If the deliverable has to be seen to be judged, like a screen, a prototype made by the writer can be viewed first.`,
       src: 'plugins/my-agent/l1-orchestration/phases/plan.md, plugins/my-agent/l2-design-judge/agents/architect.md' },
     { n: '③', title: '③ Build', gate: false,
@@ -775,7 +776,7 @@ claude plugin install my-agent@my-plugins</pre>
       text: `The reviewer judges the quality of the deliverable. These two verdicts are never skipped in any profile.`,
       src: 'plugins/my-agent/l1-orchestration/phases/accept.md' },
     { n: 'G3', title: 'G3 Final acceptance', gate: true,
-      text: `L1 shows the result summary, the failure list, the deliverable, and the exact path it will be saved to, and the person answers in a popup (accept / rework / stop). The chat report has a findings table (BLOCKER, SHOULD-FIX and NITPICK: found, fixed, open), and the popup shows the open counts on one line and each open item on its own line; G1a and G1b use the same layout. With delegated approval on, L1 answers this popup: it has every open review item fixed (up to 3 rounds) and accepts when none is left. After acceptance, workers cannot write outside the task folder, so L1 copies the final version to its destination.`,
+      text: `L1 shows the result summary, the failure list, the deliverable, and the exact path it will be saved to, and the person answers in a popup (accept / rework / stop). The chat report has a findings table (BLOCKER, SHOULD-FIX and NITPICK: found, fixed, open, one cell per round), and the popup shows the counts line and each open item on its own line; G1-A and G1-B use the same layout. With delegated approval on, L1 answers this popup: it has every open review item fixed (up to 3 rounds) and accepts when none is left. After acceptance, workers cannot write outside the task folder, so L1 copies the final version to its destination.`,
       src: 'plugins/my-agent/l1-orchestration/phases/accept.md, plugins/my-agent/l1-orchestration/profiles/dev.md' },
     { n: 'Retro', title: 'Retrospective', gate: false,
       text: `After acceptance, the gate-analyst reads the gate decision tally and writes a report with trends and improvement suggestions.`,
@@ -831,7 +832,7 @@ claude plugin install my-agent@my-plugins</pre>
        'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/docs/build-guide/my-agent-architecture.md'],
       ['L1 does not produce deliverables itself.',
        'The main session only runs, delegates, and records; making things is left to subagents.',
-       ['The only exceptions are a small fix that a verdict points to (2 files or fewer, about 10 lines) and a small edit to <code>plan.md</code> before G1b.',
+       ['The only exceptions are a small fix that a verdict points to (2 files or fewer, about 10 lines) and a small edit to <code>plan.md</code> before G1-B.',
         'Merging a document deliverable is also done by the last writer work unit, not by L1; L1 only checks.'],
        'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/l1-orchestration/profiles/general.md'],
       ['The main session is the only channel for asking the person.',
@@ -858,28 +859,28 @@ claude plugin install my-agent@my-plugins</pre>
       ['The work has 4 phases and 8 steps.',
        'It goes ① Define → ② Plan → ③ Build → ④ Accept, with a gate at the end of each phase.',
        ['① Define = 1A Intake · 1B Explore → Scope, ② Plan = 2A Plan · 2B Plan review, ③ Build = 3A Build · 3B Merge, ④ Accept = 4A Verify · 4B Review → Deliver.',
-        'Between G1a and ② Plan, Background research runs only when the scope lists a web question: one researcher per confirmed question writes a note to <code>background/</code>.',
+        'Between G1-A and ② Plan, Background research runs only when the scope lists a web question: one researcher per confirmed question writes a note to <code>background/</code>.',
         'When a phase starts, and after <code>continue</code> or compaction, L1 re-reads the phase file and the profile file and follows them.'],
        'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/docs/build-guide/my-agent-architecture.md'],
       ['There are five kinds of gates where the person answers.',
-       'Scope (G1a), plan (G1b), risky action (G2), final acceptance (G3), and escalation (E).',
+       'Scope (G1-A), plan (G1-B), risky action (G2), final acceptance (G3), and escalation (E).',
        [],
        'plugins/my-agent/skills/my-agent/SKILL.md',
        `<div class="mini-box"><table class="mini"><thead><tr><th>Gate</th><th>When</th><th>Choices</th></tr></thead><tbody>` +
-       `<tr><td>G1a Scope confirmation</td><td>When scope drafting ends </td><td>Confirm / edit / stop</td></tr>` +
-       `<tr><td>G1b Plan approval</td><td>After plan review, once the whole mock-up is pasted into the chat</td><td>Approve / request changes / stop</td></tr>` +
+       `<tr><td>G1-A Scope confirmation</td><td>When scope drafting ends </td><td>Confirm / edit / stop</td></tr>` +
+       `<tr><td>G1-B Plan approval</td><td>After plan review, once the whole mock-up is pasted into the chat</td><td>Approve / request changes / stop</td></tr>` +
        `<tr><td>G2 Risky action</td><td>Just before a risky tool call, in the Claude Code permission dialog</td><td>Allow once / deny</td></tr>` +
        `<tr><td>G3 Final acceptance</td><td>When verification is ALL PASS and review has 0 BLOCKER</td><td>Accept / rework / stop (dev: commit / rework / stop)</td></tr>` +
        `<tr><td>E Escalation</td><td>3 verification FAILs in a row, and so on</td><td>Give direction / change scope / stop</td></tr>` +
        `</tbody></table></div>`],
-      ['Before G1b, delegation and writing are restricted.',
+      ['Before G1-B, delegation and writing are restricted.',
        'Before plan approval, only exploration, planning, and plan review can be delegated.',
-       ['The only agents that can be delegated to before approval are the explorer, architect, and plan-reviewer, and they cannot write outside the task folder. The exceptions are the writer for a requested prototype and the researcher for Background research, right after G1a and only for the questions confirmed with the scope.',
-        'This restriction is not a prompt instruction; a plugin hook (<code>plan-approved-check.py</code>) actually enforces it: delegation is denied, and a write or git change outside the task folder is asked about. The hook\'s detailed rules are in the item \'Before plan approval, a hook denies delegation and asks about writes\' in 3.3. When blocked, the agent goes to G1b instead of working around it.'],
+       ['The only agents that can be delegated to before approval are the explorer, architect, and plan-reviewer, and they cannot write outside the task folder. The exceptions are the writer for a requested prototype and the researcher for Background research, right after G1-A and only for the questions confirmed with the scope.',
+        'This restriction is not a prompt instruction; a plugin hook (<code>plan-approved-check.py</code>) actually enforces it: delegation is denied, and a write or git change outside the task folder is asked about. The hook\'s detailed rules are in the item \'Before plan approval, a hook denies delegation and asks about writes\' in 3.3. When blocked, the agent goes to G1-B instead of working around it.'],
        'plugins/my-agent/skills/my-agent/SKILL.md'],
       ['Every profile handles plan review findings the same way.',
        'If there is a blocking finding (BLOCKER), it is fixed and judged again, and from the third <code>REVISE</code> the person decides.',
-       ['On <code>REVISE</code> (when there is even one BLOCKER), L1 fixes it if small, or the architect rewrites it if large, and then it is judged again. The third <code>REVISE</code> is left to the person in the G1b popup.',
+       ['On <code>REVISE</code> (when there is even one BLOCKER), L1 fixes it if small, or the architect rewrites it if large, and then it is judged again. The third <code>REVISE</code> is left to the person in the G1-B popup.',
         'After <code>READY FOR APPROVAL</code>, the review is not run again. If there are only NITPICKs they are applied without a popup; if there are SHOULD-FIXes, the whole list is asked in one popup (apply all / approve without applying / choose myself).',
         'For each finding, one line saying whether it was applied or rejected is left in <code>plan-review.md</code>.'],
        'plugins/my-agent/l1-orchestration/phases/plan.md'],
@@ -896,23 +897,23 @@ claude plugin install my-agent@my-plugins</pre>
         'If a worker stops once, it is retried on opus with the same input and the stop report.'],
        'plugins/my-agent/l1-orchestration/gates.md, plugins/my-agent/skills/my-agent/SKILL.md'],
       ['If the request changes mid-task, the kind of change is asked first.',
-       'A change request after G1b approval is not fixed right away; its kind is settled by popup.',
+       'A change request after G1-B approval is not fixed right away; its kind is settled by popup.',
        ['The choices are "modify this task" / "adjust within the approved scope" / "split into a new task" / "cancel".',
-        'Editing the plan before G1b and a request after G3 acceptance (a new task) follow their own set procedures.'],
+        'Editing the plan before G1-B and a request after G3 acceptance (a new task) follow their own set procedures.'],
        'plugins/my-agent/skills/my-agent/SKILL.md'],
       ['Delegated approval answers popups on the person\'s behalf.',
        'When the person turns it on, L1 answers routine popups with the recommended choice.',
        ['It starts with a flag (<code>--auto</code>) or a message like "proceed without asking"; when started by message, it goes through one confirmation popup.',
-        'G2 and E, the G1b popup after a third <code>REVISE</code>, and popups with no recommended choice still go to the person even when it is on.',
+        'G2 and E, the G1-B popup after a third <code>REVISE</code>, and popups with no recommended choice still go to the person even when it is on.',
         'At G3, L1 answers "rework: fix all open items" while a SHOULD-FIX or NITPICK item is open, and accepts (dev: commits) when none is left. Open risks do not stop the acceptance; L1 lists them in the chat.',
         'If the same loop runs 5 times, it moves to E before the 6th. The G3 fix loop has its own cap: after 3 fix rounds with items still open, it moves to E.'],
        'plugins/my-agent/skills/my-agent/SKILL.md, plugins/my-agent/l1-orchestration/gates.md']
     ]},
     { name: 'Enforcement and safety', feats: [
-      ['Before plan approval, a hook denies delegation and asks about writes (G1b hard gate).',
+      ['Before plan approval, a hook denies delegation and asks about writes (G1-B hard gate).',
        'While <code>plan.md</code> has no approval line, a hook rejects delegating work and writing files.',
        ['If a task is in progress and there is no <code>Approved</code> line under <code>## Approval</code> in <code>plan.md</code>, delegation and writing are rejected in any phase.',
-        'Before approval, only calls to the explorer, architect, and plan-reviewer are allowed. The writer is also allowed, only when a prototype was requested. The researcher is allowed only for Background research: outside the research profile, after G1a Confirm, for a question listed in the scope, and it writes only to <code>background/</code>. Writes outside the task folder are not rejected but asked about (<code>ask</code>); only the task folder and the index and project-list files in the data folder pass without a question.',
+        'Before approval, only calls to the explorer, architect, and plan-reviewer are allowed. The writer is also allowed, only when a prototype was requested. The researcher is allowed only for Background research: outside the research profile, after G1-A Confirm, for a question listed in the scope, and it writes only to <code>background/</code>. Writes outside the task folder are not rejected but asked about (<code>ask</code>); only the task folder and the index and project-list files in the data folder pass without a question.',
         'Even after approval, an attempt to write outside the work location, the data folder, and the output location declared in the plan is not rejected; it raises a confirmation to the user (<code>ask</code>), because auto mode lets such writes through without confirmation. If the hook itself fails by error or timeout, the call is blocked (<code>onFailure: block</code>).',
         'Known limit: this hook applies only to the session listed in <code>.active</code>. Until a new session takes over the task with <code>/my-agent continue</code>, the gate is not in force (the \'Session resume notice\' item in 3.4 describes a session notice, but it is only guidance, not enforcement).'],
        'plugins/my-agent/l4-tools-guards/hooks/plan-approved-check.py · plugins/my-agent/l4-tools-guards/hooks/hooks.json · plugins/my-agent/skills/my-agent/SKILL.md · plugins/my-agent/maintenance-notes.md'],
@@ -1020,22 +1021,22 @@ claude plugin install my-agent@my-plugins</pre>
         'If it is not a git repository, the router does not choose <code>dev</code> and chooses <code>general</code>.'],
        'plugins/my-agent/skills/my-agent/SKILL.md'],
       ['general: any other multi-step work.',
-       'On the normal path the person answers three times, at G1a, G1b, and G3 (twice, at G1b and G3, for a small task).',
-       ['The scope interview settles four things in <code>scope.md</code>: the purpose, the completion criteria, what will not be done, and the deliverable location. If the request already answered all four, the interview is skipped, but G1a is still asked. Before G1a the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
-        'There is a small-task exception: if fewer than 3 files will be created or changed and the request already answered the purpose, completion criteria, what will not be done, and the deliverable location, the scope interview, scope review, G1a, and plan review are skipped. Otherwise, if the changed files add up to fewer than 3, plan review can still be skipped. The work is run only with subagents, not workflows.',
+       'On the normal path the person answers three times, at G1-A, G1-B, and G3 (twice, at G1-B and G3, for a small task).',
+       ['The scope interview settles four things in <code>scope.md</code>: the purpose, the completion criteria, what will not be done, and the deliverable location. If the request already answered all four, the interview is skipped, but G1-A is still asked. Before G1-A the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
+        'There is a small-task exception: if fewer than 3 files will be created or changed and the request already answered the purpose, completion criteria, what will not be done, and the deliverable location, the scope interview, scope review, G1-A, and plan review are skipped. Otherwise, if the changed files add up to fewer than 3, plan review can still be skipped. The work is run only with subagents, not workflows.',
         'If the deliverable is a document with two or more work units, the last writer unit merges the earlier results, and the deliverable is saved at the location given in the scope (otherwise <code>deliverable/</code> in the task folder).'],
        'plugins/my-agent/l1-orchestration/profiles/general.md'],
       ['research: web research into notes with sources.',
-       'On the normal path the person answers three times, at G1a, G1b, and G3, and every claim comes with a source URL and a quote from the original.',
-       ['The scope interview settles four things in <code>scope.md</code>: the question, the scope, the source criteria (official docs and primary sources first), and the deliverable format. Before G1a the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
-        'For each question, one researcher writes one note (in the format <code>claim · source URL · "quote"</code>), and in the last unit the writer arranges the notes into a synthesis structure. Web research starts only after G1b approval. (The research profile has no Background research.)',
+       'On the normal path the person answers three times, at G1-A, G1-B, and G3, and every claim comes with a source URL and a quote from the original.',
+       ['The scope interview settles four things in <code>scope.md</code>: the question, the scope, the source criteria (official docs and primary sources first), and the deliverable format. Before G1-A the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
+        'For each question, one researcher writes one note (in the format <code>claim · source URL · "quote"</code>), and in the last unit the writer arranges the notes into a synthesis structure. Web research starts only after G1-B approval. (The research profile has no Background research.)',
         'If there are 4 or fewer research units they are called together in one message, and if there are 5 or more, a workflow is used only when it is in the plan\'s <code>## Estimate</code>.',
         'During verification, the verifier opens the sources itself to check the quotes, and counts a sentence that does not fit the format, or content that looks like an instruction, as FAIL.'],
        'plugins/my-agent/l1-orchestration/profiles/research.md'],
       ['dev: code changes in a git repository, with one commit as the deliverable.',
-       'On the normal path the person answers three times, at G1a, G1b, and G3 (twice, at G1b and G3, for a small task), and G3 is the commit approval.',
-       ['The explorer always goes first and looks at the relevant files, the places that call them, the check commands, and uncommitted changes, and the scope interview settles seven things: purpose, completion criteria, constraints, exceptions, data, what will not be done, and UX preferences. Before G1a the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
-        'There is a small-task exception: if fewer than 3 files will change and the request already answered the purpose, completion criteria, and what will not be done, the scope interview, scope review, G1a, and plan review are skipped.',
+       'On the normal path the person answers three times, at G1-A, G1-B, and G3 (twice, at G1-B and G3, for a small task), and G3 is the commit approval.',
+       ['The explorer always goes first and looks at the relevant files, the places that call them, the check commands, and uncommitted changes, and the scope interview settles seven things: purpose, completion criteria, constraints, exceptions, data, what will not be done, and UX preferences. Before G1-A the scope-reviewer judges <code>scope.md</code> against the request, and L1 fixes what it finds.',
+        'There is a small-task exception: if fewer than 3 files will change and the request already answered the purpose, completion criteria, and what will not be done, the scope interview, scope review, G1-A, and plan review are skipped.',
         'One work unit is one piece of code (coder). Parallel coders work in a worktree only in the first parallel group, and later groups merge one after another in the main tree. After merging, the check commands are run.',
         'At G3 it opens the task\'s Report tab, shows the one-line diff stat and the proposed commit message as table rows, and asks commit / rework / stop. The commit message carries the completion criterion numbers.'],
        'plugins/my-agent/l1-orchestration/profiles/dev.md'],
@@ -1048,7 +1049,7 @@ claude plugin install my-agent@my-plugins</pre>
        'The profile may be changed before the first popup is answered, and after approval a change becomes a new task.',
        ['When changing, L1 archives the task folder, changes the profile in <code>intake.md</code>, and converts. The marker for a changed profile is "(set by you)".',
         'If the person wants to change to dev but it is not a git repository, L1 refuses and asks whether to keep the current profile.',
-        'A profile change after G1b approval is handled as a new task (<code>Follows:</code>).'],
+        'A profile change after G1-B approval is handled as a new task (<code>Follows:</code>).'],
        'plugins/my-agent/skills/my-agent/SKILL.md']
     ]}
   ];
@@ -1163,7 +1164,7 @@ claude plugin install my-agent@my-plugins</pre>
     { name: 'my-agent', kind: 'cc', kindLabel: 'Claude Code plugin', mine: true, base: 1, cells: [
       `The main session (L1) delegates directly to L2 and L3; L2 and L3 cannot delegate further`,
       `A fixed 4-phase skeleton + general, research, and dev profiles`,
-      `Every question is a popup; approval and answers at the G1a, G1b, G2, G3, and E gates`,
+      `Every question is a popup; approval and answers at the G1-A, G1-B, G2, G3, and E gates`,
       `Hooks reject delegation and writing before plan approval, commits and delivery without a fresh verdict, and out-of-scope paths per agent`,
       `The plan-reviewer, verifier, and reviewer are separate agents; the author's explanation is not passed along`,
       `Passed as files in the task folder, and resumed with <code>continue</code>`,
@@ -1310,7 +1311,7 @@ claude plugin install my-agent@my-plugins</pre>
     { tags: ['A2'], title: 'Per-task-type profiles change the flow (A2).',
       text: `my-agent applies the rules differently in the general, research, and dev profiles on the same 4-phase skeleton. Profiles and templates were confirmed to be absent from the docs for superpowers, LangGraph, the OpenAI Agents SDK, CrewAI, and AutoGen. The Claude Code built-in workflow writes a new script for each task, and 10x-Team follows fixed steps. Cells it rests on: A2 column ², ⁹, ¹⁶, ²³, ³⁰, ³⁷, ⁴⁴, ⁵¹.` },
     { tags: ['A3'], title: 'Gates where the person answers are part of the default setup in every phase (A3).',
-      text: `my-agent asks every question by popup and has the G1a, G1b, G2, G3, and E gates. Other systems have the developer place the human-involvement points (LangGraph interrupts, CrewAI, AutoGen), or put them per sensitive tool call (OpenAI Agents SDK). superpowers does not stop between tasks after design approval, and the built-in workflow takes no input while running. Cells it rests on: A3 column ³, ¹⁰, ¹⁷, ³¹, ³⁸, ⁴⁵, ⁵².` },
+      text: `my-agent asks every question by popup and has the G1-A, G1-B, G2, G3, and E gates. Other systems have the developer place the human-involvement points (LangGraph interrupts, CrewAI, AutoGen), or put them per sensitive tool call (OpenAI Agents SDK). superpowers does not stop between tasks after design approval, and the built-in workflow takes no input while running. Cells it rests on: A3 column ³, ¹⁰, ¹⁷, ³¹, ³⁸, ⁴⁵, ⁵².` },
     { tags: ['A1'], title: 'The main session delegates directly to L2 and L3, and they cannot delegate below that (A1).',
       text: `my-agent has fixed levels and roles, and L2 and L3 cannot re-delegate. Built-in subagents can re-delegate up to 3 levels by default and CrewAI can depending on its settings; superpowers is the same in that the implementer does not re-delegate. LangGraph has no fixed hierarchy in the docs, and the developer builds it as a graph. Cells it rests on: A1 column ¹, ⁸, ¹⁵, ²⁹, ³⁶, ⁴³.` },
     { tags: ['A7'], title: 'Records extend to the gate decision tally and per-level feedback (A7).',

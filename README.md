@@ -6,8 +6,8 @@ A Claude Code plugin marketplace by minpple.
 
 | Plugin | Version | Description |
 |---|---|---|
-| `my-agent` | 0.30.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
-| `my-agent-tray` | 0.1.6 | macOS menu bar app for the my-agent monitor (optional; needs my-agent 0.5.0 or later) |
+| `my-agent` | 0.31.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
+| `my-agent-tray` | 0.1.7 | macOS menu bar app for the my-agent monitor (optional; needs my-agent 0.5.0 or later) |
 
 ## Requirements
 
@@ -89,7 +89,7 @@ The whole architecture — each level's components, their roles and permissions,
 | `/my-agent status` | Shows the task in progress and recent tasks. |
 | `/my-agent:monitor` | Opens a local, read-only web page of task records, with a Report tab that sums up the scope, plan and results of the selected task on one page. Also `status`, `stop`. The monitor does not start on its own when a task starts; set `"autostart": true` in `monitor-config.json` (data folder) to have it start. |
 
-At each approval (scope, plan, final acceptance) the chat report has a findings table: BLOCKER, SHOULD-FIX and NITPICK, each with the counts found, fixed and open. The popup shows the open counts on one line and each open item on its own line.
+At each approval (scope, plan, final acceptance) one `pre-gate.py` call prints the findings table (BLOCKER, SHOULD-FIX and NITPICK, each with the counts found, fixed and open per round), and the writer writes the G1-B and G3 gate report. Every popup starts with a label line such as `[1B] Explore → Scope · Q`. The popup shows the counts line `BLOCKER · <n> / SHOULD-FIX · <n> / NITPICK · <n>` and each open item on its own line.
 
 Task records are kept in `<task location>/<task_dir>/<task ID>/` (by default `.my-agent/<task ID>/`).
 Finished tasks pile up there and in the monitor's list. To move tasks finished 30 days ago or more to `<task_dir>/.archived/` (out of the list; move a folder back to bring it back):

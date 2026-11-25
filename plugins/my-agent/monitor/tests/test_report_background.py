@@ -107,7 +107,7 @@ class GateRowTest(unittest.TestCase):
             g = build(task, info)['gate']
         self.assertNotIn('background_research', g)
         g, _ = self.gate(G1A, lambda t: add_section(t, B1))
-        self.assertEqual((g['id'], g['q']), ('G1a', 'Scope confirmation: 261107-gate-g1a'))
+        self.assertEqual((g['id'], g['q']), ('G1-A', 'Scope confirmation: 261107-gate-g1a'))
 
     def test_read_only(self):
         tmp, task, info = temp_copy(G1B)

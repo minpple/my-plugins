@@ -2,7 +2,7 @@
 
 Usage: python3 tools/feed-fixture.py <task-dir-copy> [--every 3]
 
-Five batches (the mock-up's live queue, in run-log v0.19 format): coder-1 ends →
+Five batches (the mock-up's live queue, with lettered step lines and G1-A/G1-B gates): coder-1 ends →
 merge → coder-3 → verifier → reviewer and a G3 question. The very last line is
 written in two chunks one second apart, so a poll can catch it half written.
 Refuses to touch a folder that is not under a temp or scratch directory.
@@ -22,11 +22,11 @@ def batches():
                                               f'secs={secs} result={res} end=ok')
     return [
         ([stop('ag-c1', 'claude-sonnet-5-5', 97000, 840, 'DONE')], None),
-        (['step: n=6 name="Merge · Self-check" rev=0 session=s-cli'], None),
-        (['step: n=5 name=Execute rev=0 session=s-cli'] + agent('coder', 'ag-c3', 'sonnet', 'medium'), None),
-        ([stop('ag-c3', 'claude-sonnet-5-5', 52000, 300, 'DONE'), 'step: n=7 name=Verify rev=0 session=s-cli']
+        (['step: n=3B name="Merge · Self-check" rev=0 session=s-cli'], None),
+        (['step: n=3A name=Execute rev=0 session=s-cli'] + agent('coder', 'ag-c3', 'sonnet', 'medium'), None),
+        ([stop('ag-c3', 'claude-sonnet-5-5', 52000, 300, 'DONE'), 'step: n=4A name=Verify rev=0 session=s-cli']
          + agent('verifier', 'ag-v1', 'opus', 'high'), None),
-        ([stop('ag-v1', 'claude-opus-5-5', 33000, 180, '"ALL PASS"'), 'step: n=8 name="Review → Deliver" rev=0 session=s-cli']
+        ([stop('ag-v1', 'claude-opus-5-5', 33000, 180, '"ALL PASS"'), 'step: n=4B name="Review → Deliver" rev=0 session=s-cli']
          + agent('reviewer', 'ag-rv1', 'sonnet', 'high') + [stop('ag-rv1', 'claude-sonnet-5-5', 24000, 120, '"BLOCKER 0"'),
                                                             'ask: gate=G3 q="Commit this change?"'],
          'Verdict: ALL PASS\n- 1. PASS JSON array instead of a table\n- 2. PASS errors as JSON too\n'),

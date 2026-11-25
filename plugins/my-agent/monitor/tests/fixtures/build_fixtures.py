@@ -262,6 +262,25 @@ def flight_watch():
     return t
 
 
+def lettered_steps(mixed=False):  # not part of build(): tests that need it call it (the project is not in projects.txt)
+    """A task whose run-log has lettered step lines and G1-A/G1-B gates; `mixed` starts it with old numeric/`G1a` lines."""
+    t = Task('lettered-demo', '261125-mixed-log' if mixed else '261125-lettered-steps', '2026-11-25')
+    S = 's-let'
+    step = (lambda hm, n, old, name: t.step(hm, old if mixed else n, name, session=S))
+    t.step('09:00', 1 if mixed else '1A', 'Intake', session=S)
+    step('09:01', '1B', 2, 'Explore-Scope')
+    t.popup('09:05', 'G1a' if mixed else 'G1-A', 'Confirm this scope?', '09:05:20', 'Confirm (Recommended)')
+    t.step('09:06', '2A', 'Plan', session=S)
+    t.step('09:10', '2B', 'Plan-Review', session=S)
+    t.popup('09:15', 'G1-B', 'Proceed with this plan?', '09:15:30', 'Approve (Recommended)')
+    t.step('09:16', '3A', 'Execute', session=S)
+    t.file('intake.md', intake(t.dir.name, 'active', t.project, 'dev', 'Write lettered step lines'), '09:00')
+    t.file('scope.md', '# Scope\n## Completion criteria\n1. a\n## Confirmation\nConfirmed 2026-11-25 09:05\n', '09:05')
+    t.file('plan.md', '# Plan\n## Approval\n- Approved 2026-11-25 09:15 G1-B\n', '09:15')
+    t.done('09:16')
+    return t
+
+
 def transcript():
     """Main-session transcript of 261024-cli-json-output (session s-cli)."""
     p = CLAUDE / '-x-claude-sessions' / 's-cli.jsonl'

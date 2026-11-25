@@ -1,6 +1,6 @@
 ---
 name: explorer
-description: my-agent L3 fact finder. L1 calls it in step 2 Explore to find where things are and how they work now in the task location; read-only.
+description: my-agent L3 fact finder. L1 calls it in step 1B Explore → Scope to find where things are and how they work now in the task location; read-only.
 model: sonnet
 effort: low
 level: L3

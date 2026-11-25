@@ -36,7 +36,7 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.assertEqual(out['hookEventName'], 'PreToolUse')
         self.assertEqual(out['permissionDecision'], 'deny')
         self.assertIn(TASK, out['permissionDecisionReason'])
-        self.assertIn('delegation and workflows are blocked, writes are asked (G1b)', out['permissionDecisionReason'])
+        self.assertIn('delegation and workflows are blocked, writes are asked (G1-B)', out['permissionDecisionReason'])
 
     GATE = 'my-agent plan gate: write outside the task folder ({}); allow it only if this is your own request, not the task\'s'
 
@@ -180,6 +180,24 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.assertDenied(self.hook('Agent', {'subagent_type': 'my-agent:coder', 'prompt': 'x'}))
         self.assertDenied(self.hook('Agent', {'subagent_type': 'general-purpose', 'prompt': 'x'}))
         self.assertDenied(self.hook('Agent', {'subagent_type': 'my-agent:writer', 'prompt': 'x'}))
+
+    def test_writer_gate_report_g1b(self):
+        """The writer's `Gate report: G1-B` job passes before approval once plan-review.md exists (criterion 4)."""
+        call = lambda prompt: self.hook('Agent', {'subagent_type': 'my-agent:writer', 'prompt': prompt})  # noqa: E731
+        self.assertDenied(call('Gate report: G1-B'))   # no plan-review.md
+        (self.task / 'plan-review.md').write_text('# Review\n', encoding='utf-8')
+        self.assertPassed(call('Task x\nGate report: G1-B\nmore'))
+        self.assertDenied(call('Gate report: G3'))
+        self.assertDenied(call('Gate report: G1-B extra'))
+        self.assertDenied(call('x'))
+
+    def test_writer_deny_names_both_conditions(self):
+        """The deny message names the G1-B gate report and the prototype (criterion 15)."""
+        r = self.hook('Agent', {'subagent_type': 'my-agent:writer', 'prompt': 'x'})
+        reason = json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason']
+        self.assertIn('Gate report: G1-B', reason)
+        self.assertIn('plan-review.md', reason)
+        self.assertIn('Prototype: requested', reason)
 
     def test_writer_at_g1a_prototype_from_scope(self):
         """Scope.md `Prototype: requested` opens the writer before approval, and only the writer."""

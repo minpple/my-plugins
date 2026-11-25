@@ -217,6 +217,14 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertFalse(self.denied('my-agent:writer', 'Write', {'file_path': str(self.T / 'prototype/index.html')}))
         self.assertTrue(self.denied('my-agent:writer', 'Write', {'file_path': str(ref)}))
 
+    def test_writer_gate_report_paths(self):
+        """The writer writes `<T>/report/` and the single file `<T>/report-ko.json` (criterion 4)."""
+        w = lambda f: self.denied('my-agent:writer', 'Write', {'file_path': str(self.T / f)})  # noqa: E731
+        self.assertFalse(w('report/G3.md'))
+        self.assertFalse(w('report-ko.json'))
+        for f in ('scope.md', 'report-ko.json.bak', 'verify.md'):
+            self.assertTrue(w(f), f)
+
     def test_blueprint_folder_is_the_writers(self):
         """4.7.5: only the writer writes `docs/blueprint/`; the coder, whose scope is the location, does not."""
         page = self.L / 'docs' / 'blueprint' / 'features.md'
@@ -444,12 +452,12 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertEqual(self.why('my-agent:architect', 'Edit',
                                   {'file_path': str(plan), 'old_string': '## Approval\n',
                                    'new_string': '## Approval\n- Approved 2026-10-25 10:00 G1b\n'}),
-                         'scope-guard: Only L1 writes the approval line of plan.md (G1b).')
+                         'scope-guard: Only L1 writes the approval line of plan.md (G1-B).')
         plan.write_text('# Plan\n\n## Prototype\n\nneeded\n\n## Approval\n')
         self.assertEqual(self.why('my-agent:architect', 'Edit',
                                   {'file_path': str(plan), 'old_string': 'needed\n',
                                    'new_string': 'needed\nPrototype: requested\n'}),
-                         'scope-guard: Only L1 writes the `Prototype: requested` line of plan.md (G1b).')
+                         'scope-guard: Only L1 writes the `Prototype: requested` line of plan.md (G1-B).')
 
     def why(self, agent, tool, tool_input, **kw):
         """The deny reason of a call, or None when it passes."""
@@ -513,7 +521,7 @@ class ScopeGuardTest(unittest.TestCase):
         self.assertIsNone(self.edit('- Status: pending', '- Status: done', replace_all=True))
         (self.T / 'plan.md').write_text('# Plan\n\n## Approval\n\n- todo\n- todo\n')
         self.assertEqual(self.edit('- todo', '- Approved 2026-11-23 00:11 G1b', replace_all=True),
-                         'scope-guard: Only L1 writes the approval line of plan.md (G1b).')
+                         'scope-guard: Only L1 writes the approval line of plan.md (G1-B).')
 
     def test_architect_edit_replace_all_only_true(self):
         (self.T / 'plan.md').write_text(self.PLAN)

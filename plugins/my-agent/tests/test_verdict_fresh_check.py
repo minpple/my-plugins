@@ -127,6 +127,14 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.verdicts(verify_at=10, review_at=30)
         self.assertAsked(self.bash('git commit -m x'))
 
+    def test_light_path_nitpick_fix_allowed(self):
+        """Criterion 5: after an L1 NITPICK fix only Review reruns; its `## Applied after review` lets the commit through."""
+        self.file(self.L / 'src/a.py', 'x', 0)
+        self.file(self.T / 'verify.md', 'Verdict: ALL PASS\nRun: 1\n', 10)
+        self.file(self.L / 'src/a.py', 'nitpick fixed', 20)
+        self.file(self.T / 'review.md', 'BLOCKER 0\n\n## Applied after review\n\n- rename a (src/a.py)\n', 30)
+        self.assertPassed(self.bash('git commit -m x'))
+
     def test_deliver_copy_checked(self):
         self.file(self.T / 'work' / 'note.md', 'n', 0)
         self.assertDenied(self.bash(f'cp -p {rel()}/{TASK}/work/note.md ~/notes/'))

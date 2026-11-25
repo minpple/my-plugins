@@ -51,6 +51,11 @@ class RuntimeTextTest(unittest.TestCase):
             self.assertNotIn('tokens used and cost', text)
             self.assertIn('cost (reference)', text)
 
+    def test_gates_sub_bullets_start_their_own_line(self):
+        text = (REPO / 'l1-orchestration' / 'gates.md').read_text(encoding='utf-8')
+        for n, ln in enumerate(text.splitlines(), 1):
+            self.assertNotIn('.  - ', ln, f'gates.md:{n} has a sub-bullet joined to a sentence')
+
 
 if __name__ == '__main__':
     unittest.main()

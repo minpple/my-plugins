@@ -57,6 +57,17 @@ class UsageTest(Base):
         self.assertEqual(ma_usage.windows(enter, t[2], running=False)[-1][2], datetime(2026, 10, 1, 10, 20, 1))
         self.assertIsNone(ma_usage.windows(enter, t[2], running=True)[-1][2])
 
+    def test_lettered_step_ids_give_the_same_cost_per_stretch(self):
+        lettered = [LOG[0].replace('n=1 ', 'n=1A '), LOG[1].replace('n=2 ', 'n=1B '), LOG[2]]
+        entries = (entry('2026-10-01 10:01:00', 'a'), entry('2026-10-01 10:11:00', 'b', model='claude-sonnet-5-5'))
+        got = []
+        for log in (LOG, lettered):
+            d = self.task(task=f'261001-probe-{len(got)}', log=log)
+            self.transcript(*entries)
+            got.append(ma_usage.measure(d, self.claude))
+        self.assertEqual(got[0], got[1])
+        self.assertEqual(sorted(got[1][2]), [(0, 1), (0, 2)])
+
     def test_measure_counts_each_response_once_per_window(self):
         d = self.task()
         self.transcript(entry('2026-10-01 10:01:00', 'a'), entry('2026-10-01 10:01:00', 'a', inp=30),

@@ -104,7 +104,7 @@ def _mocks(task_dir: Path, plan_now: dict, cur_rev: int):
     for d in sorted((task_dir / 'archive').glob('*/')):
         m = re.search(r'-rev(\d+)(?:-[b-z])?$', d.name.rstrip('/'))   # `-b`, `-c` when the name was taken
         if not m or int(m.group(1)) < 1:
-            continue   # drafts before G1b (`-rev<N>-draft`) and kept verdicts (`-run<n>`) are not an approved plan
+            continue   # drafts before G1-B (`-rev<N>-draft`) and kept verdicts (`-run<n>`) are not an approved plan
         mk = _mock(read_plan(d / 'plan.md'), int(m.group(1)) - 1)
         if mk:
             out.append(mk)
@@ -211,8 +211,8 @@ def _build(project, task_dir, tid, key, prices, tcache, now):
 
     def gate(g, ok):
         return 'wait' if ev.gates.get(g) == 'wait' else 'ok' if ok else 'todo'
-    gates = {'G1a': gate('G1a', read_confirmation(task_dir / 'scope.md')),
-             'G1b': gate('G1b', plan['approved_at']),
+    gates = {'G1-A': gate('G1-A', read_confirmation(task_dir / 'scope.md')),
+             'G1-B': gate('G1-B', plan['approved_at']),
              'G2': ev.gates.get('G2', 'todo'),
              'G3': gate('G3', status == 'done')}
 

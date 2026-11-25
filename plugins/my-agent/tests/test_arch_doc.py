@@ -130,7 +130,7 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('`conversationId`', agy[agy.index('**Not verified**'):])
 
     def test_g1b_section_says_ask_for_writes_and_deny_for_delegation(self):
-        a = self.text.index('**G1b hard gate**')
+        a = self.text.index('**G1-B hard gate**')
         sec = self.text[a:self.text.index('- **Block when the hook fails:**', a)]
         self.assertNotIn('blocks **regardless of phase**', sec)
         self.assertNotIn('pre-approval write block', sec)
@@ -138,7 +138,7 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('`permissionDecision: deny`', sec)
 
     def test_delegated_approval_covers_g3_with_a_cap_of_three(self):
-        sec = self.section('**Delegated approval (2026-10-29, Q22)**', '**G1b hard gate**')
+        sec = self.section('**Delegated approval (2026-10-29, Q22)**', '**G1-B hard gate**')
         always = next(l for l in sec.splitlines() if l.startswith('- Always to the person:'))
         self.assertIn('**G2 and E**', always)
         self.assertNotIn('G3', always)
@@ -146,7 +146,7 @@ class ArchDocTest(unittest.TestCase):
                      'after 3 G3 fix rounds it goes to E', 'whatever the round count', 'do not stop the take',
                      'in the dev profile the commit still holds only the files this task changed',
                      'The G3 fix loop has its own cap of 3 rounds', '`Severity | Found | Fixed | Open`',
-                     '`BLOCKER <n> · SHOULD-FIX <n> · NITPICK <n> (open)`', 'No gate starts the monitor'):
+                     '`BLOCKER · <n> / SHOULD-FIX · <n> / NITPICK · <n>`', 'No gate starts the monitor'):
             self.assertIn(word, sec, word)
 
     def test_monitor_autostart_is_off_by_default(self):
@@ -161,7 +161,7 @@ class ArchDocTest(unittest.TestCase):
     def test_researcher_notes_keep_two_forms_and_say_how_sources_are_checked(self):
         bullet = next(l for l in self.text.splitlines() if l.startswith('- **Researcher notes: primary sources and disagreement (2026-11-21):**'))
         for word in ('keeps its two forms', '`- Not found: a primary source for <claim>`', 'one search and one fetch for each secondary-sourced item',
-                     'each claim attributed to its own source', 'picks none silently', 'not from a search snippet', "In the research profile's 6 Merge the writer keeps both"):
+                     'each claim attributed to its own source', 'picks none silently', 'not from a search snippet', "In the research profile's 3B Merge the writer keeps both"):
             self.assertIn(word, bullet, word)
 
     def test_decision_log_has_q39_and_q40_once_after_q38(self):
@@ -181,9 +181,9 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('researcher for confirmed `b<n>` since Q45', q6)
         step = self.bullet('### 4.3 ', '### 4.4 ', '- **Background research before the plan (2026-11-24, Q45):**')
         self.assert_words(step, ('`## Background research`', '`Background question: b<n> <slug>`',
-                                 '`(background b<n>)`', 'reopens G1a with `Revise`', 'none on Codex'))
-        self.assertIn('step n=2 name=Background-research', self.section('### 4.3 ', '### 4.4 '))
-        gate = self.section('**G1b hard gate**', '- **Block when the hook fails:**')
+                                 '`(background b<n>)`', 'reopens G1-A with `Revise`', 'none on Codex'))
+        self.assertIn('step n=1B name=Background-research', self.section('### 4.3 ', '### 4.4 '))
+        gate = self.section('**G1-B hard gate**', '- **Block when the hook fails:**')
         self.assert_words(gate, ('profile is not research', 'scope is confirmed',
                                  '`## Background research` section', '`Background question: b<n>`'))
         self.assertIn('(background b<n>)', self.section('**Plan gaps', '### 4.5 '))
@@ -193,7 +193,7 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('<slug>.md', tree)
 
     def test_no_line_says_web_research_waits_for_approval_without_the_exception(self):
-        after = re.compile(r'(web research|researcher)[^.\n]*only after (the )?(plan is approved|plan approval|G1b)', re.I)
+        after = re.compile(r'(web research|researcher)[^.\n]*only after (the )?(plan is approved|plan approval|G1-B)', re.I)
         for line in self.text.splitlines():
             if after.search(line):
                 self.assertIn('Background research', line, line)
@@ -241,7 +241,9 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.79 (2026-11-24, plugin 0.30.0:'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.80 (2026-11-25, plugin 0.31.0:'), line[:110])
+        self.assertIn('v0.79 (2026-11-24, plugin 0.30.0:', line)
+        self.assertNotIn('design draft v0.79', line)
         self.assertIn('v0.78 (2026-11-24, plugin 0.29.1: three fixes from task retrospectives', line)
         self.assertNotIn('design draft v0.78', line)
         self.assertIn('v0.77 (2026-11-24, plugin 0.29.0: review findings re-judge', line)
@@ -341,7 +343,7 @@ class ArchDocTest(unittest.TestCase):
             self.assertIn(word, section, word)
 
     def test_prototype_uses_mock_up_skill(self):
-        a = self.text.index('**What G1b shows: mock-up and prototype**')
+        a = self.text.index('**What G1-B shows: mock-up and prototype**')
         section = self.text[a:self.text.index('**What a prototype is**')]
         self.assertIn('skills/mock-up', section)
         self.assertIn('capture.sh', section)
@@ -383,7 +385,7 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('### Takeaway', self.text)
 
     def test_prototype_is_a_local_file_opened_by_open_html(self):
-        a = self.text.index('**What G1b shows: mock-up and prototype**')
+        a = self.text.index('**What G1-B shows: mock-up and prototype**')
         section = self.text[a:self.text.index('**What a prototype is**')]
         self.assertIn('open-html.py', section)
         for stale in ('claude.ai', 'private artifact', 'artifact link', 'publishes it'):
@@ -412,7 +414,7 @@ class ArchDocTest(unittest.TestCase):
             self.assertIn(f'`{field}=`', section, field)
 
     def test_g1b_section_says_a_sibling_task_folder_write_is_asked(self):
-        a = self.text.index('**G1b hard gate**')
+        a = self.text.index('**G1-B hard gate**')
         sec = self.text[a:self.text.index('- **Block when the hook fails:**', a)]
         self.assertIn('sibling task folder', sec)
         self.assertRegex(sec, r'(?s)sibling task folder.{0,200}asked')
@@ -592,7 +594,7 @@ class ArchDocTest(unittest.TestCase):
     def test_popup_layout_and_findings_list_table_in_arch_doc(self):
         """Criteria 8, 9: the layout rule of a multi-part popup and the findings list table rule."""
         start = self.text.index('**Findings table and popup text at the gate approvals')
-        section = self.text[start:self.text.index('**G1b hard gate**', start)]
+        section = self.text[start:self.text.index('**G1-B hard gate**', start)]
         self.assert_words(section, ('List markers', '`- Next: …`', 'two sentences', 'blank line',
                                     'findings list table', '`# | Severity | Location | Finding | Fix L1 would apply`',
                                     'not the count table'))
@@ -626,7 +628,7 @@ class ArchDocTest(unittest.TestCase):
         settled = self.bullet(start, end, '- **Settled popup:**')
         self.assert_words(settled, (
             'after Intake', 'request, the files or the person\'s earlier answer', '`ask` line', '`answer … by=L1`',
-            '(answered by L1)', 'SKILL.md "Question rules"', 'Always asked:', 'G1a, G1b, G3, G2, E',
+            '(answered by L1)', 'SKILL.md "Question rules"', 'Always asked:', 'G1-A, G1-B, G3, G2, E',
             'every Intake popup', 'a popup without a recommended choice', 'with a question back',
             'Delegated approval rules stay', 'counted with the L1 answers'))
         alone = self.bullet(start, end, '- **Stand-alone popup:**')
@@ -676,11 +678,11 @@ class ArchDocTest(unittest.TestCase):
         self.assert_words(line, ('popup over the marked findings',))
 
     def test_rule_locations_named_in_design(self):
-        """Criterion 8: the person's-choice mark is `define.md` step 4, the width pointer step 3."""
+        """Criterion 8: the person's-choice mark is `define.md` step 1B item 4, the width pointer item 3."""
         mark = self.line_of("**Person's-choice mark (2026-11-24, plugin 0.30.0)")
-        self.assertIn('`define.md` step 4', mark)
-        self.assertNotIn('`define.md` step 3', mark)
-        self.assertIn('`define.md` step 3 points to it', self.line_of('**Scope-width popup (2026-11-24'))
+        self.assertIn('`define.md` step 1B item 4', mark)
+        self.assertNotIn('`define.md` step 1B item 3', mark)
+        self.assertIn('`define.md` step 1B item 3 points to it', self.line_of('**Scope-width popup (2026-11-24'))
 
     def test_persons_choice_mark_in_design(self):
         """Criteria 2, 8: the mark in scope.md and the scope judge's reading of it."""
@@ -755,6 +757,51 @@ class ArchDocTest(unittest.TestCase):
                                    'list a generated file under the work unit', 'only L1 can meet after G3'))
         self.assert_words(self.section('### 4.1 Principles', '### 4.1.1 '), (
             'adds no gate and no popup kind', 'behind `origin`'))
+
+    def test_gate_report_calls_in_design(self):
+        """Criterion 12: the doc describes the pre-gate call, Back to Execute, the writer report and the other changes."""
+        calls = self.section('**Gate report calls (2026-11-25, plugin 0.31.0)**', '**G1-B hard gate**')
+        self.assert_words(calls, ('`pre-gate.py`', '`--report-text`', '`Gate report: G1-B`', '`Gate report: G3`',
+                                  '`report/G3.md`', '`report-ko.json`', 'not only within one step',
+                                  '`BLOCKER · 0 / SHOULD-FIX · 0 / NITPICK · 0`', '`2/0`', '`## Counts`',
+                                  '`| Round | BLOCKER | SHOULD-FIX | NITPICK |`', 'first Review call of the task',
+                                  'every finding', '`[<step ID>] <step name> · <gate>`', '`[1B] Explore → Scope · Q`',
+                                  '`[4B] Review → Deliver · G3`', '`[1A] Intake`'))
+        files = self.section('**Gate report files (`report/`)**', '**G1-B hard gate**')
+        self.assert_words(files, ('`Gate report: G1-B`', '`plan-review.md`', 'scope-guard', '`report/`'))
+        self.assertIn('`Gate report: G1-B`', self.section('**G1-B hard gate**', '- **Block when the hook fails:**'))
+        self.assertIn('pre-gate.py', self.line_of('**Fewer main-session calls'))
+        self.assertIn('**Gate report:**', self.section('### 4.5 ', '### 4.5.1 '))
+        change = self.section('### 4.8.1 ', '### 4.8.2 ')
+        back = change[change.index('**Back to Execute'):]
+        self.assertIn('back-execute.py', back)
+        self.assertNotIn('cp -p', back[:back.index('Small fix with only Review rerun')])
+        self.assertNotIn('`cmp`', back[:back.index('Small fix with only Review rerun')])
+        self.assert_words(change, ('**Light path after G3 Rework', 'every open item is a NITPICK',
+                                   'one G3 Rework round', 'only Review runs again'))
+        self.assertIn('If every open item is a NITPICK small fix, L1 fixes them and only Review runs again.',
+                      self.section('### 4.4 ', '### 4.5 '))
+        self.assertNotIn('(open)`', self.text)
+
+    def test_step_ids_in_design(self):
+        """Criterion 9: the 4.3 table and the flow text use the step IDs; old numeric lines are still read."""
+        sec = self.section('### 4.3 ', '### 4.4 ')
+        rows = [l.split('|')[2].strip() for l in sec.splitlines() if l.startswith('| **') or l.startswith('| |')]
+        self.assertEqual([r.split(' ')[0] for r in rows], list(ma_schema.STEP_IDS))
+        ids = self.section('- **Step IDs (2026-11-25, plugin 0.31.0):**', '### 4.4 ')
+        self.assert_words(ids, ('`1A`', '`4B`', '`n=1`…`n=8`', 'still read', 'mixed'))
+        for path in (ARCH, ARCH.with_name('my-agent-monitor-design.md')):
+            text = path.read_text(encoding='utf-8')
+            for pat in (r'\b[1-8]\. (Intake|Explore|Plan|Execute|Merge|Verify|Review)', r'step:? n=[1-8]\b',
+                        r'\b[1-8] (Intake|Explore|Execute|Merge|Plan Review|Review →)\b', r'\bstep [1-8] ·'):
+                self.assertEqual(re.findall(pat, text), [], (path.name, pat))
+
+    def test_no_old_gate_names_in_design_docs(self):
+        """Criterion 15: G1-A and G1-B in the architecture doc, the monitor design doc and the HITL guide."""
+        for name in ('my-agent-architecture.md', 'my-agent-monitor-design.md', 'hitl-orchestration-guide.md'):
+            text = ARCH.with_name(name).read_text(encoding='utf-8')
+            self.assertEqual(re.findall(r'G1[ab]\b', text), [], name)
+        self.assertIn('old lowercase gate names', self.section('- **Step IDs (2026-11-25, plugin 0.31.0):**', '### 4.4 '))
 
     def test_reference_articles_list_both_local_copies(self):
         ref = (REPO / 'docs' / 'reference.md').read_text(encoding='utf-8')

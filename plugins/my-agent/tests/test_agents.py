@@ -405,10 +405,10 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('the form the `## Mock-up` in `plan.md` shows', r)
         self.assertNotIn('the deliverable format in the scope', r)
         self.assertIn("gets the dev section's code review", r)
-        self.assertIn('G1a scope confirmation, G1b plan approval', general('gate-analyst'))
+        self.assertIn('G1-A scope confirmation, G1-B plan approval', general('gate-analyst'))
         profile = (REPO / 'l1-orchestration' / 'profiles' / 'general.md').read_text(encoding='utf-8')
-        self.assertIn('asked 3 times: G1a, G1b, G3', profile)
-        self.assertIn('confirm with G1a', profile)
+        self.assertIn('asked 3 times: G1-A, G1-B, G3', profile)
+        self.assertIn('confirm with G1-A', profile)
         self.assertIn('call it without `isolation: "worktree"`', profile)
         self.assertIn('the files coder units changed in place', profile)
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
@@ -551,7 +551,7 @@ class AgentsTest(unittest.TestCase):
         """The researcher has two call points and writes a background note (criterion 4)."""
         fm, body = split(REPO / 'l3-workers' / 'agents' / 'researcher.md')
         self.assertIn('Background research', fm['description'])
-        self.assertIn('G1b', fm['description'])
+        self.assertIn('G1-B', fm['description'])
         self.assertIn('Background question: b<n> <slug>', body)
         self.assertIn('background/', body)
         self.assertIn('Not found', body)
@@ -593,7 +593,7 @@ class AgentsTest(unittest.TestCase):
     def test_scope_reviewer_reads_persons_choice_mark(self):
         """A line marked (the person's choice) is not reported as unsettled; checks 3, 5 and 6 still apply (criterion 2)."""
         _, body = split(REPO / 'l2-design-judge' / 'agents' / 'scope-reviewer.md')
-        common = body.split('## Common checks (profiles with G1a)')[1].split('## Checks per profile')[0]
+        common = body.split('## Common checks (profiles with G1-A)')[1].split('## Checks per profile')[0]
         para = next(l for l in common.splitlines() if "(the person's choice)" in l)
         for word in ("ends with `(the person's choice)`", 'right before its `[check: …]` tag',
                      'settled by the person in the Scope interview', 'Do not report it as not settled by the person',
@@ -649,6 +649,33 @@ class AgentsTest(unittest.TestCase):
             self.assertIn(word, rule)
         # exception: a check command without a measured duration
         self.assertIn('`cannot run: <reason>`', rule)
+
+    def test_writer_gate_report_job(self):
+        """The writer's Gate report job: paths, prompt line, no findings table (criterion 4)."""
+        writer = self._agent('writer')
+        row = next(l for l in writer.splitlines() if l.startswith('- **Gate report:**'))
+        for word in ('Gate report: G1-B', 'Gate report: G3', 'report/', 'report-ko.json', 'report-ko.py todo',
+                     '### Overview', '### Takeaway', '| Item | Value |', 'Commit message', 'no findings table'):
+            self.assertIn(word, row)
+
+    def test_reviewer_first_run_lists_every_finding(self):
+        """With no previous review.md the reviewer lists every finding it sees (criterion 6)."""
+        reviewer = self._agent('reviewer')
+        self.assertIn('With no previous `review.md` (the first Review call of the task), list every finding seen in the reviewed files.', reviewer)
+
+    def test_judges_write_counts_table(self):
+        """The three result files carry a ## Counts table, one row per round (criterion 7)."""
+        for name in ('reviewer', 'scope-reviewer', 'plan-reviewer'):
+            text = self._agent(name)
+            self.assertIn('## Counts', text, name)
+            self.assertIn('| Round | BLOCKER | SHOULD-FIX | NITPICK |', text, name)
+            self.assertIn('one row per round', text, name)
+
+    def test_no_old_gate_names(self):
+        """No agent definition names G1a or G1b (criterion 15)."""
+        for path in MANIFEST:
+            text = (REPO / path).read_text(encoding='utf-8')
+            self.assertNotRegex(text, r'G1[ab]\b', path)
 
 
 if __name__ == '__main__':

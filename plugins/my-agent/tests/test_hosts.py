@@ -153,6 +153,14 @@ class HostsTest(unittest.TestCase):
         self.assertNotIn('Both Codex tools', note)
         self.assertNotRegex(note, r'request_user_input_async[^.]*shows the choices')
 
+    def test_popup_rows_name_the_label_line(self):
+        """Criterion 8: the Codex and Antigravity popup rows name the label line."""
+        label = 'the label line `[<step ID>] <step name> · <gate>` (recorder.md "Popup label")'
+        self.assertIn(label, self.find('AskUserQuestion')[2])
+        anti = (helpers.REPO / 'l1-orchestration' / 'hosts-antigravity.md').read_text(encoding='utf-8')
+        row = next(l for l in anti.splitlines() if l.startswith('| `AskUserQuestion` popup'))
+        self.assertIn(label, row)
+
     def test_question_check_row(self):
         row = self.find('Intake item 1')
         self.assertEqual(row[0], 'Intake item 1, `continue` item 1')

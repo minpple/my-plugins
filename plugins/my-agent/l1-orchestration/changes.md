@@ -4,18 +4,18 @@ L1 reads this file on a change request, a profile change at the first gate, `Abo
 
 ## In-flight revision (before G3 acceptance)
 
-"current rev" and "Archive" are defined in `recorder.md` "Revision records and archive". A rewrite of `plan.md` before G1b approval that keeps the confirmed scope is "Rewrite before approval" in `phases/plan.md`.
+"current rev" and "Archive" are defined in `recorder.md` "Revision records and archive". A rewrite of `plan.md` before G1-B approval that keeps the confirmed scope is "Rewrite before approval" in `phases/plan.md`.
 
-- **Profile change at the first gate** (G1a, or G1b in a small task): allowed until that gate's approval line. Procedure:
+- **Profile change at the first gate** (G1-A, or G1-B in a small task): allowed until that gate's approval line. Procedure:
   1. To dev outside a git repository: refuse ("The dev profile needs a git repository; this task location is not one.") and popup `Keep <current profile> (Recommended)` / `Abort`; nothing changes.
   2. Archive to `archive/<time>-rev<current rev>-profile/` (the rev does not go up).
   3. Update `Profile:` in `intake.md`; `Request:` is left as written. The label is then `(set by you)` because of the `profile` run-log line.
-  4. Convert. With `scope.md` (at G1a): keep it, ask only the new profile's Scope items still missing, run explorer again only if `explore.md` lacks the new profile's facts (dev: check commands), clear `## Confirmation`, archive and remove `scope-review.md`, and go back to ① Define (`back=1`), then Scope Review and G1a. Without `scope.md` (a small task at G1b): write `scope.md` from the plan's `## Scope summary` and `## Completion criteria`, ask the new profile's Scope items still missing, archive and remove `plan.md`, and go back to ① Define (`back=1`). Before any scope exists nothing is rolled back (`back=-`, `archive=-`) and the interview goes on with the new profile's items.
+  4. Convert. With `scope.md` (at G1-A): keep it, ask only the new profile's Scope items still missing, run explorer again only if `explore.md` lacks the new profile's facts (dev: check commands), clear `## Confirmation`, archive and remove `scope-review.md`, and go back to ① Define (`back=1`), then Scope Review and G1-A. Without `scope.md` (a small task at G1-B): write `scope.md` from the plan's `## Scope summary` and `## Completion criteria`, ask the new profile's Scope items still missing, archive and remove `plan.md`, and go back to ① Define (`back=1`). Before any scope exists nothing is rolled back (`back=-`, `archive=-`) and the interview goes on with the new profile's items.
   5. Write the `profile` line (Recorder rules), change `phase:` in `.active`, and tell the person in one line.
      - Models preset: run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/agent-models.py" presets --profile <new profile> --data-dir "<data folder>"` again and ask with the same popup rule as Intake item 3 ("Models preset" in `new-task.md`: a popup only with 2 or more presets; one preset gives `standard`; `none` gives no `Models:` line; exit 1 gives the broken-file popup). Then replace `Models:` in `intake.md` (remove it when Intake item 3 gives none) and, when `Models:` was written, write `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" models preset=<name> source=file --data-dir "<data folder>" --task-dir "<task_dir>"`. Record the popup like the other popups of that gate.
-  - After G1b approval a profile change is a new task (`Follows:`); offer `Split into a new task (Recommended)` in the kind popup below.
+  - After G1-B approval a profile change is a new task (`Follows:`); offer `Split into a new task (Recommended)` in the kind popup below.
 
-When a message that looks like a revision arrives after G1b approval, first ask its kind in a popup: `Revise this task` / `Adjust within approved scope` / `Split into a new task` / `Cancel` (put the one that fits first, with `(Recommended)`).
+When a message that looks like a revision arrives after G1-B approval, first ask its kind in a popup: `Revise this task` / `Adjust within approved scope` / `Split into a new task` / `Cancel` (put the one that fits first, with `(Recommended)`).
 
 - **Adjust within approved scope:** Add a `Scope change: <content>` line under `plan.md` `## Approval` with Edit, write a `fix what="Scope change: <content>" files=plan.md` line, and continue.
   - If the person says they will do a manual check later, add `Scope change: criterion <n> is checked by the user later` under `plan.md` `## Approval` with Edit right then (the run-log line is the same).
@@ -49,7 +49,7 @@ When `Abort` was picked in a popup, or Intake decided to abort the previous task
 When the person picks `New task in a worktree` (Intake item 1):
 
 1. Compute the task ID first (Intake item 4: the facts call's `date:` and `ids:` lines and the slug).
-2. Make sure `.claude/worktrees/` is excluded (the `git check-ignore` / `info/exclude` step of `build.md` step 5 item 2).
+2. Make sure `.claude/worktrees/` is excluded (the `git check-ignore` / `info/exclude` step of `build.md` step 3A item 2).
 3. Run `git worktree add -b my-agent-task/<task-id> <task location>/.claude/worktrees/task-<task-id>` as one command (absolute path).
 4. Tell the person to open a new session in that folder and send the request again.
 5. Create nothing else: no `.active`, task folder or run-log line, so the two-question popup (`qn=1`/`qn=2`) is not recorded here.

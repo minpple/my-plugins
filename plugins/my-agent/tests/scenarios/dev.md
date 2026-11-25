@@ -34,11 +34,11 @@ touch tools/__init__.py tests/__init__.py && PYTHONDONTWRITEBYTECODE=1 python3 -
 /my-agent Add a --lines option to tools/wc.py. When given, print the number of lines instead of words. Empty input gives 0. No other options needed.
 ```
 
-**Expected:** `Profile: dev`, small task exception (2 files to change; purpose, completion criteria and non-goals are in the request) → no G1a, `plan-review.md` is `SKIPPED small task`.
+**Expected:** `Profile: dev`, small task exception (2 files to change; purpose, completion criteria and non-goals are in the request) → no G1-A, `plan-review.md` is `SKIPPED small task`.
 
 | Popup | Answer to pick |
 |---|---|
-| G1b Plan approval | `Approve (Recommended)` |
+| G1-B Plan approval | `Approve (Recommended)` |
 | G3 commit approval | `Commit (Recommended)` — check that the diff and the message (`criteria:` numbers) are shown |
 | G2 `git commit` permission prompt | Allow once |
 

@@ -1,6 +1,6 @@
 ---
 name: my-agent-coder
-description: "my-agent L3 coder. L1 calls it in step 5 Execute to implement one planned work unit in the task location or its worktree, test first."
+description: "my-agent L3 coder. L1 calls it in step 3A Execute to implement one planned work unit in the task location or its worktree, test first."
 model: inherit
 subagent: true
 tools:

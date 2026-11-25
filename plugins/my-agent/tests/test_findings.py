@@ -17,6 +17,10 @@ def table(rows):
     return TABLE + ''.join(f'| {sev} | {a} | {b} | {c} |\n' for sev, (a, b, c) in zip(('BLOCKER', 'SHOULD-FIX', 'NITPICK'), rows))
 
 
+def counts(b, s, n):
+    return f'BLOCKER · {b} / SHOULD-FIX · {s} / NITPICK · {n}\n'
+
+
 class FindingsTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -55,7 +59,7 @@ class FindingsTest(unittest.TestCase):
         r = self.run_f()
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout, 'findings: review.md (1 round)\n' + table([(0, 0, 0), (2, 1, 1), (3, 1, 2)]) +
-                         'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 2 (open)\n'
+                         counts(0, 1, 2) +
                          '- SHOULD-FIX b.py:2 second → fix it\n- NITPICK d.py:4 fourth\n- NITPICK e.py:5 fifth\n')
 
     def test_review_criterion_tag_shows_as_marker(self):
@@ -64,7 +68,7 @@ class FindingsTest(unittest.TestCase):
         r = self.run_f()
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout, 'findings: review.md (1 round)\n' + table([(0, 0, 0), (2, 0, 2), (1, 0, 1)]) +
-                         'BLOCKER 0 · SHOULD-FIX 2 · NITPICK 1 (open)\n'
+                         counts(0, 2, 1) +
                          '- SHOULD-FIX a.py:3 text → fix · criterion 2, 5\n- SHOULD-FIX b.py:4 other\n- NITPICK c.py:5 small\n')
         self.assertNotIn('[criterion', r.stdout)
 
@@ -75,7 +79,7 @@ class FindingsTest(unittest.TestCase):
         r = self.run_f()
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout, 'findings: review.md (1 round)\n' + table([(0, 0, 0), (1, 1, 0), (2, 1, 1)]) +
-                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 1 (open)\n- NITPICK general remark\n')
+                         counts(0, 0, 1) + '- NITPICK general remark\n')
 
     def test_review_two_rounds_and_fix_line(self):
         self.put('archive/261120-101500-run1/review.md',
@@ -85,14 +89,51 @@ class FindingsTest(unittest.TestCase):
         self.put('run-log.md', STEP8 + '2026-11-20 10:05:00 fix: what="Review NITPICK c.py:3 three" files=c.py\n')
         r = self.run_f()
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(r.stdout, 'findings: review.md (2 rounds)\n' + table([(1, 1, 0), (1, 0, 1), (2, 1, 1)]) +
-                         'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 1 (open)\n- SHOULD-FIX b.py:2 two\n- NITPICK d.py:4 four\n')
+        # per round: Found is what the round lists, Open of round 1 is what round 2 lists again
+        self.assertEqual(r.stdout, 'findings: review.md (2 rounds)\n' +
+                         table([('1/0', '1/0', '0/0'), ('1/1', '0/0', '1/1'), ('1/2', '0/1', '1/1')]) +
+                         counts(0, 1, 1) + '- SHOULD-FIX b.py:2 two\n- NITPICK d.py:4 four\n')
+
+    def test_review_rounds_fixed_in_round_one(self):
+        """Round 1 with 2 SHOULD-FIX that round 2 no longer lists, round 2 with none (criterion 16)."""
+        self.put('archive/261120-101500-run1/review.md',
+                 'BLOCKER 0\n\n## Findings\n- SHOULD-FIX a.py:1 one\n- SHOULD-FIX b.py:2 two\n')
+        self.put('review.md', 'BLOCKER 0\n\n## Findings\n')
+        r = self.run_f()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn('| SHOULD-FIX | 2/0 | 2/0 | 0/0 |\n', r.stdout)
+        self.assertEqual(r.stdout, 'findings: review.md (2 rounds)\n' +
+                         table([('0/0', '0/0', '0/0'), ('2/0', '2/0', '0/0'), ('0/0', '0/0', '0/0')]) +
+                         counts(0, 0, 0) + '- none\n')
+
+    def test_counts_line_form(self):
+        """Capitals, ` · ` between a severity and its open count, ` / ` between the severities (criterion 14)."""
+        self.put('review.md', 'BLOCKER 0\n\n## Findings\n- SHOULD-FIX a.py:1 one\n- NITPICK b.py:2 two\n')
+        lines = self.run_f().stdout.splitlines()
+        self.assertIn('BLOCKER · 0 / SHOULD-FIX · 1 / NITPICK · 1', lines)
+        self.assertNotIn('(open)', '\n'.join(lines))
+
+    def test_counts_table_in_the_judgment_file_changes_nothing(self):
+        """A judge's `## Counts` table (one row per round) is not read as findings (criterion 7)."""
+        head = '\n## Counts\n| Round | BLOCKER | SHOULD-FIX | NITPICK |\n|---|---|---|---|\n| 1 | 1 | 2 | 1 |\n| 2 | 0 | 1 | 1 |\n'
+        review = '\n## Findings\n- SHOULD-FIX a.py:1 one\n- NITPICK b.py:2 two\n'
+        self.put('review.md', 'BLOCKER 0\n' + review)
+        plain = self.run_f().stdout
+        self.put('review.md', 'BLOCKER 0\n' + head + review)
+        self.assertEqual(self.run_f().stdout, plain)
+        self.assertIn(counts(0, 1, 1), plain)
+        judged = '\n## Findings\n- SHOULD-FIX plan.md:5 one\n- NITPICK plan.md:9 two\n\n## Decisions\n'
+        self.put('plan-review.md', 'READY FOR APPROVAL\nRun: 2\n' + judged)
+        plain = self.run_f('plan-review').stdout
+        self.put('plan-review.md', 'READY FOR APPROVAL\nRun: 2\n' + head + judged)
+        self.assertEqual(self.run_f('plan-review').stdout, plain)
+        self.assertIn(counts(0, 1, 1), plain)
 
     def test_new_nitpick_in_second_round_is_open(self):
         self.put('archive/261120-101500-run1/review.md', 'BLOCKER 0\n\n## Findings\n- NITPICK a.py:1 one\n')
         self.put('review.md', 'BLOCKER 0\n\n## Findings\n- NITPICK a.py:1 one (carried)\n- NITPICK b.py:2 two (new)\n')
         r = self.run_f()
-        self.assertIn('| NITPICK | 2 | 0 | 2 |\n', r.stdout)
+        self.assertIn('| NITPICK | 1/2 | 0/0 | 1/2 |\n', r.stdout)
         self.assertIn('- NITPICK b.py:2 two\n', r.stdout)
 
     def test_review_without_finding(self):
@@ -100,7 +141,13 @@ class FindingsTest(unittest.TestCase):
         r = self.run_f()
         self.assertEqual(r.returncode, 0)
         self.assertEqual(r.stdout, 'findings: review.md (1 round)\n' + table([(0, 0, 0)] * 3) +
-                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 0 (open)\n- none\n')
+                         counts(0, 0, 0) + '- none\n')
+
+    def test_scope_review_without_finding(self):
+        self.put('scope-review.md', 'READY FOR CONFIRMATION\nRun: 1\n\n## Findings\n\n## Decisions\n')
+        r = self.run_f('scope-review')
+        self.assertEqual((r.returncode, r.stdout), (0, 'findings: scope-review.md (1 round)\n' + table([(0, 0, 0)] * 3) +
+                                                    'BLOCKER · 0 / SHOULD-FIX · 0 / NITPICK · 0\n- none\n'))
 
     def test_scope_and_plan_review(self):
         body = ('{v}\nRun: 1\n\n## Findings\n- SHOULD-FIX plan.md:10 one\n- SHOULD-FIX plan.md:20 two\n- NITPICK plan.md:30 three\n\n'
@@ -109,12 +156,12 @@ class FindingsTest(unittest.TestCase):
         r = self.run_f('scope-review')
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout, 'findings: scope-review.md (1 round)\n' + table([(0, 0, 0), (2, 1, 1), (1, 0, 1)]) +
-                         'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 1 (open)\n- SHOULD-FIX plan.md:20 two\n- NITPICK plan.md:30 three\n')
+                         counts(0, 1, 1) + '- SHOULD-FIX plan.md:20 two\n- NITPICK plan.md:30 three\n')
         self.put('plan-review.md', body.format(v='READY FOR APPROVAL'))
         self.put('run-log.md', '2026-11-20 10:00:00 fix: what="Plan Review NITPICK plan.md:30 three" files=plan.md before=G1b\n')
         r = self.run_f('plan-review')
         self.assertEqual(r.stdout, 'findings: plan-review.md (1 round)\n' + table([(0, 0, 0), (2, 1, 1), (1, 1, 0)]) +
-                         'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 0 (open)\n- SHOULD-FIX plan.md:20 two\n')
+                         counts(0, 1, 0) + '- SHOULD-FIX plan.md:20 two\n')
         self.assertIn('| NITPICK | 1 | 0 | 1 |', self.run_f('scope-review').stdout)   # the run-log fix is plan-review only
 
     def judged(self, name, finding, decision, mark=''):
@@ -146,7 +193,7 @@ class FindingsTest(unittest.TestCase):
                                    '- NITPICK plan.md:9 c\n\n## Decisions\n- BLOCKER plan.md:5 a → applied by L1\n'
                                    '- SHOULD-FIX plan.md:Work-units b → applied by L1\n- NITPICK plan.md:9 c → declined\n')
         self.assertEqual(self.run_f('plan-review').stdout, 'findings: plan-review.md (1 round)\n' + table([(1, 1, 0), (1, 1, 0), (1, 0, 1)]) +
-                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 1 (open)\n- NITPICK plan.md:9 c\n')
+                         counts(0, 0, 1) + '- NITPICK plan.md:9 c\n')
 
     def test_plan_review_rounds(self):
         """A second round counts the first: its findings are found and fixed; open is what the latest round leaves."""
@@ -162,8 +209,10 @@ class FindingsTest(unittest.TestCase):
         # the fix line of round 1 names plan.md:41, where round 2 has another finding: it does not fix that one
         self.put('run-log.md', start.format(n=1) + fix.format(m=1, line=41) + start.format(n=2) + fix.format(m=7, line=60))
         r = self.run_f('plan-review')
-        self.assertEqual(r.stdout, 'findings: plan-review.md (2 rounds)\n' + table([(1, 1, 0), (1, 0, 1), (2, 1, 1)]) +
-                         'BLOCKER 0 · SHOULD-FIX 1 · NITPICK 1 (open)\n- SHOULD-FIX plan.md:50 vague\n- NITPICK plan.md:41 wording\n')
+        # per round across the archived copy (criterion 16)
+        self.assertEqual(r.stdout, 'findings: plan-review.md (2 rounds)\n' +
+                         table([('1/0', '1/0', '0/0'), ('1/1', '0/0', '1/1'), ('0/2', '0/1', '0/1')]) +
+                         counts(0, 1, 1) + '- SHOULD-FIX plan.md:50 vague\n- NITPICK plan.md:41 wording\n')
 
     def test_scope_review_rounds_and_revision_cut(self):
         self.put('archive/261120-090000-scope-run1/scope-review.md', 'REVISE\nRun: 1\n\n## Findings\n- BLOCKER scope.md:5 old revision\n')
@@ -173,8 +222,9 @@ class FindingsTest(unittest.TestCase):
         self.put('scope-review.md', 'READY FOR CONFIRMATION\nRun: 2\n\n## Findings\n- NITPICK scope.md:20 term\n\n'
                                     '## Decisions\n- NITPICK scope.md:20 term → applied by L1\n')
         r = self.run_f('scope-review')   # the rounds before the `-rev1` archive belong to the revision before
-        self.assertEqual(r.stdout, 'findings: scope-review.md (2 rounds)\n' + table([(2, 2, 0), (0, 0, 0), (1, 1, 0)]) +
-                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 0 (open)\n- none\n')
+        self.assertEqual(r.stdout, 'findings: scope-review.md (2 rounds)\n' +
+                         table([('2/0', '2/0', '0/0'), ('0/0', '0/0', '0/0'), ('0/1', '0/1', '0/0')]) +
+                         counts(0, 0, 0) + '- none\n')
 
     def test_review_fix_line_before_the_latest_reviewer_call(self):
         """A Review `fix` line written before the latest reviewer call fixed the round before, not a finding of this one."""
@@ -185,8 +235,9 @@ class FindingsTest(unittest.TestCase):
         now = time.time() + 5
         os.utime(self.task / 'review.md', (now, now))
         r = self.run_f()
-        self.assertEqual(r.stdout, 'findings: review.md (2 rounds)\n' + table([(1, 1, 0), (0, 0, 0), (1, 0, 1)]) +
-                         'BLOCKER 0 · SHOULD-FIX 0 · NITPICK 1 (open)\n- NITPICK a.py:9 name\n')
+        self.assertEqual(r.stdout, 'findings: review.md (2 rounds)\n' +
+                         table([('1/0', '1/0', '0/0'), ('0/0', '0/0', '0/0'), ('0/1', '0/0', '0/1')]) +
+                         counts(0, 0, 1) + '- NITPICK a.py:9 name\n')
 
     def test_skipped_plan_review(self):
         self.put('plan-review.md', 'SKIPPED small task\n')
@@ -196,7 +247,7 @@ class FindingsTest(unittest.TestCase):
     def test_fail_causes(self):
         r = self.run_f()
         self.assertEqual(r.returncode, 1)
-        self.assertTrue(r.stdout.startswith('findings: FAIL ') and 'review.md' in r.stdout and r.stdout.count('\n') == 1, r.stdout)
+        self.assertEqual(r.stdout, f"findings: FAIL {self.task / 'review.md'} is missing\n")   # one line, no table
         (self.task / 'review.md').mkdir()
         r = self.run_f()
         self.assertEqual(r.returncode, 1)

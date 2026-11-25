@@ -6,8 +6,8 @@ minpple의 Claude Code 플러그인 마켓플레이스입니다.
 
 | 플러그인 | 버전 | 설명 |
 |---|---|---|
-| `my-agent` | 0.30.0 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
-| `my-agent-tray` | 0.1.6 | my-agent 모니터용 macOS 메뉴바 앱 (선택; my-agent 0.5.0 이상 필요) |
+| `my-agent` | 0.31.0 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
+| `my-agent-tray` | 0.1.7 | my-agent 모니터용 macOS 메뉴바 앱 (선택; my-agent 0.5.0 이상 필요) |
 
 ## 요구 사항
 
@@ -89,7 +89,7 @@ python3 ~/dev/my-plugins/plugins/my-agent/l4-tools-guards/scripts/build-antigrav
 | `/my-agent status` | 진행 중인 작업과 최근 작업을 보여 줍니다. |
 | `/my-agent:monitor` | 작업 기록을 보는 로컬 웹 페이지(읽기 전용)를 띄웁니다. 선택한 작업의 범위·계획·결과를 한 페이지로 요약하는 Report 탭이 있습니다. `status`, `stop`. 작업을 시작해도 모니터는 저절로 뜨지 않습니다. 뜨게 하려면 데이터 폴더의 `monitor-config.json`에 `"autostart": true`를 넣습니다. |
 
-승인(범위, 계획, 최종 인수)마다 채팅 리포트에 지적 표가 있습니다. BLOCKER, SHOULD-FIX, NITPICK별로 발견·수정·열린 개수를 보여 줍니다. 팝업은 열린 개수를 한 줄에, 열린 항목을 한 줄에 하나씩 보여 줍니다.
+승인(범위, 계획, 최종 인수)마다 `pre-gate.py`를 한 번 호출하면 지적 표(BLOCKER, SHOULD-FIX, NITPICK별 라운드마다 발견·수정·열린 개수)가 출력되고, G1-B와 G3의 관문 리포트는 writer가 씁니다. 모든 팝업은 `[1B] Explore → Scope · Q` 같은 라벨 줄로 시작합니다. 팝업은 개수 줄 `BLOCKER · <n> / SHOULD-FIX · <n> / NITPICK · <n>`과 열린 항목을 한 줄에 하나씩 보여 줍니다.
 
 작업 기록은 작업 위치의 `<task location>/<task_dir>/<작업 ID>/`에 남습니다(기본값은 `.my-agent/<작업 ID>/`).
 끝난 작업은 그곳과 모니터 목록에 계속 쌓입니다. 끝난 지 30일 이상 된 작업을 `<task_dir>/.archived/`로 옮겨 목록에서 빼려면 다음을 실행합니다(되돌리려면 폴더를 다시 옮깁니다):

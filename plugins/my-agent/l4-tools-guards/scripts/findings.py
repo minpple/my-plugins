@@ -4,11 +4,15 @@
 usage: findings.py --task TASK_FOLDER --file review|plan-review|scope-review
 
 Prints `findings: <file name> (<n> round[s])`, the table `| Severity | Found | Fixed | Open |`, the line
-`BLOCKER <n> · SHOULD-FIX <n> · NITPICK <n> (open)` and the open items (`- <severity> <where> <text>`, or `- none`).
-review: the counts of the Report tab (all rounds, `Applied after review` lines and Review `fix` lines of the run-log).
+`BLOCKER · <n> / SHOULD-FIX · <n> / NITPICK · <n>` (the open counts of the latest round) and the open items
+(`- <severity> <where> <text>`, or `- none`).
+review: all rounds (the archived copies, then the file), `Applied after review` lines and Review `fix` lines of the run-log.
 plan-review, scope-review: all rounds of the current revision (the archived copies, one per `Run:`, then the file).
-Open is what the latest round leaves open: not `applied` in `## Decisions` and (plan-review) not named by a run-log
-`fix … before=G1b` line written after the latest plan-reviewer call; a declined finding stays open. Fixed is the rest.
+Each cell holds one number per round, oldest first, joined by `/` (one round: one number). Found(k) is every finding
+round k lists (carried ones included). Open(k) of an earlier round is its findings that the next round lists again
+(same severity and place); Open of the latest round is what it leaves open: not `applied` in `## Decisions` and
+(plan-review) not named by a run-log `fix … before=G1-B` line written after the latest plan-reviewer call; a declined
+finding stays open. Fixed(k) is Found(k) minus Open(k).
 A plan-review.md that starts with `SKIPPED <reason>` prints `findings: skipped (<reason>)`.
 review also fails when review.md is older than the latest `start:` line of the reviewer in the run-log: the reviewer
 returned its judgment without writing the file, so the file is an earlier run's.
@@ -59,15 +63,29 @@ def header(name, totals):
     return f'findings: {name} ({rounds} round{"" if rounds == 1 else "s"})'
 
 
-def tally(totals):
-    return {sev: (totals[sev]['found'], totals[sev]['fixed'], totals[sev]['open']) for sev in ma_schema.SEVERITIES}
+def tally(rounds, open_items):
+    """{severity: (found, fixed, open)} with one number per round, oldest first. Found(k) is what round k lists; Open(k)
+    is, for an earlier round, its findings the next round lists again (same severity and place) and, for the latest
+    round, `open_items`; Fixed(k) is Found(k) minus Open(k)."""
+    listed = [[(f[0], f[1]) for f in ma_schema.review_findings(text)] for text in rounds]
+    counts = {sev: ([], [], []) for sev in ma_schema.SEVERITIES}
+    for k, this in enumerate(listed):
+        later = set(listed[k + 1]) if k + 1 < len(listed) else None
+        left = [key for key in this if key in later] if later is not None else [(f[0], f[1]) for f in open_items]
+        for sev in ma_schema.SEVERITIES:
+            found = sum(1 for key in this if key[0] == sev)
+            n_open = min(found, sum(1 for key in left if key[0] == sev))
+            for cells, n in zip(counts[sev], (found, found - n_open, n_open)):
+                cells.append(n)
+    return counts
 
 
 def output(header, counts, open_items):
-    """`counts` is {severity: (found, fixed, open)}; `open_items` are (severity, where, text, mark)."""
+    """`counts` is {severity: (found, fixed, open)}, each a list of per-round numbers; `open_items` are
+    (severity, where, text, mark)."""
     out = [header, '| Severity | Found | Fixed | Open |', '|---|---|---|---|']
-    out += [f'| {sev} | {counts[sev][0]} | {counts[sev][1]} | {counts[sev][2]} |' for sev in ma_schema.SEVERITIES]
-    out.append(' · '.join(f'{sev} {counts[sev][2]}' for sev in ma_schema.SEVERITIES) + ' (open)')
+    out += [f'| {sev} | ' + ' | '.join('/'.join(map(str, cells)) for cells in counts[sev]) + ' |' for sev in ma_schema.SEVERITIES]
+    out.append(' / '.join(f'{sev} · {counts[sev][2][-1]}' for sev in ma_schema.SEVERITIES))
     out += [f'- {sev} {where} {body}'.rstrip() for sev, where, body, _mark in open_items] or ['- none']
     print('\n'.join(out))
     return 0
@@ -94,7 +112,7 @@ def main(argv=None):
         if call and path.stat().st_mtime < call[1]:
             return fail(f'{path} is older than the latest reviewer call ({call[0]}): the reviewer wrote no file')
         totals, open_items = ma_schema.review_state(task, text, ma_logline.read(task / 'run-log.md'))
-        return output(header(name, totals), tally(totals), open_items)
+        return output(header(name, totals), tally(ma_schema.review_rounds(task, text), open_items), open_items)
     if args.file == 'plan-review' and ma_schema.plan_review_skipped(first):
         print(f'findings: skipped ({first[len(ma_schema.PLAN_SKIPPED):].strip()})')
         return 0
@@ -102,7 +120,7 @@ def main(argv=None):
         return fail(f'{path} has no verdict line ({" or ".join(VERDICTS[args.file])})')
     pairs = ma_logline.read(task / 'run-log.md') if args.file == 'plan-review' else []
     totals, open_items = ma_schema.judged_state(task, name, text, pairs)
-    return output(header(name, totals), tally(totals), open_items)
+    return output(header(name, totals), tally(ma_schema.judged_rounds(task, name, text), open_items), open_items)
 
 
 if __name__ == '__main__':

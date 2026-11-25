@@ -193,3 +193,25 @@ class DelegatedG3AndMonitorDefault(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class GateReportPageItems(unittest.TestCase):
+    """The popup label line and the gate report changes appear in both pages alike."""
+
+    LABEL = '[1B] Explore → Scope · Q'
+    COUNTS = 'BLOCKER · 0 / SHOULD-FIX · 1 / NITPICK · 0'
+    ITEMS = (LABEL, COUNTS, 'pre-gate.py', 'Found / Fixed / Open', '<code>report/</code>')
+
+    def test_items_present_and_equal(self):
+        counts = {}
+        for name in ('index.html', 'index-ko.html'):
+            page = read(name)
+            counts[name] = [page.count(i) for i in self.ITEMS]
+            for item, n in zip(self.ITEMS, counts[name]):
+                self.assertGreaterEqual(n, 1, '%s %s' % (name, item))
+        self.assertEqual(counts['index.html'], counts['index-ko.html'])
+
+    def test_no_old_gate_names(self):
+        template = (REPO / 'tools' / 'docs-template.html').read_text(encoding='utf-8')
+        for name, text in (('index.html', read('index.html')), ('index-ko.html', read('index-ko.html')), ('template', template)):
+            self.assertIsNone(re.search(r'G1[ab]', text), name)

@@ -18,7 +18,7 @@ AGENTS = {
 }
 LEVEL_FOLDER = {'L2': 'l2-design-judge', 'L3': 'l3-workers'}
 UNIT_AGENTS = ('researcher', 'writer', 'coder')           # agents that run a plan.md work unit (E: unit stops)
-BEFORE_APPROVAL = ('explorer', 'scope-reviewer', 'architect', 'plan-reviewer')   # G1b allow list (4.4, Q6)
+BEFORE_APPROVAL = ('explorer', 'scope-reviewer', 'architect', 'plan-reviewer')   # G1-B allow list (4.4, Q6)
 
 # --- verdicts: the first line of each judge's file and last message ---
 
@@ -55,9 +55,37 @@ UNIT_STATUS = ('pending', 'running', 'done', 'stale')  # plan.md work unit `Stat
 UNIT_FINISHED = ('done', 'stale')                      # every unit ends in one of these (check-run)
 END = END_OK, END_PARTIAL, END_ERROR = ('ok', 'partial', 'error')   # stop: end=
 INTERRUPTED = (END_PARTIAL, END_ERROR)                 # an end that counts as a worker stop (E)
-GATES = ('G1a', 'G1b', 'G2', 'G3', 'E')
+GATES = ('G1-A', 'G1-B', 'G2', 'G3', 'E')
 POPUP_TAGS = GATES + ('Q',)                            # Q: an L1 popup that is not a gate
-PEOPLE_POPUPS = ('G1a', 'G1b', 'G3', 'E', 'Q')         # L1 popups (G2 is Claude Code's permission window)
+PEOPLE_POPUPS = ('G1-A', 'G1-B', 'G3', 'E', 'Q')       # L1 popups (G2 is Claude Code's permission window)
+LEGACY_GATES = {'G1a': 'G1-A', 'G1b': 'G1-B'}          # old run-log values, still read
+
+
+def gate_name(value):
+    """The current gate name of a run-log `gate=`/`before=` value (`G1b` -> `G1-B`); other values come back as given."""
+    return LEGACY_GATES.get(value, value)
+
+
+# The eight run-log steps, in order: (ID, name). Old logs wrote `n=1`..`n=8` for the same steps.
+STEPS = (('1A', 'Intake'), ('1B', 'Explore → Scope'), ('2A', 'Plan'), ('2B', 'Plan Review'),
+         ('3A', 'Execute'), ('3B', 'Merge'), ('4A', 'Verify'), ('4B', 'Review → Deliver'))
+STEP_IDS = tuple(i for i, _ in STEPS)
+
+
+def step_index(value):
+    """1-8 for a step `n=` value in the old numeric or the new lettered form, else None."""
+    value = str(value if value is not None else '').strip()
+    if value in STEP_IDS:
+        return STEP_IDS.index(value) + 1
+    if value in tuple('12345678'):
+        return int(value)
+    return None
+
+
+def step_id(value):
+    """The lettered step ID (`3A`) of a step `n=` value in either form, else None."""
+    n = step_index(value)
+    return STEP_IDS[n - 1] if n else None
 
 # --- models ---
 
@@ -97,7 +125,7 @@ def antigravity_family(model):
 LINE_RE = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([a-z][a-z0-9-]*):(?:\s+(.*))?$')
 DELEGATE_STATES = ('on', 'off')   # `delegate: state=` (delegated approval); the last such line is the current state
 ANSWERED_BY_L1 = 'L1'             # `answer: ... by=L1` is an answer L1 gave under delegated approval
-PLAN_EDIT_GATE = 'G1b'            # `fix: ... before=G1b` is an L1 edit of plan.md before plan approval
+PLAN_EDIT_GATE = 'G1-B'           # `fix: ... before=G1-B` (old logs: G1b) is an L1 edit of plan.md before plan approval
 STAMPED = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} ')   # looks like a record, readable or not
 
 
@@ -169,7 +197,7 @@ UNIT_STATUS_LINE = re.compile(r'^\s*(?:-\s*)?Status:\s*([a-z]+)')
 UNIT_MARK = re.compile(r'(?m)^Work unit:\s*(u\d+)\b')                   # first prompt line L1 gives a unit's worker
 BACKGROUND_MARK = re.compile(r'(?m)^Background question:\s*(b\d+)\b')   # first prompt line of a Background research researcher
 BACKGROUND_ITEM = re.compile(r'^-\s*(b\d+):')                           # `- b<n>: <question> — …` under ## Background research
-CONFIRMED_LINE = re.compile(r'(?m)^Confirmed ')                         # under ## Confirmation, L1 only (G1a Confirm)
+CONFIRMED_LINE = re.compile(r'(?m)^Confirmed ')                         # under ## Confirmation, L1 only (G1-A Confirm)
 MOCKUP_KIND = re.compile(r'^Kind:\s*(.*)$')                            # first line of ## Mock-up
 DELIVERED_COMMIT = 'commit:'                                           # `Delivered: commit:<sha>` / deliver path=
 
@@ -453,7 +481,7 @@ def unit_details(text: str) -> list:
     return units
 
 
-# --- plan gaps (the approval check of plan-lint.py and the G1b hook; architecture 4.4 "Plan gaps") ---
+# --- plan gaps (the approval check of plan-lint.py and the G1-B hook; architecture 4.4 "Plan gaps") ---
 
 CHECK_TAGS = ('command', 'file', 'URL', 'person')
 COVERS = re.compile(r'\(criteri(?:on|a)\s+(\d+(?:\s*(?:,|and)\s*\d+)*)\)')   # `(criterion 2)`, `(criteria 2, 3)`
@@ -658,7 +686,7 @@ def aborted_reason(intake_text):
     return m.group(1) if m else None
 
 
-# --- changed-file map (`changed-files.py` writes it; the verifier and the reviewer read it, accept.md step 7) ---
+# --- changed-file map (`changed-files.py` writes it; the verifier and the reviewer read it, accept.md step 4A) ---
 
 CHANGED_FILES = 'changed-files.md'
 CHANGED_COLUMNS = ('file', 'units', 'criteria', 'fingerprint', 'since')
@@ -738,7 +766,7 @@ def ko_current(sources: dict, items: dict) -> dict:
 
 # --- findings: Found, Fixed and Open of review.md, plan-review.md and scope-review.md (Report tab and findings.py) ---
 
-PLAN_REVIEW_FIX = re.compile(r'^Plan Review (BLOCKER|SHOULD-FIX|NITPICK)\s+(.*)$')   # `fix: what=` of a plan edit before G1b
+PLAN_REVIEW_FIX = re.compile(r'^Plan Review (BLOCKER|SHOULD-FIX|NITPICK)\s+(.*)$')   # `fix: what=` of a plan edit before G1-B
 
 
 def _read_text(path):
@@ -762,11 +790,11 @@ def review_rounds(task_dir, review):
 
 
 def review_fix_whats(pairs):
-    """The `what` of run-log `fix` lines after the last `step: n=8` and the last reviewer `start:` line that are Review
+    """The `what` of run-log `fix` lines after the last `step: n=4B` (old logs: n=8) and the last reviewer `start:` line that are Review
     fixes (no `before=`, no `Scope change:`); `pairs` are the parsed run-log (kind, fields) pairs. A fix made before
     the latest reviewer call belongs to the round before it."""
     pairs = list(pairs)
-    last = max((i for i, (kind, f) in enumerate(pairs) if (kind == 'step' and f.get('n') == '8')
+    last = max((i for i, (kind, f) in enumerate(pairs) if (kind == 'step' and step_index(f.get('n')) == 8)
                 or (kind == 'start' and str(f.get('agent') or '').endswith(('my-agent:reviewer', 'my-agent-reviewer')))),
                default=-1)
     return [f.get('what') or '' for kind, f in pairs[last + 1:]
@@ -800,9 +828,9 @@ def review_state(task_dir, review, pairs):
 
 
 def plan_review_fixes(pairs):
-    """[(severity, rest)] of the run-log `fix … before=G1b` lines `Plan Review <SEVERITY> <where> …`."""
+    """[(severity, rest)] of the run-log `fix … before=G1-B` lines `Plan Review <SEVERITY> <where> …`."""
     matches = [PLAN_REVIEW_FIX.match((f.get('what') or '').strip()) for kind, f in pairs
-               if kind == 'fix' and f.get('before') == PLAN_EDIT_GATE]
+               if kind == 'fix' and gate_name(f.get('before')) == PLAN_EDIT_GATE]
     return [m.groups() for m in matches if m]
 
 
@@ -830,7 +858,7 @@ def decision_matches_finding(d_sev, d_where, f_sev, f_where) -> bool:
 
 def judged_counts(text, pairs=()):
     """(found, fixed, open findings) of one plan-review.md or scope-review.md text. `found` and `fixed` are per severity.
-    A finding is fixed when it has an `applied` outcome in `## Decisions` or when a run-log `fix … before=G1b` line
+    A finding is fixed when it has an `applied` outcome in `## Decisions` or when a run-log `fix … before=G1-B` line
     (`pairs`; plan-review only) names it; a declined finding stays open."""
     decided = [(sev, where) for sev, where, outcome in plan_review_decisions(text) if outcome == 'applied']
     fixes = plan_review_fixes(pairs)

@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: my-agent L2 acceptance judge. L1 calls it in step 7 Verify to judge the deliverable against each completion criterion and write verify.md.
+description: my-agent L2 acceptance judge. L1 calls it in step 4A Verify to judge the deliverable against each completion criterion and write verify.md.
 model: opus
 effort: high
 level: L2

@@ -13,14 +13,14 @@ broken `.active` is a deny). For a my-agent agent of an active task: secrets are
 roots, writes in its write roots. The rules start from the agent's level (ma_schema.AGENTS): an L2 agent writes only
 its own file and its Bash only reads; an L3 agent writes nothing. Roles then widen or narrow that: the verifier and
 researcher may use the web, the researcher writes `background/` before plan approval and also `work/` after it, the
-writer writes `work/` (also `prototype/` and the project blueprint folder, 4.7.5), the coder writes the location or its worktree (also one inside a linked-worktree location)
+writer writes `work/` (also `prototype/`, the task folder's `report/` and its file `report-ko.json`, and the project blueprint folder, 4.7.5), the coder writes the location or its worktree (also one inside a linked-worktree location)
 but not `<task_dir>/`, `.git/`, `.claude/` (hooks and settings run in L1's context) or the blueprint folder (only the
 writer writes it), and the gate-analyst reads only gate-tally.md and gate-report.md. A worktree is the coder's own
 only when its folder is `agent-<the input's agent_id>` (F19); with a `cwd` in any other worktree of the location (a
 session moved into another coder's worktree) the coder has the main-tree rules, and relative paths still resolve
 against that `cwd`. The
 architect may not add the `Approved` or
-`Prototype: requested` line L1 writes into plan.md (4.4 G1b) nor drop a `## Revisions` line (4.8.1).
+`Prototype: requested` line L1 writes into plan.md (4.4 G1-B) nor drop a `## Revisions` line (4.8.1).
 On a deny with an active task it appends one `guard:` line to the task's run-log (fields ma_schema.GUARD_FIELDS, `why` is
 the reason as printed); a broken `.active` gives no line; a failed write never changes the decision.
 It judges inline interpreter code on the command line (`python3 -c`, `node -e`, `ruby -e`, `perl -e`, or a heredoc
@@ -172,7 +172,8 @@ def rules(role: str, active, cwd: Path, agent_id=None) -> Optional[Rules]:
         return r._replace(write=roots, web=True)
     blueprint = ma_blueprint.root(L)   # None: the location is the data folder, which keeps no blueprint
     if role == 'writer':
-        return r._replace(write=[T / 'work', T / 'prototype'] + ([blueprint] if blueprint else []))
+        return r._replace(write=[T / 'work', T / 'prototype', T / 'report', T / 'report-ko.json']
+                          + ([blueprint] if blueprint else []))
     if role == 'coder':
         W = worktree(cwd, L, agent_id)
         own = W or L
@@ -282,7 +283,7 @@ def plan_write_problem(ti: dict, path: Path) -> Optional[str]:
         after = before.replace(old, new) if every else before.replace(old, new, 1)
     for has, what in ((ma_plan.approved_text, 'approval line'), (ma_plan.prototype_text, '`Prototype: requested` line')):
         if has(after) and not has(before):
-            return f'Only L1 writes the {what} of plan.md (G1b).'
+            return f'Only L1 writes the {what} of plan.md (G1-B).'
     kept = {line.rstrip() for line in ma_schema.section_lines(after, 'Revisions') or []}
     if any(line.strip() and line.rstrip() not in kept for line in ma_schema.section_lines(before, 'Revisions') or []):
         return 'Do not delete or change the `## Revisions` lines of plan.md. Copy that section as is when you rewrite (4.8.1).'

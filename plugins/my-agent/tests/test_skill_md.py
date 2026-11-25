@@ -74,7 +74,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertNotIn('CLAUDE_SKILL_DIR', self.text)
 
     def test_approval_line_written_without_substitution(self):
-        """Live run: L1 wrote the Approved line with `$(date …)` and the G1b hook (rightly) refused it."""
+        """Live run: L1 wrote the Approved line with `$(date …)` and the G1-B hook (rightly) refused it."""
         plan = (REPO / 'l1-orchestration' / 'phases' / 'plan.md').read_text(encoding='utf-8')
         self.assertIn('without command substitution', plan)
 
@@ -150,7 +150,7 @@ class SkillMdTest(unittest.TestCase):
             proj = Path(tmp).resolve() / 'proj'
             make_task(proj)
             for name, args in found:
-                filled = args.replace('<task_dir>', rel())
+                filled = re.sub(r'gate=<[^>]*>', 'gate=Q', args.replace('<task_dir>', rel()).replace('n=<1A–4B>', 'n=1B'))
                 if args.startswith('inline '):   # a real role and a result file; every other kind takes x
                     result = proj / rel() / 'explore.md'
                     result.write_text('Explored the code\n', encoding='utf-8')
@@ -162,7 +162,7 @@ class SkillMdTest(unittest.TestCase):
 
     def test_gate_answers_use_choice(self):
         for name, args in self.templates():
-            if args.startswith('answer') and re.search(r'gate=(G1a|G1b|G3|E|Q)\b', args):
+            if args.startswith('answer') and re.search(r'gate=(G1a|G1b|G1-A|G1-B|G3|E|Q)\b', args):
                 self.assertIn('choice=', args, f'{name}: {args}')
 
     def test_every_ask_carries_rec(self):
@@ -186,7 +186,7 @@ class SkillMdTest(unittest.TestCase):
 
     def test_rec_template_runs_as_written(self):
         found = [a for n, a in self.templates() if a.startswith('ask') and 'rec=' in a]
-        self.assertGreaterEqual(len(found), 5)
+        self.assertGreaterEqual(len(found), 3)   # the gate popups ask through pre-gate.py; these are the rest
         with tempfile.TemporaryDirectory() as tmp:
             proj = Path(tmp).resolve() / 'proj'
             make_task(proj)
@@ -279,10 +279,10 @@ class SkillMdTest(unittest.TestCase):
 
     def plan_step4(self):
         plan = self.PLAN.read_text(encoding='utf-8')
-        return plan[plan.index('## 4. Plan Review'):plan.index('## G1b plan approval')]
+        return plan[plan.index('## 2B Plan Review'):plan.index('## G1-B plan approval')]
 
     def test_nitpick_only_applied_without_popup(self):
-        """NITPICK only -> applied without a popup, one `## Decisions` line each, then G1b."""
+        """NITPICK only -> applied without a popup, one `## Decisions` line each, then G1-B."""
         step = self.plan_step4()
         self.assertIn('Unmarked SHOULD-FIX and NITPICK, `READY` and `REVISE` alike: apply them without a popup', step)
         self.assertIn('- <severity> <path>:<line> <summary> → applied by L1 | applied by architect | declined', step)
@@ -296,11 +296,11 @@ class SkillMdTest(unittest.TestCase):
         self.assertNotIn('whole list (NITPICKs included)', step)
 
     def test_l1_plan_edit_rules(self):
-        """Small plan.md edits by L1 before G1b, recorded as `fix ... before=G1b` with an archive."""
+        """Small plan.md edits by L1 before G1-B, recorded as `fix ... before=G1-B` with an archive."""
         step = self.plan_step4()
-        self.assertIn('before=G1b archive=', step)
+        self.assertIn('before=G1-B archive=', step)
         plan = self.PLAN.read_text(encoding='utf-8')
-        g1b = plan[plan.index('## G1b plan approval'):]
+        g1b = plan[plan.index('## G1-B plan approval'):]
         self.assertIn('Applied after Plan Review', g1b)
         self.assertIn('small', g1b[g1b.index('**Request changes:**'):])
         row = next(l for l in self.text.splitlines() if l.startswith('| L1 |'))
@@ -346,7 +346,7 @@ class SkillMdTest(unittest.TestCase):
         kinds = run_log_kinds()
         found = [a for n, a in self.templates() if a.startswith(('profile ', 'fix '))]
         self.assertTrue(any(a.startswith('profile from=') for a in found))
-        self.assertTrue(any('before=G1b' in a for a in found))
+        self.assertTrue(any('before=G1-B' in a for a in found))
         self.assertLessEqual({'profile', 'fix'}, kinds)
 
     def test_auto_flag_rules(self):
@@ -364,7 +364,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('item 1–5', intake[intake.index('Delegation covers'):])
 
     def test_delegated_approval_core_rules(self):
-        """Never G2, E, the third-REVISE G1b popup or a popup without a recommendation (G3 is answered per gates.md); state from the last line."""
+        """Never G2, E, the third-REVISE G1-B popup or a popup without a recommendation (G3 is answered per gates.md); state from the last line."""
         head = self.text[:self.text.index('## Arguments')]
         sec = head[head.index('### Delegated approval'):]
         sec = sec[:sec.index('\n### ', 5)] if '\n### ' in sec[5:] else sec
@@ -556,7 +556,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('"G3 in the dev profile" in `profiles/dev.md` replaces items 4–6', accept)
         self.assertIn('read `retro.md` and do its "Retrospective"', accept)
         self.assertIn('go to E (gates.md "E escalation")', accept)
-        self.assertIn('do this instead of `accept.md` step 8 items 4–6', self.dev_g3())
+        self.assertIn('do this instead of `accept.md` step 4B items 4–6', self.dev_g3())
         self.assertIn('read `retro.md` and do its "Retrospective"', self.dev_g3().replace('Read `retro.md`', 'read `retro.md`'))
         self.assertTrue(self.gates.rstrip().endswith(self.section('## E escalation', None, self.gates).rstrip()))
         self.assertIn('## Retrospective', self.retro)
@@ -572,7 +572,7 @@ class SkillMdTest(unittest.TestCase):
             text = path.read_text(encoding='utf-8')
             self.assertLess(len(text), PROCEDURE_CHARS, name)
             self.assertIn('SKILL.md "Procedure files"', text.split('\n## ')[0], name)
-            sections = re.split(r', (?![^(]*\))', rows[f'{name}.md'][2])   # "Intake (step 1, Router)" is one name
+            sections = re.split(r', (?![^(]*\))', rows[f'{name}.md'][2])   # "Intake (step 1A, Router)" is one name
             for section in sections:
                 self.assertTrue(f'\n## {section}' in text or f'\n**{section}:**' in text, f'{name}: {section}')
             heads, listed = re.findall(r'^## (.+)$', text, re.M), [s for s in sections if f'\n## {s}' in text]
@@ -607,7 +607,7 @@ class SkillMdTest(unittest.TestCase):
             self.assertIn(word, rules, word)
 
     # --- data folder ---
-    DATA_SCRIPTS = ('run-log', 'usage-snapshot', 'gate-report', 'feedback', 'monitor-up', 'open-html', 'intake')
+    DATA_SCRIPTS = ('run-log', 'usage-snapshot', 'gate-report', 'feedback', 'monitor-up', 'open-html', 'intake', 'pre-gate')
     MONITOR_SKILL = REPO / 'skills' / 'monitor' / 'SKILL.md'
 
     def command_spans(self, path):
@@ -685,7 +685,7 @@ class SkillMdTest(unittest.TestCase):
 
     # --- codex review fixes ---
     def test_intake_items_in_order(self):
-        section = self.section('## Intake (step 1, Router)', None, self.new_task)
+        section = self.section('## Intake (step 1A, Router)', None, self.new_task)
         self.assertEqual(re.findall(r'^(\d+)\. \*\*', section, re.M), [str(n) for n in range(1, 12)])
         self.assertIsNone(re.search(r'\.\d+\. \*\*', section))
 
@@ -735,7 +735,7 @@ class SkillMdTest(unittest.TestCase):
         for gone in ('- The monitor and the Claude Code permission dialog (G2) are outside the levels.',
                      'The baseline line makes the stretch holding',
                      '(scope-guard blocks writes that delete or change those lines)',
-                     'the G1b hook asks for a relative path after `cd`',
+                     'the G1-B hook asks for a relative path after `cd`',
                      'An aborted task is not resumed with `continue`',
                      'separators inside quotes',
                      'A command with the word `git` but no such shape'):
@@ -765,7 +765,7 @@ class SkillMdTest(unittest.TestCase):
         rules = self.section('### Question rules', '### Gates')
         bullet = next(l for l in rules.splitlines() if l.startswith('- **Settled popup:**'))
         for word in ('after Intake', 'request, the files', 'earlier answer', '`answer … by=L1`',
-                     '(answered by L1)', 'G1a, G1b, G3, G2, E, Intake popups', 'without a recommended choice',
+                     '(answered by L1)', 'G1-A, G1-B, G3, G2, E, Intake popups', 'without a recommended choice',
                      'with another choice or a question back'):
             self.assertIn(word, bullet, word)
         self.assertEqual(self.text.count('**Settled popup:**'), 1)
@@ -784,7 +784,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('write the `ask` line', bullet)
         self.assertIn('by=L1', bullet)
         sec = self.section('### Delegated approval', '### Levels')
-        self.assertIn('answers G1a, G1b, findings popups and other non-gate popups with the recommended choice', sec)
+        self.assertIn('answers G1-A, G1-B, findings popups and other non-gate popups with the recommended choice', sec)
         never = next(l for l in sec.splitlines() if l.startswith('- Never answered by L1:'))
         for word in ('G2', ' E,', 'third `REVISE`', 'without a recommended choice', 'Intake item 1–5'):
             self.assertIn(word, never, word)
@@ -803,7 +803,7 @@ class SkillMdTest(unittest.TestCase):
         """Criterion 8: Scope Review and Plan Review show a findings list table before the findings popup."""
         define = (REPO / 'l1-orchestration' / 'phases' / 'define.md').read_text(encoding='utf-8')
         plan = (REPO / 'l1-orchestration' / 'phases' / 'plan.md').read_text(encoding='utf-8')
-        parts = (self.section('## Scope Review', None, define), self.section('## 4. Plan Review', '## G1b plan approval', plan))
+        parts = (self.section('## Scope Review', None, define), self.section('## 2B Plan Review', '## G1-B plan approval', plan))
         for part in parts:
             self.assertIn('findings list table', part)
             self.assertIn('`# | Severity | Location | Finding | Fix L1 would apply`', part)
@@ -872,9 +872,15 @@ class SkillMdTest(unittest.TestCase):
 
     def test_cost_row_baseline_and_moments(self):
         row = next(l for l in self.recorder.splitlines() if l.startswith('|') and 'run-log.py" cost' in l)
-        for word in ('baseline=1', 'Right before the G3 popup', '`n=3`', '`n=5` (also Back to Execute)', '`n=7`',
-                     'L1 runs nothing then'):
+        for word in ('baseline=1', '`pre-gate.py --gate G3` writes it before the G3 popup', '`n=2A`',
+                     '`n=3A` (also Back to Execute)', '`n=4A`', 'L1 runs no separate `cost` command'):
             self.assertIn(word, row, word)
+        self.assertNotIn('Right before the G3 popup', row)
+
+    def test_no_rule_tells_l1_to_run_cost_before_g3(self):
+        self.assertNotIn('run-log.py" cost', self.gates)
+        self.assertNotIn('Right before the G3 popup', self.recorder)
+        self.assertNotIn('--file review', self.gates.split('G3 under delegated approval')[1].split('\n')[2])
 
     def test_failure_row_structural_argument(self):
         row = next(l for l in self.recorder.splitlines() if l.startswith('| Verify FAIL 1–2 times'))
@@ -882,7 +888,7 @@ class SkillMdTest(unittest.TestCase):
 
     def test_gate_reports_section(self):
         section = self.section('## Gate reports', None, self.gates)
-        for word in ('### Details', 'first two rows', 'G1a', 'G1b', 'G3', 'E', '--report', '--pointer', 'Report:',
+        for word in ('### Details', 'first two rows', 'G1-A', 'G1-B', 'G3', 'E', 'pre-gate.py', 'pointer line',
                      'task folder', 'no harness tool'):
             self.assertIn(word, section, word)
         self.assertLess(self.gates.index('## Check before anything leaves'), self.gates.index('## Gate reports'))
@@ -895,7 +901,7 @@ class SkillMdTest(unittest.TestCase):
         return dev[dev.index('## G3 in the dev profile'):dev.index('## Agents used')]
 
     def test_korean_copy_before_each_gate(self):
-        """For a Korean request L1 refreshes report-ko.json before G1a, G1b and G3."""
+        """For a Korean request L1 refreshes report-ko.json before G1-A, G1-B and G3."""
         section = self.section('## Gate reports', None, self.gates)
         for word in ('**Korean copy.**', 'report-ko.py" --task "<absolute task folder>" todo', '`<task folder>/report-ko.json`',
                      'In another request language, skip this bullet.', 'the source the judges read'):
@@ -913,16 +919,47 @@ class SkillMdTest(unittest.TestCase):
         dev = self.dev_g3()
         esc = self.section('## E escalation', None, self.gates)
         for part in (general, dev):
-            for word in ('Gate reports', '### Overview', '### Takeaway', '--report', '--pointer', 'pointer line'):
+            for word in ('Gate reports', '### Overview', '### Takeaway', 'pointer line'):
                 self.assertIn(word, part)
             self.assertNotIn('--url', part)
             self.assertNotIn('### Details', part)
+        self.assertIn('pre-gate.py', dev)   # one call replaces the separate `open-html.py --report` and `cost` commands
         for word in ('Commit message', 'Diff', '+<a>/-<b>'):
             self.assertIn(word, dev)
         self.assertNotIn('the main diffs', dev)
         self.assertIn('Gate reports', esc)
         self.assertIn('### Details', esc)
         self.assertIn('scripts/archive.py" --task', accept)   # Back to Execute archives with the script, not cp and cmp
+
+    def test_accept_g3_order_and_back_execute_scripts(self):
+        """Criteria 1, 2, 4, 10: G3 in general/research is the writer call and one pre-gate.py call; Back to Execute is one script call."""
+        accept = self.phase('accept')
+        item4 = accept[accept.index('4. **G3 report (chat):**'):accept.index('5. **G3 popup:**')]
+        item5 = accept[accept.index('5. **G3 popup:**'):accept.index('6. **Accept:**')]
+        g3 = item4 + item5
+        self.assertIn('`Gate report: G3`', item4)
+        self.assertIn('--report-text "<absolute task folder>/report/G3.md"', item5)
+        self.assertLess(item4.index('`Gate report: G3`'), item4.index('`pre-gate.py`'))
+        for gone in ('open-html.py', 'findings.py', 'run-log.py" cost', '--file review', 'run-log.py" ask'):
+            self.assertNotIn(gone, g3)
+        self.assertIn('`Save path` row', item4)
+        back = accept.split('## Back to Execute')[1].split('\n## ')[0]
+        self.assertIn('back-execute.py" --task', back)
+        self.assertIn('On a non-zero exit, stop and report its line', back)
+        self.assertLess(back.index('back-execute.py'), back.index('`build.md`'))
+        for gone in ('step n=', 'Change `phase:`', 'run-log.py'):
+            self.assertNotIn(gone, back)
+        self.assertIn('new worker call, never a resume', back)
+        row = next(l for l in self.recorder.splitlines() if l.startswith('| Back to Execute'))
+        self.assertIn('back-execute.py', row)
+        self.assertNotIn('step n=', row)
+        build = (L1 / 'phases' / 'build.md').read_text(encoding='utf-8')
+        self.assertIn('back-execute.py', build)
+        for name in ('accept', 'build'):
+            self.assertLess(len(self.phase(name)), 12700)
+        self.assertLessEqual(len(accept), 12550)   # room for the step-ID sweep (u8)
+        for name in ('recorder', 'changes', 'retro', 'resume'):
+            self.assertLess(len(PROCEDURES[name].read_text(encoding='utf-8')), 12700, name)
 
     def test_accept_popup_bodies(self):
         accept = self.phase('accept')
@@ -946,15 +983,19 @@ class SkillMdTest(unittest.TestCase):
     def test_accept_cost_calls(self):
         accept = self.phase('accept')
         cmd = 'run-log.py" cost'
-        verify = accept[accept.index('## 7. Verify'):accept.index('## Back to Execute')]
+        verify = accept[accept.index('## 4A Verify'):accept.index('## Back to Execute')]
         self.assertNotIn(cmd, verify)   # the step line that opens the phase writes the cost line itself (2026-11-16)
         self.assertIn('the script writes the `cost` line of the moment itself', verify)
         general = accept[accept.index('5. **G3 popup:**'):accept.index('6. **Accept:**')]
         devp = self.dev_g3()
         dev = devp[devp.index('3. Record before and after the popup.'):devp.index('4. **Commit:**')]
-        for part in (general, dev):
-            self.assertIn('right before the G3 popup', part)
-            self.assertLess(part.index(cmd), part.index('ask gate=G3'))
+        self.assertIn('right before the G3 popup', general)
+        self.assertNotIn(cmd, general)   # the `pre-gate.py` call writes the `cost` and `ask` lines itself
+        self.assertIn('pre-gate.py" --gate G3', general)
+        self.assertIn('(it writes the `cost` and `ask` lines)', general)
+        self.assertNotIn(cmd, dev)   # the dev `pre-gate.py` call writes the `cost` and `ask` lines itself
+        self.assertIn('pre-gate.py" --gate G3', dev)
+        self.assertIn('(it writes the `cost` and `ask` lines)', dev)
 
     def test_build_prototype_and_worktree_session(self):
         build = self.phase('build')
@@ -964,12 +1005,12 @@ class SkillMdTest(unittest.TestCase):
 
     def test_dev_merge_row_output_and_copy_fallback(self):
         dev = (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')
-        merge = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
+        merge = next(l for l in dev.splitlines() if l.startswith('| 3B Merge'))
         self.assertIn('--output=', merge)
         self.assertIn('cp -p', merge)
         self.assertIn('cmp', merge)
         self.assertNotIn('\\|', merge)
-        execute = next(l for l in dev.splitlines() if l.startswith('| 5 Execute'))
+        execute = next(l for l in dev.splitlines() if l.startswith('| 3A Execute'))
         self.assertIn('--git-common-dir', execute)
 
     def test_l1_row_popup_first_and_syntax_check(self):
@@ -1027,47 +1068,51 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('models', run_log_kinds())
 
     def test_gate_reports_overview_and_takeaway(self):
-        """G1a and G1b open with Overview and Takeaway before the table; G1b has a Models row."""
+        """G1-A and G1-B open with Overview and Takeaway before the table; G1-B has a Models row."""
         sec = self.section('## Gate reports', None, self.gates)
-        for word in ('### Overview', '### Takeaway', 'G1a', 'G1b', 'scope summary', 'plan summary', '`Models` row',
+        for word in ('### Overview', '### Takeaway', 'G1-A', 'G1-B', 'scope summary', 'plan summary', '`Models` row',
                      '`Request changes`', '`Approve`'):
             self.assertIn(word, sec, word)
         self.assertLess(sec.index('### Overview'), sec.index('### Takeaway'))
         self.assertLess(sec.index('### Takeaway'), sec.index('`| Item | Value |`'))
 
     def test_gate_reports_prototype_opened_locally(self):
-        """The prototype is a local file opened by open-html.py; the line replaces the full mock-up at G1b."""
-        sec = self.section('## Gate reports', None, self.gates)
+        """The prototype is a local file opened by open-html.py; the line replaces the full mock-up at G1-B."""
+        plan = self.phase('plan')
+        sec = self.section('2. If `## Prototype`', '3. **Hosts:**', plan)
         for word in ('open-html.py', 'prototype/index.html', '--data-dir', 'opened in the browser', 'not opened',
-                     '`failed:`', 'remade only when the mock-up changed', 'not published anywhere',
+                     '`failed:`', 'remake it only if the mock-up changed', 'Nothing is published',
                      'skills/mock-up', 'capture.sh'):
             self.assertIn(word, sec, word)
+        self.assertNotIn('**Prototype**', self.gates)   # the rule lives in define.md and plan.md
 
     def test_gate_reports_open_report_tab(self):
-        """The gate report is read on the Report tab; the chat keeps a pointer line."""
+        """The gate report is read on the Report tab; the chat keeps the pointer line `pre-gate.py` prints."""
         sec = self.section('## Gate reports', None, self.gates)
-        for word in ('`ask` line', 'Commit message', 'Diff', '+<a>/-<b>', 'Save path',
-                     'the full diff is not printed', 'Report: not opened (<reason>); task folder: <absolute task folder>',
-                     '(opened in the browser: <window|tab>)', '(not opened: no browser opened; open it yourself)',
-                     '(not opened: report_open is off; open it yourself)', 'report_open'):
+        for word in ('`ask` line', 'Commit message', 'Diff', '+<a>/-<b>', 'Save path', 'the full diff is not printed',
+                     'report_open', 'the line the `pre-gate.py` call printed, as it is'):
             self.assertIn(word, sec, word)
-        self.assertLess(sec.index('`ask` line'), sec.index('--report'))
-        # one call: the script opens the tab and prints the pointer line, so the rule has no cases to tell apart
-        self.assertIn('--report "<absolute task folder>" --pointer --data-dir "<data folder>"', sec)
-        self.assertIn('the line the `--pointer` call printed, as it is', sec)
+        self.assertNotIn('Opening the Report tab', sec)
+        # one call: the script writes the lines, opens the tab and prints the pointer line (criterion 1)
+        self.assertIn('**Pre-gate call.**', sec)
+        self.assertIn('pre-gate.py" --gate <G1-A|G1-B|G3> --task "<absolute task folder>" q="<question>" rec="<recommended choice>"', sec)
+        self.assertIn('--report-text "<absolute task folder>/report/<gate>.md"', sec)
+        self.assertIn('--data-dir "<data folder>" --task-dir "<task_dir>"', sec)
+        self.assertNotIn('open-html.py" --report', sec)
         self.assertNotIn('--url', sec)
 
     def test_g1b_row_opens_report_tab(self):
-        row = next(l for l in self.text.splitlines() if l.startswith('| G1b Plan approval'))
+        row = next(l for l in self.text.splitlines() if l.startswith('| G1-B Plan approval'))
         self.assertNotIn('full mock-up', row)
         self.assertIn("after opening the task's Report tab", row)
 
     def test_open_html_spans_carry_data_dir_only(self):
-        spans = [c for s, c in self.command_spans(PROCEDURES['gates']) if s == 'open-html']
+        spans = [c for name in ('plan', 'define') for s, c in self.command_spans(L1 / 'phases' / f'{name}.md') if s == 'open-html']
         self.assertTrue(spans)
         for cmd in spans:
             self.assertIn('--data-dir', cmd)
             self.assertNotIn('--task-dir', cmd)
+            self.assertNotIn('--report', cmd)
 
     def test_no_artifact_publishing(self):
         """No stale publishing wording in the gate reports or the leave check."""
@@ -1084,25 +1129,27 @@ class SkillMdTest(unittest.TestCase):
     def test_gate_reports_findings_table(self):
         """Each gate report holds the findings table printed by findings.py."""
         sec = self.section('## Gate reports', None, self.gates)
-        for word in ('l4-tools-guards/scripts/findings.py" --task "<absolute task folder>" --file',
-                     '--file <scope-review|plan-review|review>', '### Scope Review findings', '### Plan Review findings',
+        for word in ('The `pre-gate.py` call prints it (`findings.py`)', '### Scope Review findings', '### Plan Review findings',
                      '### Review findings', 'Severity | Found | Fixed | Open', 'also when every count is 0',
-                     '`findings: skipped (', 'judgment was skipped', '`findings: FAIL`', 'G1a or G1b',
+                     'per-round values joined by `/`', 'a single round shows one number',
+                     '`findings: skipped (', 'judgment was skipped', '`findings: FAIL`', 'G1-A or G1-B',
                      'general', 'research', 'dev'):
             self.assertIn(word, sec, word)
+        self.assertNotIn('Right before the chat report run', sec)
         for path in (self.phase('define'), self.phase('plan'), self.phase('accept'), self.dev_g3()):
             self.assertIn('findings table (gates.md "Gate reports")', path)
 
     def test_gate_popup_text_layout(self):
         """The popup text has line breaks: question, counts line, one line per open item, next."""
         sec = self.section('## Gate reports', None, self.gates)
-        for word in ('counts line', '`BLOCKER <n> \u00b7 SHOULD-FIX <n> \u00b7 NITPICK <n> (open)`', 'No open items',
+        for word in ('counts line', '`BLOCKER \u00b7 <n> / SHOULD-FIX \u00b7 <n> / NITPICK \u00b7 <n>`', 'in capitals also in another language',
+                     'No open items',
                      'more than 10', 'first 10', '`\u2026 and <k> more`', 'line breaks as written'):
             self.assertIn(word, sec, word)
         self.assertLess(sec.index('The short question'), sec.index('counts line'))
         self.assertLess(sec.index('counts line'), sec.index('what happens next'))
         block = re.search(r'```text\n(.*?)```', sec, re.S).group(1).splitlines()
-        block = [l.strip() for l in block]
+        block = [l.strip() for l in block][1:]   # the first line is the label line (u9)
         while block and not block[-1]:
             block.pop()
         self.assertGreaterEqual(len(block), 4)
@@ -1110,13 +1157,127 @@ class SkillMdTest(unittest.TestCase):
         self.assertFalse(block[0].startswith('- '))
         self.assertTrue(all(l.startswith('- ') for l in block[1:]), block)
         self.assertTrue(block[-1].startswith('- Next:'), block[-1])
-        self.assertTrue(any(l.startswith('- BLOCKER 0 \u00b7 SHOULD-FIX') for l in block))
+        self.assertTrue(any(l.startswith('- BLOCKER \u00b7 0 / SHOULD-FIX \u00b7 ') for l in block))   # criterion 14
+        self.assertNotIn('(open)', '\n'.join(block))
         self.assertNotIn('monitor-up.py', sec)
-        self.assertIn('Report: not opened (<reason>); task folder:', sec)
+
+    def test_pre_gate_call_replaces_separate_commands(self):
+        """Criterion 1: G1-A, G1-B and the dev G3 each make one `pre-gate.py` call; no separate report, findings or cost command."""
+        define, plan, dev = self.phase('define'), self.phase('plan'), self.dev_g3()
+        for gate, part in (('G1-A', define), ('G1-B', plan), ('G3', dev)):
+            self.assertIn('pre-gate.py" --gate %s --task "<absolute task folder>" q="' % gate, part, gate)
+            self.assertIn('--data-dir "<data folder>" --task-dir "<task_dir>"', part[part.index('pre-gate.py'):])
+            self.assertNotIn('open-html.py" --report', part, gate)
+            self.assertNotIn('open-html.py --report', part, gate)
+            self.assertNotIn('scripts/findings.py', part, gate)
+            self.assertNotIn('run-log.py" cost', part, gate)
+        order = 'the `pre-gate.py` call'
+        self.assertIn(order, define[define.index('- Order:'):])
+        self.assertIn(order, plan[plan.index('4. Record before and after'):])
+        self.assertIn(order, dev[dev.index('3. Record before and after'):])
+
+    def test_gate_report_writer_at_g1b_and_dev_g3(self):
+        """Criterion 4: G1-B and the dev G3 call the writer first (`Gate report:`); L1 adds only the commit, diff and cost rows."""
+        plan, dev = self.phase('plan'), self.dev_g3()
+        step4 = plan[plan.index('4. Record before and after'):plan.index('5. **Approve:**')]
+        step3 = dev[dev.index('3. Record before and after'):dev.index('4. **Commit:**')]
+        self.assertIn('the writer call (`Gate report: G1-B`)', step4)
+        self.assertIn('--report-text "<absolute task folder>/report/G1-B.md"', step4)
+        self.assertLess(step4.index('the writer call'), step4.index('the `pre-gate.py` call'))
+        self.assertIn('the writer call (`Gate report: G3`, with `git diff --stat` in the same message)', step3)
+        self.assertIn('--report-text "<absolute task folder>/report/G3.md"', step3)
+        self.assertLess(step3.index('the writer call'), step3.index('the `pre-gate.py` call'))
+        self.assertIn('written by `my-agent:writer`', dev)
+        self.assertIn('L1 adds only a `Commit message` row', dev)
+        self.assertIn('a `Diff` row', dev)
+        self.assertIn('and the cost (reference), as one short table after the printed output, before the popup', dev)
+        self.assertIn('the reviewer check (`review.md` exists and is newer than the latest reviewer call', step3)
+        self.assertIn('`findings.py --file review`', step3)
+        self.assertIn('on `findings: FAIL` one new reviewer call', step3)
+        self.assertLess(step3.index('the reviewer check'), step3.index('the writer call'))
+        gates = self.section('- **Writer** (G1-B, G3):', '- **Korean copy.**', self.gates)
+        self.assertIn('as a short table after the printed output, before the popup', gates)
+        for word in ('`Gate report: <G1-B|G3>`', '<task folder>/report/<gate>.md', 'L1 adds only the dev `Commit message` and `Diff` rows and the cost',
+                     'recorder.md "Failure handling"'):
+            self.assertIn(word, gates, word)
+        korean = self.section('- **Korean copy.**', '- **Chat report**', self.gates)
+        self.assertIn('for G1-B and G3 put the printed output in the writer prompt', korean)
+        # G1-A keeps L1's own report: no writer, no --report-text
+        self.assertNotIn('Gate report: G1-A', self.gates + self.phase('define'))
+        self.assertNotIn('--report-text', self.phase('define'))
+
+    def test_parallel_calls_at_every_point_of_a_task(self):
+        """Criterion 3: tool calls that need no result of each other go in one message at every point, not only within one step."""
+        sec = self.section('### Tool choice', '### Change requests')
+        line = next(l for l in sec.splitlines() if 'one message' in l)
+        for word in ('At every point of a task', 'do not need each other\'s result', 'record lines', 'Reads', 'script calls',
+                     'not only within one step'):
+            self.assertIn(word, line, word)
+        self.assertNotIn('of one step', line)
+
+    def test_light_path_sentences_and_delegated_cap(self):
+        """Criterion 5: both Rework lines keep the re-judge scope and add the light path; the delegated cap counts a light-path round."""
+        sec = self.section('## Gate reports', '## E escalation', self.gates)
+        example = next(l for l in sec.splitlines() if l.startswith('  - Rework: fix all open items fixes them'))
+        rule = next(l for l in sec.splitlines() if l.startswith('  - With open items the question has one plain line'))
+        for line in (example, rule):
+            self.assertIn('only the criteria', line)
+            self.assertIn('every open item is a NITPICK', line)
+            self.assertIn('only Review runs again', line)
+        delegated = self.delegated()
+        self.assertIn('each light-path round (accept.md) counts as one G3 Rework round', delegated)
+        self.assertIn('own cap of 3', delegated)
+        self.assertIn('Open items after 3 G3 fix rounds: go to E', delegated)
+
+    def test_findings_cells_and_counts_line_form(self):
+        """Criteria 14 and 16: the chat report table cells join the per-round values with `/`; the counts line has the new form."""
+        sec = self.section('## Gate reports', '## E escalation', self.gates)
+        self.assertIn('Each cell holds the per-round values joined by `/`', sec)
+        self.assertIn('`BLOCKER · <n> / SHOULD-FIX · <n> / NITPICK · <n>`', sec)
+        self.assertNotIn('NITPICK <n> (open)', sec)
+        self.assertNotIn('NITPICK <n> (open)', self.dev_g3())
+
+    def test_unit_files_fit_the_size_limits_with_room_left(self):
+        """Criterion 10: each file of the gate-report unit is at most 12,700 characters; the files u8 and u9 still edit keep room."""
+        room = {SKILL: 200, PROCEDURES['gates']: 250, L1 / 'phases' / 'define.md': 250, L1 / 'profiles' / 'dev.md': 250}
+        for path in [SKILL, PROCEDURES['gates'], L1 / 'phases' / 'define.md', L1 / 'phases' / 'plan.md'] + \
+                [L1 / 'profiles' / f'{n}.md' for n in ('dev', 'general', 'research')]:
+            size = len(path.read_text(encoding='utf-8'))
+            self.assertLessEqual(size + room.get(path, 0), 12700, f'{path.name}: {size}')
+
+    def test_popup_label_rule(self):
+        """Criterion 8: every popup but G2 starts with the label line; the rule is in the Question rules, the detail in gates.md."""
+        q = self.section('### Question rules', '### Gates')
+        for text in ('Every popup but G2 starts with `[<step ID>] <step name> · <gate>`', '`G1-A`, `G1-B`, `G3`, `E`, `Q`',
+                     'the question on the next line', 'short English', 'also in another language', 'recorder.md` “Popup label”'):
+            self.assertIn(text, q)
+        rec = PROCEDURES['recorder'].read_text(encoding='utf-8')
+        label = self.section('## Popup label', '## Revision records', rec)
+        self.assertIn('recorder.md "Popup label"', self.gates)
+        for text in ('not the G2 permission dialog', 'first line `[<step ID>] <step name> · <gate>`',
+                     '`G1-A`, `G1-B`, `G3`, `E` or `Q`', 'the question is on the next line', '`Explore → Scope`', '`Plan Review`',
+                     '`Merge`', 'without the gate or other words the monitor adds', 'also in a popup in another language',
+                     'outside a step\'s own procedure', 'task start, resume, retrospective, change request',
+                     'the step the task is in (retrospective `[4B]`)', 'before the task exists uses `[1A] Intake`'):
+            self.assertIn(text, label, text)
+
+    def test_popup_example_blocks_start_with_the_label_line(self):
+        """Criterion 8: the gates.md popup example (and any popup example in the host files) opens with a label line."""
+        pattern = re.compile(r'^\[[1-4][AB]\] (Intake|Explore → Scope|Plan|Plan Review|Execute|Merge|Verify|Review → Deliver)'
+                             r' · (G1-A|G1-B|G3|E|Q)$')
+        sec = self.section('## Gate reports', '## E escalation', self.gates)
+        blocks = [('gates.md', sec[sec.index('- **Popup text.**'):sec.index('- **G3 with open review items.**')])]
+        for name in ('hosts.md', 'hosts-antigravity.md'):
+            blocks.append((name, (L1 / name).read_text(encoding='utf-8')))
+        for name, text in blocks:
+            for block in re.findall(r'```text\n(.*?)```', text, re.S):
+                first = block.splitlines()[0].lstrip()
+                self.assertRegex(first, pattern, name)
+        self.assertEqual(len(re.findall(r'```text\n', blocks[0][1])), 1)
 
     def popup_text(self):
         sec = self.section('## Gate reports', '## E escalation', self.gates)
-        return sec[sec.index('- **Popup text.**'):sec.index('- **Prototype**')]
+        return sec[sec.index('- **Popup text.**'):sec.index('- **G3 with open review items.**')]
 
     def g3_open_items(self):
         sec = self.section('## Gate reports', '## E escalation', self.gates)
@@ -1128,7 +1289,7 @@ class SkillMdTest(unittest.TestCase):
     def test_popup_should_fix_explanation_line(self):
         """A popup with open SHOULD-FIX items carries one line saying what a SHOULD-FIX item is."""
         text = self.popup_text()
-        for word in ('a problem worth fixing', 'does not block', 'G1a, G1b and G3'):
+        for word in ('a problem worth fixing', 'does not block', 'G1-A, G1-B and G3'):
             self.assertIn(word, text, word)
         line = self.plan_step4_should_fix()
         for word in ('Question rules', 'a problem worth fixing', 'does not block', '`- Next:` last'):
@@ -1152,7 +1313,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertLess(text.index('counts line'), text.index('a problem worth fixing'))
         self.assertLess(text.index('a problem worth fixing'), text.index('`- Next: `'))
         block = re.search(r'```text\n(.*?)```', text, re.S).group(1).splitlines()
-        block = [l.strip() for l in block]
+        block = [l.strip() for l in block][1:]   # the first line is the label line (u9)
         while block and not block[-1]:
             block.pop()
         self.assertNotIn('', block)
@@ -1167,7 +1328,7 @@ class SkillMdTest(unittest.TestCase):
                       self.plan_step4_should_fix())
         sec = self.section('## Scope Review', None, self.phase('define'))
         self.assertIn('`Apply all (Recommended)` / `Confirm without applying` / `Pick myself`', sec)
-        self.assertIn('`plan.md` step 4', sec)
+        self.assertIn('`plan.md` step 2B', sec)
         self.assertIn('SHOULD-FIX line', sec)
 
     def test_rework_line_only_at_g3(self):
@@ -1201,7 +1362,7 @@ class SkillMdTest(unittest.TestCase):
         step4 = self.plan_step4()
         self.assertIn('the marked-findings popup below comes first, so the fix holds the answers', step4)
         self.assertIn('third `REVISE`', step4)
-        self.assertIn('G1b popup', step4)
+        self.assertIn('G1-B popup', step4)
         sec = self.section('## Scope Review', None, self.phase('define'))
         self.assertIn('unmarked findings are applied without a popup', sec)
         self.assertIn('the popup first, then fix', sec)
@@ -1254,7 +1415,7 @@ class BackgroundResearchRulesTest(unittest.TestCase):
         self.define = self.read('phases', 'define.md')
 
     def step(self):
-        i = self.define.index('## 2b. Background research')
+        i = self.define.index('\n## Background research')
         return self.define[i:self.define.index('\n## Scope Review')]
 
     def test_background_research_conditions_and_limit(self):
@@ -1276,10 +1437,10 @@ class BackgroundResearchRulesTest(unittest.TestCase):
 
     def test_background_research_call_and_log(self):
         step = self.step()
-        for word in ('Background question: b<n> <slug>', 'background/<slug>.md', 'step n=2 name=Background-research',
+        for word in ('Background question: b<n> <slug>', 'background/<slug>.md', 'step n=1B name=Background-research',
                      'my-agent:researcher', 'in one message', 'official docs and primary sources'):
             self.assertIn(word, step)
-        self.assertLess(self.define.index('On Confirm, write `Confirmed'), self.define.index('## 2b. Background research'))
+        self.assertLess(self.define.index('On Confirm, write `Confirmed'), self.define.index('\n## Background research'))
         self.assertIn('Background research: <n> questions', self.define)
         self.assertIn('no popup of their own', self.define)
 
@@ -1292,7 +1453,7 @@ class BackgroundResearchRulesTest(unittest.TestCase):
     def test_background_research_note_contradicts_scope(self):
         step = self.step()
         self.assertIn('contradicts the scope', step)
-        self.assertIn('reopens G1a with `Revise`', step)
+        self.assertIn('reopens G1-A with `Revise`', step)
         self.assertIn('changes.md "Profile change at the first gate"', step)
 
     def test_background_research_researcher_stops_twice(self):
@@ -1313,14 +1474,15 @@ class BackgroundResearchRulesTest(unittest.TestCase):
 
     def test_background_research_skill_names_researcher_exception(self):
         text = SKILL.read_text(encoding='utf-8')
-        i = text.index('- Before G1b approval, delegate only to')
+        i = text.index('- Before G1-B approval, delegate only to')
         self.assertIn('my-agent:researcher', text[i:text.index('\n', i)])
-        self.assertIn('2 Explore → Scope → Background research', text)
+        self.assertIn('`my-agent:writer` for the G1-B report', text[i:text.index('\n', i)])
+        self.assertIn('1B Explore → Scope → Background research', text)
 
     def test_background_research_general_profile_rows(self):
         text = self.read('profiles', 'general.md')
-        self.assertNotIn('Start web research only after G1b approval.', text)
-        row = next(l for l in text.splitlines() if l.startswith('| 5 Execute'))
+        self.assertNotIn('Start web research only after G1-B approval.', text)
+        row = next(l for l in text.splitlines() if l.startswith('| 3A Execute'))
         self.assertIn('Background research', row)
         row = next(l for l in text.splitlines() if l.startswith('| `my-agent:researcher`'))
         self.assertIn('Background research', row)
@@ -1374,6 +1536,54 @@ class TaskDirRulesTest(unittest.TestCase):
 
     def test_monitor_skill_names_mismatch_case(self):
         self.assertIn('(task folder mismatch', self.MONITOR_SKILL.read_text(encoding='utf-8'))
+
+
+class StepIdRulesTest(unittest.TestCase):
+    """2026-11-25: the rules name the steps by their IDs (1A-4B) and the gates G1-A/G1-B."""
+    FILES = [SKILL] + ONE_READ + [L1 / 'hosts-antigravity.md']
+    NAMES = r'(Intake|Explore|Background research|Plan|Execute|Merge|Verify|Review)'
+    NUMERIC = [re.compile(r'^#+ [1-8][a-z]?\. ', re.M), re.compile(r'\b[Ss]teps? [1-8]\b(?![AB])'),
+               re.compile(r'(?<![\w.–-])[1-8][ab]? ' + NAMES + r'\b(?! FAIL)'), re.compile(r'(?<![a-z])n=<?[1-8](?![0-9AB])'),
+               re.compile(r'\b2b\b'), re.compile(r'[Ss]tep names?: [1-8]\b'),
+               re.compile(r'(?<![\w.–-])[1-8] `' + NAMES)]
+
+    def test_no_old_gate_names(self):
+        for path in self.FILES:
+            self.assertIsNone(re.search(r'\bG1[ab]\b', path.read_text(encoding='utf-8')), path.name)
+
+    def test_no_numeric_step_headings_or_references(self):
+        for path in self.FILES:
+            text = path.read_text(encoding='utf-8')
+            for pattern in self.NUMERIC:
+                m = pattern.search(text)
+                self.assertIsNone(m, '%s: %r' % (path.name, m and text[max(0, m.start() - 30):m.end() + 10]))
+
+    def test_run_log_step_templates_are_lettered(self):
+        found = 0
+        for path in self.FILES:
+            for args in TEMPLATE.findall(path.read_text(encoding='utf-8')):
+                if args.startswith('step '):
+                    found += 1
+                    self.assertRegex(args, r'^step n=([1-4][AB]|<1A–4B>) ', path.name)
+        self.assertGreaterEqual(found, 8)
+
+    def test_step_id_headings(self):
+        heads = {p: re.findall(r'^#{1,2} .+$', (L1 / 'phases' / f'{p}.md').read_text(encoding='utf-8'), re.M)
+                 for p in ('define', 'plan', 'build', 'accept')}
+        self.assertEqual(heads['accept'][:2], ['# ④ Accept: 4A Verify · 4B Review → G3', '## 4A Verify'])
+        self.assertIn('## 4B Review → Deliver', heads['accept'])
+        self.assertIn('## 3A Execute', heads['build'])
+        self.assertIn('## 3B Merge', heads['build'])
+        self.assertIn('## 2A Plan', heads['plan'])
+        self.assertIn('## 2B Plan Review', heads['plan'])
+        self.assertIn('## G1-B plan approval', heads['plan'])
+        self.assertIn('## 1B Explore → Scope', heads['define'])
+        self.assertIn('## Background research', heads['define'])
+
+    def test_sizes(self):
+        self.assertLessEqual(len(SKILL.read_text(encoding='utf-8')), SKILL_CHARS)
+        for path in ONE_READ + [L1 / 'hosts-antigravity.md']:
+            self.assertLessEqual(len(path.read_text(encoding='utf-8')), PROCEDURE_CHARS, path.name)
 
 
 if __name__ == '__main__':

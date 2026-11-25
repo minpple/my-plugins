@@ -75,7 +75,7 @@ def decisions(lines) -> list:
     for _, kind, f in lines:
         if kind not in ('ask', 'answer') or ma_logline.is_hook_line(kind, f):
             continue
-        gate = f.get('gate') or '?'
+        gate = ma_schema.gate_name(f.get('gate')) or '?'
         key = (gate, f.get('session'), f.get('qn'))
         if kind == 'ask':
             rec = _bare(f.get('rec'))
@@ -154,7 +154,7 @@ def segments(lines) -> list:
                 if before is not None:
                     usd = now - before if now >= before else now
                 prev[f.get('session')] = now
-        steps = [f"{f.get('n', '?')} {f.get('name', '?')}" for _, k, f in body if k == 'step']
+        steps = [f"{ma_schema.step_id(f.get('n')) or f.get('n', '?')} {f.get('name', '?')}" for _, k, f in body if k == 'step']
         tokens = sum(_int(f.get('tokens')) for _, k, f in body if k == 'stop')
         if steps or tokens or usd is not None:
             segs.append([lines[lo][0], lines[hi][0] if n < len(cuts) else '', steps, usd, tokens])
@@ -208,7 +208,7 @@ def tally_text(lines) -> str:
     sub = count('stop', mismatch='1')
     opus = sum(1 for k, f in kinds if k == 'call' and 'opus' in (f.get('model') or ''))
     scope = sum(1 for k, f in kinds if k == 'fix' and (f.get('what') or '').startswith(SCOPE_CHANGE))
-    plan_edits = sum(1 for k, f in kinds if k == 'fix' and f.get('before') == ma_schema.PLAN_EDIT_GATE)
+    plan_edits = sum(1 for k, f in kinds if k == 'fix' and ma_schema.gate_name(f.get('before')) == ma_schema.PLAN_EDIT_GATE)
     fixes = count('fix') - scope - plan_edits
     delegated = sum(1 for k, f in kinds if k == 'answer' and f.get('by') == ma_schema.ANSWERED_BY_L1)
     switches = [f'{t} {f.get("state")} ({f.get("how", "-")})' for t, k, f in lines if k == 'delegate']

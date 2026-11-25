@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Plugin hook (hooks.json, PreToolUse: Agent|Workflow|Edit|Write|NotebookEdit|Bash): the G1b hard gate
-(architecture 4.4 "G1b hard gate").
+"""Plugin hook (hooks.json, PreToolUse: Agent|Workflow|Edit|Write|NotebookEdit|Bash): the G1-B hard gate
+(architecture 4.4 "G1-B hard gate").
 
 Runs in every session where the plugin is on, so it first narrows down: a call from inside a subagent (`agent_id` in
 the input) passes; no task found passes (a `.active` without `task:` warns, before the session check); a `.active`
@@ -12,7 +12,7 @@ Bash command whose write target cannot be told, is the person's call, allowed on
 before approval: my-agent:explorer / scope-reviewer / architect / plan-reviewer, and writes under the active task
 folder (`<location>/<task_dir>/<task>/`), to the records folder's `.active`, or to the data folder's
 `active-index.json` / `projects.txt` (and `mkdir -p` of the data folder itself). Two more agents pass on a condition:
-my-agent:writer once `Prototype: requested` is under plan.md's or scope.md's `## Prototype` (the G1a prototype), and
+my-agent:writer once `Prototype: requested` is under plan.md's or scope.md's `## Prototype` (the G1-A prototype) or when its prompt has the line `Gate report: G1-B` and the task folder has `plan-review.md` (the writer's G1-B gate report), and
 my-agent:researcher for a Background research question (`background_denied`).
 A `.active` without `task:` → pass with a warning (C9). A task folder that is gone → pass with a warning. A
 data-folder write other than those two files is asked like any other outside write. Any error → exit 2, so the tool
@@ -31,7 +31,7 @@ passes, as before (git commit asks via G2). A deny appends one `guard:` line (ho
 id=-, ma_schema.GUARD_FIELDS, `cwd` the input's) to the task's run-log; on Claude Code an ask writes none. On Codex an ask
 stops the call with exit 2 and writes a G2 `ask` line (`ma_g2`, via `ma_host.emit`); one `answer gate=G2` line releases one
 call. A failed `guard:` write never changes the decision.
-The gate-report copy folder (`ma_gate_report.report_dir()`, $MA_GATE_REPORT_DIR) counts as a place too; G1b is unchanged.
+The gate-report copy folder (`ma_gate_report.report_dir()`, $MA_GATE_REPORT_DIR) counts as a place too; G1-B is unchanged.
 """
 import os
 import re
@@ -52,16 +52,16 @@ BEFORE_APPROVAL = {f'my-agent:{name}' for name in ma_schema.BEFORE_APPROVAL}
 PLAN_ASK = ('my-agent plan gate: write outside the task folder ({paths}); '
             'allow it only if this is your own request, not the task\'s')
 CUT = 120
-REASON = 'Task {task}: plan.md has no approval line, so delegation and workflows are blocked, writes are asked (G1b). {what}'
-GAPS = ('Task {task}: plan.md cannot be approved yet (G1b, plan gaps): {gaps}. '
-        'Fix the plan (plan.md "4. Plan Review", item 2) and ask for approval again.')
+REASON = 'Task {task}: plan.md has no approval line, so delegation and workflows are blocked, writes are asked (G1-B). {what}'
+GAPS = ('Task {task}: plan.md cannot be approved yet (G1-B, plan gaps): {gaps}. '
+        'Fix the plan (plan.md "## 2B Plan Review") and ask for approval again.')
 ASK = 'Task {task}: a write outside the task location ({paths}). It is not the deliverable location in the scope document, so confirm it.'
 RESULT_LINE = re.compile(r'(?m)^\s*-\s*(?:Deliverable location|Save path)\s*:\s*`([^`]+)`')
 
 
 def allowed_write(p: Path, active, tasks_dir: Path) -> bool:
     return (under(p, active.task_dir)   # the active task folder only, not a sibling task's
-            or same(p, active.task_dir.parent / '.active')   # L1 writes `phase:` there (define.md step 5)
+            or same(p, active.task_dir.parent / '.active')   # L1 writes `phase:` there (define.md "1B Explore → Scope", step 5)
             or any(same(p, tasks_dir / n) for n in ('', 'active-index.json', 'projects.txt')))  # '' = mkdir -p
 
 
@@ -131,6 +131,12 @@ def background_denied(ti: dict, active):
     return None
 
 
+def gate_report_g1b(ti: dict, active) -> bool:
+    """The writer's G1-B gate report: the prompt has the exact line `Gate report: G1-B` and plan-review.md exists."""
+    lines = (ti.get('prompt') or '').splitlines()
+    return any(l.strip() == 'Gate report: G1-B' for l in lines) and (active.task_dir / 'plan-review.md').is_file()
+
+
 def decide(inp: dict, active, tasks_dir: Path):
     """(reason, decision) for a call before approval: decision is 'deny' or 'ask'; (None, None) lets it through."""
     plan_md = active.task_dir / 'plan.md'
@@ -143,14 +149,19 @@ def decide(inp: dict, active, tasks_dir: Path):
     if tool == 'Agent':
         agent = ti.get('subagent_type') or ''
         if agent in BEFORE_APPROVAL or (agent == 'my-agent:writer' and (
-                ma_plan.prototype_requested(plan_md) or ma_plan.scope_prototype_requested(active.task_dir / 'scope.md'))):
+                ma_plan.prototype_requested(plan_md) or ma_plan.scope_prototype_requested(active.task_dir / 'scope.md')
+                or gate_report_g1b(ti, active))):
             return None, None
         if agent == 'my-agent:researcher':
             why = background_denied(ti, active)
             if why is None:
                 return None, None
             return reason(why)
-        return reason(f'Before approval only explorer, scope-reviewer, architect and plan-reviewer get work (requested: {agent or "-"}).')
+        what = 'Before approval only explorer, scope-reviewer, architect and plan-reviewer get work'
+        if agent == 'my-agent:writer':
+            what += (' (a writer only for a prototype: `Prototype: requested` under ## Prototype, or for the G1-B gate report: '
+                     'a `Gate report: G1-B` line in its prompt and plan-review.md in the task folder)')
+        return reason(f'{what} (requested: {agent or "-"}).')
     if tool == 'Workflow':
         return reason('No workflow runs before approval.')
     if tool in ('Edit', 'Write', 'NotebookEdit'):

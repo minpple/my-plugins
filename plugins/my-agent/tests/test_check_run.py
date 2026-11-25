@@ -25,14 +25,14 @@ class CheckRunTest(unittest.TestCase):
         self.T = records(Path(self.tmp.name)) / '261025-scn-general'
         self.T.mkdir(parents=True)
         (self.T / 'intake.md').write_text('Status: done\nProfile: general\nTask: 261025-scn-general\n')
-        (self.T / 'plan.md').write_text('# Plan\n\n## Approval\n\n- Approved 2026-10-25 10:00 G1b\n')
+        (self.T / 'plan.md').write_text('# Plan\n\n## Approval\n\n- Approved 2026-10-25 10:00 G1-B\n')
         (self.T / 'plan-review.md').write_text('READY FOR APPROVAL\n')
         (self.T / 'verify.md').write_text('Verdict: ALL PASS\nRun: 1\n- 1. PASS x\n')
         (self.T / 'review.md').write_text('BLOCKER 0\n')
         self.lines = (steps(1, 2, 3)
                       + [L('call', agent='my-agent:architect'), L('start', agent='my-agent:architect', id='a1'),
                          L('stop', id='a1', result='DONE', end='ok')]
-                      + steps(4) + [L('ask', gate='G1b', q='Plan approval'), L('answer', gate='G1b', choice='Approve')]
+                      + steps(4) + [L('ask', gate='G1-B', q='Plan approval'), L('answer', gate='G1-B', choice='Approve')]
                       + steps(5, 6, 7, 8)
                       + [L('ask', gate='G2', agent='main', tool='Bash', q='rm -rf x'),
                          L('ask', gate='G3', q='Final acceptance'), L('answer', gate='G3', choice='Accept'),
@@ -62,6 +62,27 @@ class CheckRunTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotIn('FAIL', r.stdout)
 
+    def lettered(self, ln):
+        for old, new in zip('12345678', ('1A', '1B', '2A', '2B', '3A', '3B', '4A', '4B')):
+            ln = ln.replace(f'step: n={old} ', f'step: n={new} ')
+        return ln
+
+    def test_lettered_and_mixed_logs_pass(self):
+        full = [self.lettered(ln) for ln in self.lines]
+        self.lines = full
+        r = self.check()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('n=3A', ''.join(self.lines))
+        self.lines = [self.lettered(ln) if i % 2 else ln for i, ln in enumerate(self.lines)]
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_old_gate_name_is_read_and_messages_name_g1_b(self):
+        self.lines = [ln.replace('gate=G1-B', 'gate=G1b') for ln in self.lines]
+        self.assertEqual(self.check().returncode, 0)
+        self.lines = [ln for ln in self.lines if 'gate=G1b' not in ln]
+        r = self.check()
+        self.assertIn('FAIL approval-order: G1-B answer missing', r.stdout)
+
     def test_missing_answer_fails(self):
         self.lines = [ln for ln in self.lines if 'answer: gate=G3' not in ln]
         r = self.check()
@@ -75,7 +96,7 @@ class CheckRunTest(unittest.TestCase):
         self.assertIn('FAIL agents', r.stdout)
 
     def test_execute_before_approval_fails(self):
-        i = next(i for i, ln in enumerate(self.lines) if 'answer: gate=G1b' in ln)
+        i = next(i for i, ln in enumerate(self.lines) if 'answer: gate=G1-B' in ln)
         moved = self.lines.pop(i)
         self.lines.append(moved)
         r = self.check()
@@ -91,7 +112,7 @@ class CheckRunTest(unittest.TestCase):
     def test_units_must_end_done(self):
         """D3/C4: every `### u<n>` unit ends `done` (or `stale` after a revision)."""
         units = '## Work units\n\n### u1 parser\n- Status: done\n\n### u2 cli\n- Status: running\n\n### u3 old\n- Status: stale\n\n'
-        (self.T / 'plan.md').write_text(f'# Plan\n\n{units}## Approval\n\n- Approved 2026-10-25 10:00 G1b\n')
+        (self.T / 'plan.md').write_text(f'# Plan\n\n{units}## Approval\n\n- Approved 2026-10-25 10:00 G1-B\n')
         out = self.check().stdout
         self.assertIn('FAIL units: unit Status not done: u2 running', out)
         (self.T / 'plan.md').write_text((self.T / 'plan.md').read_text().replace('running', 'done'))
@@ -105,7 +126,7 @@ class CheckRunTest(unittest.TestCase):
     def test_revision_needs_done(self):
         """B4: a revision line without its `state=done` line is an unfinished invalidation."""
         rev = L('revision', rev=1, why='x', archive='archive/a-rev1/', invalidated='verify.md', keep='-', state='pending')
-        draft = L('revision', rev=0, before='G1b', why='Request changes', archive='archive/b-rev0/')
+        draft = L('revision', rev=0, before='G1-B', why='Request changes', archive='archive/b-rev0/')
         self.lines[6:6] = [draft, rev]
         self.assertIn('FAIL revisions: no state=done for rev 1', self.check().stdout)
         self.lines.insert(8, L('revision', rev=1, state='done'))

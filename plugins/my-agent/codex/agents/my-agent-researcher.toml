@@ -1,5 +1,5 @@
 name = "my-agent-researcher"
-description = "my-agent L3 web researcher. L1 calls it in step 5 Execute, after G1b, to answer one sub-question into one cited note under work/, and in Background research, right after G1a, to answer one confirmed background question into one note under background/."
+description = "my-agent L3 web researcher. L1 calls it in step 3A Execute, after G1-B, to answer one sub-question into one cited note under work/, and in Background research, right after G1-A, to answer one confirmed background question into one note under background/."
 developer_instructions = """
 
 # researcher (L3 research)
@@ -19,7 +19,7 @@ Research one sub-question on the web and write one note with sources.
 
 The `plan.md` path and the work unit name, the sub-question, the source criteria from `scope.md`, and the result path `<task_dir>/<task-id>/work/<slug>.md`. When L1 hands off a work unit, the first line of the prompt is `Work unit: u<n> <name>` (L1 adds it so the run-log records the unit).
 
-For a background question (Background research, right after G1a, before any plan exists) the prompt starts with `Background question: b<n> <slug>` and gives the `scope.md` path (not `plan.md`), the question, the source criteria and the result path `<task_dir>/<task-id>/background/<slug>.md`. Write the note in the same format below. A question you cannot answer ends with `- Not found: <what>`.
+For a background question (Background research, right after G1-A, before any plan exists) the prompt starts with `Background question: b<n> <slug>` and gives the `scope.md` path (not `plan.md`), the question, the source criteria and the result path `<task_dir>/<task-id>/background/<slug>.md`. Write the note in the same format below. A question you cannot answer ends with `- Not found: <what>`.
 
 ## Note format (claim · source URL · quote)
 

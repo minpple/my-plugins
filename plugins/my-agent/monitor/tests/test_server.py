@@ -135,7 +135,7 @@ class ReportRouteTest(unittest.TestCase):
 
     def test_list_and_health_keep_their_shape(self):
         status, data = self.get('/api/tasks')
-        self.assertEqual((status, sorted(data), len(data['tasks'])), (200, ['now', 'tasks'], 9))
+        self.assertEqual((status, sorted(data), len(data['tasks'])), (200, ['now', 'tasks'], 10))
         self.assertEqual(set(data['tasks'][0]), set(SUMMARY))
         status, health = self.get('/api/health')
         self.assertEqual(sorted(health), ['app', 'root', 'task_dir'])

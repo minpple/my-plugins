@@ -33,7 +33,7 @@ class Active(NamedTuple):
     log: Path
 
 
-BROKEN = ('my-agent: {path} has no `task:` line, so it cannot be read as the active task. As it is, the G1b and '
+BROKEN = ('my-agent: {path} has no `task:` line, so it cannot be read as the active task. As it is, the G1-B and '
           'verdict-freshness hooks do not apply. Fix or delete `.active`.')
 
 

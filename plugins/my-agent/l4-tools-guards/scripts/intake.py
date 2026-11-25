@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Intake script of the my-agent skill (step 1): `facts` collects what Intake needs, `create` writes its records.
+"""The Intake script of the my-agent skill (step 1A): `facts` collects what Intake needs, `create` writes its records.
 
 usage: intake.py facts  [--candidate PATH]... [--cwd DIR] [--data-dir X] [--task-dir Y]
        intake.py create --loc DIR --profile general|research|dev (--slug SLUG | --task-id ID)
@@ -58,7 +58,7 @@ create: makes every Intake record in a fixed order and starts the monitor. Argum
   {"<run folder>": "<location>"} is added to `<data folder>/active-index.json` (other entries are kept).
 Order: validate and check the refusals (nothing written), then write: `.gitignore`, the task folder, `.active` (task,
 phase 1, session, started), the index line, `intake.md`, the `projects.txt` line (when not listed), start the monitor
-(`monitor-up.py`; a failure is only reported), then the run-log lines through `run-log.py`: `step n=1` (with the
+(`monitor-up.py`; a failure is only reported), then the run-log lines through `run-log.py`: `step n=1A` (with the
 baseline `cost` line when a statusline value exists), the asks and answers, `delegate`, `models`, `profile`.
 Output: `task:`, `folder:`, the monitor line, every `MISMATCH:` and `PARTIAL:` line of run-log.py, `written:` (what was
 written). Exit 0 done; 1 the location has `<task_dir>/.active` or the task folder exists; 2 an invalid argument (both
@@ -551,7 +551,7 @@ def write(p, args):
         raise Stop(stage, exc, written) from None
     monitor = monitor_line(p['data'], p['task_dir'])
     report, count = [], 0
-    calls = [('step', ['n=1', 'name=Intake'], args.model)]
+    calls = [('step', ['n=1A', 'name=Intake'], args.model)]
     calls += [(kind, fields, None) for kind, fields in p['popups']]
     if args.auto:
         calls.append(('delegate', ['state=on', 'how=flag'], None))

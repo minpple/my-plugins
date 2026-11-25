@@ -92,9 +92,8 @@ def step_enter(lines) -> list:
     for ts, kind, f in lines:
         if kind != 'step':
             continue
-        try:
-            n = int(f.get('n'))
-        except (TypeError, ValueError):
+        n = ma_schema.step_index(f.get('n'))
+        if n is None:
             continue
         try:
             rev = int(f['rev'])

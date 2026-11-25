@@ -632,13 +632,13 @@ applyTheme();
 const fmtMin = m => { m = Math.round(m); return m >= 60 ? L(`${Math.floor(m / 60)}h ${m % 60}m`, `${Math.floor(m / 60)}시간 ${m % 60}분`) : L(m + 'm', m + '분'); };
 
 const PHASES = [
-  { n: '① Define', steps: [[1,'Intake'],[2,'Explore → Scope']], gate: 'G1a' },
-  { n: '② Plan', steps: [[3,'Plan'],[4,'Plan Review']], gate: 'G1b' },
+  { n: '① Define', steps: [[1,'Intake'],[2,'Explore → Scope']], gate: 'G1-A' },
+  { n: '② Plan', steps: [[3,'Plan'],[4,'Plan Review']], gate: 'G1-B' },
   { n: '③ Build', steps: [[5,'Execute'],[6,'Merge · Self-check']], gate: 'G2' },
   { n: '④ Accept', steps: [[7,'Verify'],[8,'Review → Deliver']], gate: 'G3' }
 ];
 /* Duplicate of stepNames and stepCodes in plugins/my-agent-tray/macos/menubar/Sources/MenuModel.swift; change both together. */
-const STEP_NAME = {1:'Intake',2:'Explore → Scope',3:'Plan',4:'Plan Review → G1b',5:'Execute',6:'Merge · Self-check',7:'Verify',8:'Review → Deliver'};
+const STEP_NAME = {1:'Intake',2:'Explore → Scope',3:'Plan',4:'Plan Review → G1-B',5:'Execute',6:'Merge · Self-check',7:'Verify',8:'Review → Deliver'};
 const STEP_CODE = {1:'1A',2:'1B',3:'2A',4:'2B',5:'3A',6:'3B',7:'4A',8:'4B'};
 /* a step shows as phase digit + step letter; outside 1-8 the raw number */
 const stepCode = n => STEP_CODE[n] || String(n);
@@ -662,15 +662,15 @@ const LEVELS = [
   { id:'L3', cls:'lv3', name:'Workers', where:['subagents','서브에이전트'], comps:[
     ['explorer','explorer','fact finding · sonnet · low'],['researcher','researcher','web research · sonnet · medium'],['writer','writer','drafts · sonnet · medium'],['coder','coder','slice build · sonnet · medium']]},
   { id:'L4', cls:'lv4', name:'Tools · Guards', where:['no LLM judgment','LLM 판단 없음'], comps:[
-    ['tools','tools','built-in · MCP'],['hooks','hooks','G1b · scope · log'],['perms','permissions','G2 ask · deny'],['scripts','scripts','run-log · feedback']]}
+    ['tools','tools','built-in · MCP'],['hooks','hooks','G1-B · scope · log'],['perms','permissions','G2 ask · deny'],['scripts','scripts','run-log · feedback']]}
 ];
 const COMP_DESC = {
   router:['Classifies the request and sets the profile and task ID.','요청을 분류해 프로파일과 작업 ID를 정합니다.'],
   orchestrator:['Hands each phase to L2 and L3 in order and merges the results.','phase 순서대로 L2·L3에 맡기고 결과를 합칩니다.'],
-  gatekeeper:['Shows the G1a, G1b, G3 and E popups.','G1a·G1b·G3·E 팝업을 띄웁니다.'],
+  gatekeeper:['Shows the G1-A, G1-B, G3 and E popups.','G1-A·G1-B·G3·E 팝업을 띄웁니다.'],
   recorder:['Writes phase entries, popup answers and the cost (reference) to run-log.','phase 진입, 팝업 결과, 금액(참고)을 run-log에 남깁니다.'],
   architect:['Writes the HOW, the slices, the parallel groups and the mock-up.','HOW, 작업 분할, 병렬 그룹, mock-up을 씁니다.'],
-  'scope-reviewer':['Judges the scope against the request before G1a.','G1a 전에 범위를 요청과 대조해 판정합니다.'],
+  'scope-reviewer':['Judges the scope against the request before G1-A.','G1-A 전에 범위를 요청과 대조해 판정합니다.'],
   'plan-reviewer':['Judges the plan independently.','계획을 독립적으로 판정합니다.'],
   verifier:['Gives PASS or FAIL for each completion criterion.','완료 기준마다 PASS/FAIL을 판정합니다.'],
   reviewer:['Judges quality. G3 needs BLOCKER 0.','품질을 판정합니다. BLOCKER 0이어야 G3로 갑니다.'],
@@ -709,7 +709,7 @@ function mockDiff(t, x, y) {
     <pre class="diff">${d.map(([k, l], i) => `<span class="dl ${k === '+' ? 'add' : k === '-' ? 'del' : ''}" style="--i:${i}">${k === ' ' ? ' ' : k} ${esc(l)}</span>`).join('')}</pre></div>`;
 }
 const mockBlock = (t, m) => `<div class="mock"><h5>Mock-up ${t.revs ? `<span class="badge rev">rev${m.r}</span>` : ''} <span class="badge">${esc(m.kind)}</span>
-  <span class="note" style="margin:0">plan.md ## Mock-up · ${esc(m.at)} ${L('approved at G1b', 'G1b 승인')}</span>${m.proto ? ` <span class="badge">+ ${esc(m.proto)}</span>` : ''}</h5><pre>${esc(m.body)}</pre></div>`;
+  <span class="note" style="margin:0">plan.md ## Mock-up · ${esc(m.at)} ${L('approved at G1-B', 'G1-B 승인')}</span>${m.proto ? ` <span class="badge">+ ${esc(m.proto)}</span>` : ''}</h5><pre>${esc(m.body)}</pre></div>`;
 
 /* ---------- state ---------- */
 const st = { task: null, tab: 'status', filter: 'all', comp: 'coder', file: 'plan.md' };
@@ -870,11 +870,11 @@ function typeLast() {
 const mtag = m => { m = m || '–'; return `<span class="mtag ${m.split(' ')[0]}">${esc(m)}</span>`; };
 const bar = (v, max) => v > 0 ? `<span class="spark" style="width:${Math.max(2, Math.round(v / max * 60))}px"></span>` : '';
 
-const GATE_AFTER = {2:'G1a Scope confirmed',4:'G1b Plan approved',8:'G3 Final acceptance'};
-const GATE_ID = {2:'G1a',4:'G1b',8:'G3'};
+const GATE_AFTER = {2:'G1-A Scope confirmed',4:'G1-B Plan approved',8:'G3 Final acceptance'};
+const GATE_ID = {2:'G1-A',4:'G1-B',8:'G3'};
 function vsteps(t, S, o) {
   o.R = o.R ?? latestRev(t);
-  const gl = g => t.gates[g] === 'ok' ? `<span class="gate-lamp ok">${L('passed', '통과')}</span>` : t.gates[g] === 'wait' ? `<span class="gate-lamp wait">${L('awaiting answer', '답 기다림')}</span>` : t.gates[g] === 'skip' ? `<span class="gate-lamp">${L('merged into G1b', 'G1b에 합침')}</span>` : `<span class="gate-lamp">${L('pending', '대기')}</span>`;
+  const gl = g => t.gates[g] === 'ok' ? `<span class="gate-lamp ok">${L('passed', '통과')}</span>` : t.gates[g] === 'wait' ? `<span class="gate-lamp wait">${L('awaiting answer', '답 기다림')}</span>` : t.gates[g] === 'skip' ? `<span class="gate-lamp">${L('merged into G1-B', 'G1-B에 합침')}</span>` : `<span class="gate-lamp">${L('pending', '대기')}</span>`;
   let h = '';
   PHASES.forEach(p => {
     h += `<div class="vph">${p.n}</div>`;
@@ -970,7 +970,7 @@ function renderFiles() {
     <div class="fsplit"><div>
     <div class="fgroup">Final deliverable · ${esc(dLabel)}</div>
     <div class="ftree">${d.items.length ? d.items.map(i => `<div class="frow"><span class="fn">${esc(i[0])}</span><span class="fm">${esc(i[1])} · ${esc(i[2])}</span></div>`).join('') : `<p class="note">${L('none', '없음')}</p>`}</div>
-    <div class="fgroup">Intermediate · mock-ups approved at G1b</div>
+    <div class="fgroup">Intermediate · mock-ups approved at G1-B</div>
     <div class="ftree">${M.length > 1 ? `<button class="frow ${st.file === 'mockdiff' ? 'sel' : ''}" data-file="mockdiff"><span class="fn">⇄ ${L('compare mock-ups', 'mock-up 비교')} rev0 → rev${M.at(-1).r}</span><span class="fm">${L('what the revision changed', '수정이 바꾼 것')}</span></button>` : ''}${M.map((m, i) => `<button class="frow ${st.file === 'mock:' + i ? 'sel' : ''}" data-file="mock:${i}"><span class="fn">◇ mock-up${t.revs ? ' rev' + m.r : ''} · ${esc(m.kind)}${m.proto ? ' + prototype' : ''}</span><span class="fm">2A Plan · ${esc(m.at)}</span></button>`).join('') || `<p class="note">${L('none yet (made at 2A Plan)', '아직 없음 (2A Plan에서 생김)')}</p>`}</div>
     <div class="fgroup">Task files · ${esc(t.folder)}/</div>
     <div class="ftree">${rows}</div></div>
@@ -1032,7 +1032,7 @@ function replay(t) {
     : `<div class="ln ${j === i ? 'last' : ''} ${isMM(x) ? 'mm' : ''}">${esc(x.t)} <span class="ltag t${LV_OF(x.a).id[1]}">${LV_OF(x.a).id} ${esc(x.a)}</span> <span class="tx2">${esc(stepTx(x.tx))}${x.sub ? ' — ' + esc(x.sub) : ''}${isMM(x) ? ` ⚠ MISMATCH ${esc(x.model)}→${esc(x.actual)}` : ''}</span></div>`).join('');
   const filesAt = k => { if (k < 0) return []; const ev = t.log[k]; return t.files.filter(f => !f.todo && f.s <= ev.s && (f.s < ev.s || mins(f.t) <= mins(ev.t))); };
   const files = filesAt(i), before = new Set(filesAt(i - 1).map(f => f.p));
-  const mockNow = mocksOf(t).filter(m => m.r === rOf(e) && e.k === 'popup' && e.tx.startsWith('G1b'))[0];
+  const mockNow = mocksOf(t).filter(m => m.r === rOf(e) && e.k === 'popup' && e.tx.startsWith('G1-B'))[0];
   const done = upto.filter(x => x.k === 'agent' && !x.live);
   const costSoFar = done.reduce((a, x) => a + num(x.c), 0);
   const lv = LV_OF(e.a);
@@ -1241,7 +1241,7 @@ function rpTimeline(t) {
   });
   h += '<div class="rtl-marks">' + gates.map(g => `<span class="rtl-mark" style="left:calc(${pct(g.at)}% - 1px)"></span>`).join('') + '</div></div>';
   const wt = t.wait;
-  h += '<div class="rlegend"><span><i style="background:var(--gate)"></i>' + L('gate mark (G1a, G1b, G3)', '게이트 표시 (G1a, G1b, G3)') + '</span>' +
+  h += '<div class="rlegend"><span><i style="background:var(--gate)"></i>' + L('gate mark (G1-A, G1-B, G3)', '게이트 표시 (G1-A, G1-B, G3)') + '</span>' +
     (backs.some(b => b.row != null) ? `<span>&crarr; ${L('went back to an earlier step', '이전 단계로 되돌아감')}</span>` : '') +
     (wt && wt.by === 'L1' ? `<span>G3 was answered by L1 (delegated approval) at ${rpHm(new Date(wt.until))}.</span>` : '') +
     (wt && wt.by !== 'L1' ? `<span>After the G3 popup opened at ${rpHm(new Date(wt.from))} the person answered at ${rpHm(new Date(wt.until))} (${rpDur((new Date(wt.until) - new Date(wt.from)) / 1000)}, not part of step ${rpEsc(stepCode(wt.step))}).</span>` : '') + '</div>';
@@ -1287,14 +1287,14 @@ function rpDisc(id, name, sum, body) {
 /* the waiting gate's own body (M2, M4); `gate` is d.gate */
 function rpGateBody(gate, d) {
   const dl = rows => '<dl class="gb">' + rows.map(r => `<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join('') + '</dl>';
-  if (gate.id === 'G1a') {
+  if (gate.id === 'G1-A') {
     const ng = gate.non_goals || [];
     const rows = [[L('Purpose', '목적'), gate.purpose ? rpEsc(gate.purpose) : '-'], [L('Non-goals', '제외 범위'), ng.length ? ng.map(rpEsc).join(' &middot; ') : L('none', '없음')]];
     const bg = gate.background_research;
     if (bg) rows.push([L('Background research', '배경 조사'), rpBgQs(bg.questions) + ' (' + (bg.ids || []).map(rpEsc).join(', ') + ')']);
     return dl(rows);
   }
-  if (gate.id === 'G1b') {
+  if (gate.id === 'G1-B') {
     const units = gate.units || [], m = gate.models;
     const list = units.map(u => rpEsc(u.id) + ' ' + rpEsc(u.title) + (u.group ? ` (${rpEsc(u.group)})` : '')).join(' &middot; ');
     const sum = gate.summary ? rpEsc(gate.summary) : L(`${units.length} work units in ${gate.groups || 0} groups`, `작업 단위 ${units.length}개, 그룹 ${gate.groups || 0}개`) + ': ' + list;
@@ -1315,8 +1315,8 @@ function rpGateBody(gate, d) {
     [L('Open', '미해결'), open.length ? open.map(x => `${rpEsc(x.sev)} <code>${rpEsc(x.where)}</code> ${rpEsc(x.text)}${x.mark ? ' (' + rpEsc(x.mark) + ')' : ''}`).join('<br>') : L('No open SHOULD-FIX or NITPICK items', '미해결 SHOULD-FIX, NITPICK 없음')]]);
 }
 function rpGateNumbers(gate) {
-  if (gate.id === 'G1a') return L(`${gate.criteria} completion criteria`, `완료 기준 ${gate.criteria}개`) + ' &middot; ' + L(`${(gate.non_goals || []).length} non-goals`, `제외 범위 ${(gate.non_goals || []).length}개`);
-  if (gate.id === 'G1b') {
+  if (gate.id === 'G1-A') return L(`${gate.criteria} completion criteria`, `완료 기준 ${gate.criteria}개`) + ' &middot; ' + L(`${(gate.non_goals || []).length} non-goals`, `제외 범위 ${(gate.non_goals || []).length}개`);
+  if (gate.id === 'G1-B') {
     const n = (gate.units || []).length, m = gate.models;
     return L(`${n} work units in ${gate.groups || 0} groups`, `작업 단위 ${n}개, 그룹 ${gate.groups || 0}개`) + (m && m.preset ? ' &middot; ' + L('Models', '모델') + ': ' + rpEsc(m.preset) : '');
   }

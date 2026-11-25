@@ -45,7 +45,7 @@ class SweepTest(unittest.TestCase):
             {'type': 'attachment', 'timestamp': '2026-10-25T00:00:30Z'}]))
 
     def run_log(self):
-        return run_script(RUN_LOG, 'step', 'n=6', 'name=Merge', '--cwd', str(self.root / 'proj'), env=self.env)
+        return run_script(RUN_LOG, 'step', 'n=3B', 'name=Merge', '--cwd', str(self.root / 'proj'), env=self.env)
 
     def test_max_turns_closed_as_partial(self):
         self.agent_files(True, assistant('m1', 'tool_use', [{'type': 'tool_use', 'name': 'Bash'}], '2026-10-25T00:00:20Z'))

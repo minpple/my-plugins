@@ -22,7 +22,7 @@ PORTS = '8791-8794'
 BROWSER_LINE = (r'^Browser: (\*?default) (\*?safari) (\*?chrome)\t'
                 r'(run: \S+ \S+/monitor-up\.py set-browser|disabled)$')
 STEP_CODES = {1: '1A', 2: '1B', 3: '2A', 4: '2B', 5: '3A', 6: '3B', 7: '4A', 8: '4B'}
-STEP_LABELS_BY_ID = {'s1': '1A Intake', 's2': '1B Explore → Scope', 's3': '2A Plan', 's4': '2B Plan Review → G1b',
+STEP_LABELS_BY_ID = {'s1': '1A Intake', 's2': '1B Explore → Scope', 's3': '2A Plan', 's4': '2B Plan Review → G1-B',
                      's5': '3A Execute', 's6': '3B Merge · Self-check', 's7': '4A Verify', 's8': '4B Review → Deliver'}
 CLAUDE = PROJECTS_TXT = server = Registry = None   # set in setUpClass from the my-agent monitor core
 TASK_LINE = re.compile(r'^\S+ · ([1-4][AB] .+|–)\t([0-9a-f]{8}/\S+)\trun: \S+ \S+/monitor-up\.py --open --task \2$')
@@ -287,7 +287,7 @@ class MenubarTest(unittest.TestCase):
         self.assertEqual(rows['b-run'], ['●', 'b-run', '3A Execute', '1h 5m', 'ddddc---', 'pulse', 'k/b-run'])
         self.assertEqual(rows['d-wait'], ['?', 'd-wait', '1B Explore → Scope', '12m', 'dc------', 'pulse', 'k/d-wait'])
         self.assertEqual(rows['a-done'], ['✓', 'a-done', 'Done', '2d 3h', 'dddddddd', '-', 'k/a-done'])
-        self.assertEqual(rows['c-stop'], ['■', 'c-stop', '2B Plan Review → G1b', '40m', 'ddds----', '-', 'k/c-stop'])
+        self.assertEqual(rows['c-stop'], ['■', 'c-stop', '2B Plan Review → G1-B', '40m', 'ddds----', '-', 'k/c-stop'])
         self.assertEqual(rows['e-broken'], ['■', 'e-broken', '–', '–', '--------', '-', 'k/e-broken'])
         self.assertEqual(rows['g-odd'][2:5], ['12', '–', 'dddddddd'])
         self.assertEqual(rows['h-stop'][2:5], ['1A Intake', '38m', 's-------'])

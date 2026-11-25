@@ -205,16 +205,16 @@ class RunLogTest(Base):
 
     def test_step_model_from_the_record(self):
         self.records()
-        r = self.run_log('step', 'n=2', 'name=Explore', f'session={SESSION}')
+        r = self.run_log('step', 'n=1B', 'name=Explore', f'session={SESSION}')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn('model=gpt-6-luna', log_lines(self.d)[-1])
         self.assertNotIn('MISMATCH', r.stdout)
 
     def test_mismatch_once_per_task_and_model(self):
         self.records(model='gpt-5.6-terra')
-        r = self.run_log('step', 'n=2', 'name=Explore', f'session={SESSION}')
+        r = self.run_log('step', 'n=1B', 'name=Explore', f'session={SESSION}')
         self.assertIn('MISMATCH: main session configured gpt-6-luna, actual gpt-5.6-terra', r.stdout)
-        r = self.run_log('step', 'n=3', 'name=Plan', f'session={SESSION}')
+        r = self.run_log('step', 'n=2A', 'name=Plan', f'session={SESSION}')
         self.assertNotIn('MISMATCH', r.stdout)
 
     def test_cost_unpriced_model_writes_nothing(self):

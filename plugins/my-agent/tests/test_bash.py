@@ -38,7 +38,7 @@ class WriteTargetsTest(unittest.TestCase):
             ('git -C sub stash', None),
             ('git status --porcelain', []),
             ('git diff HEAD', []),
-            ('python3 run-log.py step n=1', []),
+            ('python3 run-log.py step n=1A', []),
             ('FOO=1 sudo rm x', [P('/p/x')]),
             ('find . -name "*.pyc" -delete', None),
             ('ls | xargs rm', None),

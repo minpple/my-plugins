@@ -1,5 +1,5 @@
-"""Background research (Q45) in the Report tab of web/index.html: the timeline row name, the G1a and
-G1b rows, the question group above the work units, and the Korean strings. Static reads of the page,
+"""Background research (Q45) in the Report tab of web/index.html: the timeline row name, the G1-A and
+G1-B rows, the question group above the work units, and the Korean strings. Static reads of the page,
 plus node runs of the helpers extracted by regex."""
 import json
 import re
@@ -10,7 +10,7 @@ from pathlib import Path
 
 INDEX = Path(__file__).resolve().parent.parent / 'web' / 'index.html'
 
-STEP_NAME_LINE = "const STEP_NAME = {1:'Intake',2:'Explore → Scope',3:'Plan',4:'Plan Review → G1b',5:'Execute',6:'Merge · Self-check',7:'Verify',8:'Review → Deliver'};"
+STEP_NAME_LINE = "const STEP_NAME = {1:'Intake',2:'Explore → Scope',3:'Plan',4:'Plan Review → G1-B',5:'Execute',6:'Merge · Self-check',7:'Verify',8:'Review → Deliver'};"
 STEP_CODE_LINE = "const STEP_CODE = {1:'1A',2:'1B',3:'2A',4:'2B',5:'3A',6:'3B',7:'4A',8:'4B'};"
 
 
@@ -74,7 +74,7 @@ class BackgroundPageTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which('node'), 'node not installed')
     def test_g1a_row(self):
-        g = {'id': 'G1a', 'purpose': 'p', 'non_goals': ['x'], 'background_research': {'questions': 2, 'ids': ['b1', 'b2']}}
+        g = {'id': 'G1-A', 'purpose': 'p', 'non_goals': ['x'], 'background_research': {'questions': 2, 'ids': ['b1', 'b2']}}
         self.assertIn('<dt>Background research</dt><dd>2 questions (b1, b2)</dd>', self.gate(g))
         self.assertIn('<dt>배경 조사</dt><dd>질문 2개 (b1, b2)</dd>', self.gate(g, 'ko'))
         g['background_research'] = {'questions': 1, 'ids': ['b1']}
@@ -85,7 +85,7 @@ class BackgroundPageTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which('node'), 'node not installed')
     def test_g1b_row(self):
-        g = {'id': 'G1b', 'units': [], 'models': None, 'background_research': {'questions': 2, 'not_found': 1}}
+        g = {'id': 'G1-B', 'units': [], 'models': None, 'background_research': {'questions': 2, 'not_found': 1}}
         self.assertIn('<dt>Background research</dt><dd>2 questions, 1 Not found</dd>', self.gate(g))
         self.assertIn('<dt>배경 조사</dt><dd>질문 2개, Not found 1건</dd>', self.gate(g, 'ko'))
         g['background_research']['not_found'] = 0
@@ -94,7 +94,7 @@ class BackgroundPageTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which('node'), 'node not installed')
     def test_null_gives_no_row(self):
-        for gid in ('G1a', 'G1b'):
+        for gid in ('G1-A', 'G1-B'):
             base = {'id': gid, 'units': [], 'non_goals': []}
             for lang in ('en', 'ko'):
                 without = self.gate(base, lang)

@@ -41,18 +41,18 @@ def checks(T: Path):
 
     first = {}
     for i, (kind, f) in enumerate(lines):
-        if kind == 'step' and f.get('n', '').isdigit():
-            first.setdefault(int(f['n']), i)
+        if kind == 'step' and ma_schema.step_index(f.get('n')):
+            first.setdefault(ma_schema.step_index(f.get('n')), i)
     skipped = ma_schema.plan_review_skipped(first_line(T / 'plan-review.md'))
     need = [n for n in range(1, 9) if not (n == 4 and skipped)]
-    missing = [n for n in need if n not in first]
+    missing = [ma_schema.STEP_IDS[n - 1] for n in need if n not in first]
     order = [first[n] for n in need if n in first]
     check('steps', not missing and order == sorted(order),
           f'missing {missing}' if missing else 'steps out of order')
 
     pending, unanswered = {}, []
     for kind, f in lines:
-        gate = f.get('gate')
+        gate = ma_schema.gate_name(f.get('gate'))
         if gate not in PEOPLE_GATES:
             continue
         if kind == 'ask':
@@ -70,10 +70,10 @@ def checks(T: Path):
     open_ids = [i for i in started if i not in stopped]
     check('agents', not open_ids, 'no stop: for ' + ', '.join(map(str, open_ids)))
 
-    g1b = next((i for i, (k, f) in enumerate(lines) if k == 'answer' and f.get('gate') == 'G1b'), None)
+    g1b = next((i for i, (k, f) in enumerate(lines) if k == 'answer' and ma_schema.gate_name(f.get('gate')) == 'G1-B'), None)
     exe = first.get(5)
     check('approval-order', g1b is not None and exe is not None and g1b < exe,
-          'G1b answer missing' if g1b is None else 'step 5 before the G1b answer')
+          'G1-B answer missing' if g1b is None else 'step 3A before the G1-B answer')
     check('approved', ma_plan.approved(T / 'plan.md'), 'plan.md has no Approved line under ## Approval')
     check('verify', first_line(T / 'verify.md') == ma_schema.VERIFY_PASS,
           f"verify.md first line {first_line(T / 'verify.md')!r}")
@@ -93,10 +93,10 @@ def checks(T: Path):
     open_revs = [r for r, done in revs.items() if not done]
     check('revisions', not open_revs, 'no state=done for rev ' + ', '.join(open_revs))
 
-    popups = sum(1 for k, f in lines if k == 'ask' and f.get('gate') in PEOPLE_GATES)
+    popups = sum(1 for k, f in lines if k == 'ask' and ma_schema.gate_name(f.get('gate')) in PEOPLE_GATES)
     normal = NORMAL_POPUPS.get(profile)
     if (profile == 'dev' and skipped) or (profile == 'general' and not (T / 'scope.md').exists()):
-        normal = 2   # a small task: no G1a
+        normal = 2   # a small task: no G1-A
     out.append(f'info popups: {popups} ({profile} normal path: {normal if normal is not None else "?"})')
     out.append(f"info G2 asks: {sum(1 for k, f in lines if k == 'ask' and f.get('gate') == 'G2')}")
     modes = sorted({f.get('mode') for k, f in lines if k == 'stop' and f.get('mode') not in (None, '-', 'auto')})

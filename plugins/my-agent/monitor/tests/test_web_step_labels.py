@@ -9,7 +9,7 @@ from pathlib import Path
 
 INDEX = Path(__file__).resolve().parent.parent / 'web' / 'index.html'
 CODES = {1: '1A', 2: '1B', 3: '2A', 4: '2B', 5: '3A', 6: '3B', 7: '4A', 8: '4B'}
-NAMES = {1: 'Intake', 2: 'Explore → Scope', 3: 'Plan', 4: 'Plan Review → G1b', 5: 'Execute',
+NAMES = {1: 'Intake', 2: 'Explore → Scope', 3: 'Plan', 4: 'Plan Review → G1-B', 5: 'Execute',
          6: 'Merge · Self-check', 7: 'Verify', 8: 'Review → Deliver'}
 HELPERS = ('stepCode', 'stepLetter', 'stepLabel', 'stepTx', 'stepsText')
 
@@ -43,6 +43,9 @@ class StepLabelsTest(unittest.TestCase):
         i = next(k for k, line in enumerate(lines) if line.startswith('const STEP_NAME = '))
         self.assertIn('my-agent-tray/macos/menubar/Sources/MenuModel.swift', lines[i - 1])
         self.assertIn('change both together', lines[i - 1])
+
+    def test_no_old_gate_names_in_the_page(self):
+        self.assertIsNone(re.search(r'G1[ab]', self.html))
 
     def test_phase_labels_unchanged(self):
         for p in ('① Define', '② Plan', '③ Build', '④ Accept'):

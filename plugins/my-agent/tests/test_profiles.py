@@ -25,8 +25,8 @@ class ProfilesTest(unittest.TestCase):
 
     def test_router_names_every_profile(self):
         text = SKILL.read_text(encoding='utf-8')
+        self.assertIn('${CLAUDE_PLUGIN_ROOT}/l1-orchestration/profiles/<general|research|dev>.md', text)
         for name in ('general', 'research', 'dev'):
-            self.assertIn(f'${{CLAUDE_PLUGIN_ROOT}}/l1-orchestration/profiles/{name}.md', text)
             self.assertRegex(NEW_TASK.read_text(encoding='utf-8'), rf'`{name}`')
         self.assertIn('Profile: <', NEW_TASK.read_text(encoding='utf-8'))
 
@@ -38,7 +38,7 @@ class ProfilesTest(unittest.TestCase):
 
     def test_build_workflow_result_rules_limit_result_files_to_writer_and_researcher(self):
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
-        rules = build.split('## Workflow rules')[1].split('## 6. Merge')[0]
+        rules = build.split('## Workflow rules')[1].split('## 3B Merge')[0]
         self.assertIn('Result files (writer and researcher units only) go to `work/`', rules)
         self.assertIn('a coder unit has no result file', rules)
         self.assertIn('missing result files of writer and researcher units', rules)
@@ -46,7 +46,7 @@ class ProfilesTest(unittest.TestCase):
 
     def test_research_rules_present(self):
         text = (PROFILES / 'research.md').read_text(encoding='utf-8')
-        for word in ('Questions', 'Scope', 'Source criteria', 'Deliverable format', 'G1a', 'claim · source URL · quote', 'sub-questions',
+        for word in ('Questions', 'Scope', 'Source criteria', 'Deliverable format', 'G1-A', 'claim · source URL · quote', 'sub-questions',
                      'synthesis structure', 'sample paragraph', 'source bias', 'scope gaps', 'my-agent:researcher', 'my-agent:writer',
                      'deliverable/'):
             self.assertIn(word, text, word)
@@ -54,7 +54,7 @@ class ProfilesTest(unittest.TestCase):
 
     def test_dev_rules_present(self):
         text = (PROFILES / 'dev.md').read_text(encoding='utf-8')
-        for word in ('purpose and users', 'Completion criteria', 'hard constraints', 'exception cases', 'data', 'non-goals', 'UX preferences', 'G1a',
+        for word in ('purpose and users', 'Completion criteria', 'hard constraints', 'exception cases', 'data', 'non-goals', 'UX preferences', 'G1-A',
                      'small task', '3 files', 'SKIPPED small task', '`isolation: "worktree"`', 'first parallel group', 'base commit=',
                      'User cleans up first (Recommended)', 'Proceed as is', '`Run:`', 'git diff', 'git status',
                      'Commit (Recommended)', 'Rework', 'completion criterion number', '## Decisions', 'git apply'):
@@ -100,8 +100,11 @@ class ProfilesTest(unittest.TestCase):
         coder files outside the task records."""
         read = lambda *parts: REPO.joinpath(*parts).read_text(encoding='utf-8')  # noqa: E731
         accept = read('l1-orchestration', 'phases', 'accept.md')
-        self.assertIn('Then run the findings command (gates.md "Gate reports"); on `findings: FAIL` (no `review.md`, or one '
+        self.assertIn('Then, before the writer call, run the read-only check `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/findings.py" '
+                      '--task "<absolute task folder>" --file review`; on `findings: FAIL` (no `review.md`, or one '
                       'older than this call) call a new reviewer once.', accept)
+        self.assertIn('L1 adds only the cost (reference), as a short table after the printed output, before the popup; '
+                      'nothing else for general and research)', accept)
         self.assertIn('G3 Rework: the shortfalls named, with criterion numbers, and the picked SHOULD-FIX locations>"', accept)
         self.assertIn('After the Write, Read `review.md` once', read('l2-design-judge', 'agents', 'reviewer.md'))
         self.assertIn('never under `<task_dir>/`', read('l2-design-judge', 'agents', 'architect.md'))
@@ -185,42 +188,42 @@ class ProfilesTest(unittest.TestCase):
         dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
         self.assertNotIn('Apply all (Recommended)', dev)
         for name in ('dev', 'general', 'research'):
-            row = next(l for l in (PROFILES / f'{name}.md').read_text(encoding='utf-8').splitlines() if l.startswith('| 4 Plan Review'))
+            row = next(l for l in (PROFILES / f'{name}.md').read_text(encoding='utf-8').splitlines() if l.startswith('| 2B Plan Review'))
             if name == 'dev':
                 self.assertIn('Not skipped (except for a small task)', row)
             else:
-                self.assertIn('`plan.md` step 4', row)
+                self.assertIn('`plan.md` step 2B', row)
 
 
     def test_scope_review_before_g1a(self):
-        """scope-reviewer judges scope.md in the profiles with G1a, before the Person-check and G1a popups."""
+        """scope-reviewer judges scope.md in the profiles with G1-A, before the Person-check and G1-A popups."""
         define = (REPO / 'l1-orchestration' / 'phases' / 'define.md').read_text(encoding='utf-8')
         section = define.split('## Scope Review')[1]
         self.assertIn('`my-agent:scope-reviewer`', section)
-        self.assertIn('before the Person-check popups and the G1a popup', section)
-        self.assertIn('Not when the profile skips the interview and G1a', section)
+        self.assertIn('before the Person-check popups and the G1-A popup', section)
+        self.assertIn('Not when the profile skips the interview and G1-A', section)
         self.assertIn('`Apply all (Recommended)` / `Confirm without applying` / `Pick myself`', section)
         self.assertIn('third `REVISE`', section)
         self.assertIn('do "Scope Review" below', define.split('4. **Confirm the scope:**')[1])
         for name in ('dev', 'research'):
             text = (PROFILES / f'{name}.md').read_text(encoding='utf-8')
             self.assertIn('`define.md` "Scope Review"', text, name)
-            self.assertIn('| `my-agent:scope-reviewer` | 2 (before G1a', text, name)
-        self.assertIn('skip the Scope interview, Scope Review and G1a', (PROFILES / 'dev.md').read_text(encoding='utf-8'))
+            self.assertIn('| `my-agent:scope-reviewer` | 1B (before G1-A', text, name)
+        self.assertIn('skip the Scope interview, Scope Review and G1-A', (PROFILES / 'dev.md').read_text(encoding='utf-8'))
         general = (PROFILES / 'general.md').read_text(encoding='utf-8')
         self.assertIn('`define.md` "Scope Review"', general)
-        self.assertIn('| `my-agent:scope-reviewer` | 2 (before G1a)', general)
+        self.assertIn('| `my-agent:scope-reviewer` | 1B (before G1-A)', general)
         self.assertNotIn('no Scope Review', general)
         # the small-task exception is shared with dev (Q38)
         self.assertIn('| Small task exception |', general)
-        self.assertIn('skip the Scope interview, Scope Review and G1a', general)
+        self.assertIn('skip the Scope interview, Scope Review and G1-A', general)
         self.assertIn('`SKIPPED small task`', general)
-        self.assertIn('2 times: G1b, G3', general)
+        self.assertIn('2 times: G1-B, G3', general)
 
     def test_merge_copies_new_files_before_apply(self):
         """New files are copied before `git apply`, then the worktree is removed."""
         dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
-        row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
+        row = next(l for l in dev.splitlines() if l.startswith('| 3B Merge'))
         a = row.index('ls-files --others --exclude-standard')
         b = row.index('git apply')
         c = row.index('git worktree remove --force')
@@ -230,7 +233,7 @@ class ProfilesTest(unittest.TestCase):
     def test_merge_removes_worktree_after_compare(self):
         """Criterion 6: each moved file is compared with its worktree copy before the worktree is removed; a difference keeps it."""
         dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
-        row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
+        row = next(l for l in dev.splitlines() if l.startswith('| 3B Merge'))
         cmp_ = row.index('compare each moved file with its worktree copy (`cmp`, one call each)')
         branch = row.index('`git -C <worktree> branch --show-current`')
         remove = row.index('`git worktree remove --force <worktree>`')
@@ -247,7 +250,7 @@ class ProfilesTest(unittest.TestCase):
     def test_merge_keeps_worktree_when_removal_is_refused(self):
         """Criterion 6: a refused worktree removal gets one attempt, then the worktree and branch are kept."""
         dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
-        row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
+        row = next(l for l in dev.splitlines() if l.startswith('| 3B Merge'))
         remove = row.index('`git worktree remove --force <worktree>`')
         delete = row.index('`git branch -D <branch>`')
         tail = row[delete:]
@@ -263,7 +266,7 @@ class ProfilesTest(unittest.TestCase):
     def test_merge_refusal_is_per_worktree(self):
         """Exception: several worktrees refuse removal; each is handled on its own."""
         dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')
-        row = next(l for l in dev.splitlines() if l.startswith('| 6 Merge'))
+        row = next(l for l in dev.splitlines() if l.startswith('| 3B Merge'))
         for word in ('the path of each kept worktree', 'Each worktree is handled on its own', 'the others are removed as usual'):
             self.assertIn(word, row, word)
 
@@ -290,7 +293,7 @@ class ProfilesTest(unittest.TestCase):
             self.assertIn(t, define)
         self.assertIn('one check tag', define)
         for name in ('dev', 'general', 'research'):
-            row = next(l for l in (PROFILES / f'{name}.md').read_text(encoding='utf-8').splitlines() if l.startswith('| 2 Explore'))
+            row = next(l for l in (PROFILES / f'{name}.md').read_text(encoding='utf-8').splitlines() if l.startswith('| 1B Explore'))
             for t in tags:
                 self.assertIn(t, row, name)
             self.assertIn('one check tag', row, name)
@@ -306,10 +309,10 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('[check: person]', define)
         self.assertIn('How criterion <n> is checked', define)
         accept = (phases / 'accept.md').read_text(encoding='utf-8')
-        verify = accept[accept.index('## 7. Verify'):accept.index('## Back to Execute')]
+        verify = accept[accept.index('## 4A Verify'):accept.index('## Back to Execute')]
         self.assertIn('Scope change: criterion <n> checked by the person', verify)
         self.assertIn('checked by the user later', verify)
-        review = accept[accept.index('## 8. Review'):]
+        review = accept[accept.index('## 4B Review'):]
         devp = (REPO / 'l1-orchestration' / 'profiles' / 'dev.md').read_text(encoding='utf-8')
         dev = devp[devp.index('## G3 in the dev profile'):devp.index('## Agents used')]
         for sec in (review, dev):
@@ -319,11 +322,11 @@ class ProfilesTest(unittest.TestCase):
         """Where units are handed out and sent back, a rerun is a new call, never a resume."""
         phases = REPO / 'l1-orchestration' / 'phases'
         build = (phases / 'build.md').read_text(encoding='utf-8')
-        item = build.split('## 5. Execute')[1].split('## Workflow rules')[0]
+        item = build.split('## 3A Execute')[1].split('## Workflow rules')[0]
         self.assertIn('new worker call, never a resume', item)
         self.assertIn('archive/<ts>-run<N>/verify.md', item)
         self.assertIn('failed criterion numbers', item)
-        merge = build.split('## 6. Merge')[1]
+        merge = build.split('## 3B Merge')[1]
         self.assertIn('new worker call', merge)
         accept = (phases / 'accept.md').read_text(encoding='utf-8')
         sec = accept.split('## Back to Execute')[1].split('\n## ')[0]
@@ -341,19 +344,19 @@ class ProfilesTest(unittest.TestCase):
         interview = define.split('3. **Scope interview:**')[1].split('4. **Confirm the scope:**')[0]
         self.assertIn('Question rules', interview)
         self.assertIn('screen behavior', interview)
-        self.assertIn('Prototype before G1a', interview)
+        self.assertIn('Prototype before G1-A', interview)
         self.assertIn('Prototype: requested', define)
         self.assertIn('`## Prototype`', define)
-        g1b = plan.split('## G1b plan approval')[1].split('2. If `## Prototype`')[0]
+        g1b = plan.split('## G1-B plan approval')[1].split('2. If `## Prototype`')[0]
         self.assertIn('Gate reports', g1b)
         self.assertNotIn('### Details', g1b)
         self.assertIn('remake it only if the mock-up changed', plan)
-        step4 = plan.split('## 4. Plan Review')[1].split('## G1b plan approval')[0]
+        step4 = plan.split('## 2B Plan Review')[1].split('## G1-B plan approval')[0]
         self.assertIn('L1 writes the `## Decisions` lines in `plan-review.md`; architect does not write that file', step4)
         self.assertGreaterEqual(plan.count('Tool choice'), 3)
         # prototype: opened locally by the plugin script, not published
         stale = ('publishes it', 'private artifact', 'artifact link', 'claude.ai')
-        proto3 = define.split('**G1a prototype:**')[1].split('4. **Confirm the scope:**')[0]
+        proto3 = define.split('**G1-A prototype:**')[1].split('4. **Confirm the scope:**')[0]
         item2 = plan.split('2. If `## Prototype`')[1].split('3. **Hosts:**')[0]
         for sec in (proto3, item2):
             self.assertIn('open-html.py', sec)
@@ -369,7 +372,7 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('--data-dir', item2)
         self.assertNotIn('Check before anything leaves', item2)
         self.assertIn('Nothing is published', item2)
-        # G1a / G1b chat reports open with Overview and Takeaway; the Report tab opens before the popup
+        # G1-A / G1-B chat reports open with Overview and Takeaway; the Report tab opens before the popup
         self.assertIn('### Overview', g1a)
         self.assertIn('### Takeaway', g1a)
         self.assertIn('scope summary', g1a.split('### Takeaway')[1].split('###')[0] + g1a)
@@ -380,12 +383,14 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('`Models` row', g1b_item1)
         self.assertIn('`Prototype` row', g1b_item1)
         item3 = plan.split('4. Record before and after')[1].split('5. **Approve:**')[0]
-        for gate, sec in (('G1a', g1a), ('G1b', item3)):
-            for word in ('--report', '--pointer', 'pointer line', 'Gate reports'):
+        self.assertIn('pointer line', g1a)
+        for gate, sec in (('G1-A', g1a), ('G1-B', item3)):
+            for word in ('pre-gate.py', 'Gate reports'):
                 self.assertIn(word, sec)
-            self.assertNotIn('--url', sec)   # one `--pointer` call prints the pointer line (2026-11-16)
-            self.assertLess(sec.index('ask gate=%s' % gate), sec.index('--report'))
-            self.assertLess(sec.index('--report'), sec.index('answer gate=%s' % gate))
+            self.assertNotIn('--url', sec)
+            self.assertNotIn('--pointer', sec)   # `pre-gate.py` runs the pointer call itself (criterion 1)
+            self.assertNotIn('ask gate=%s' % gate, sec)   # and writes the `ask` line itself
+            self.assertLess(sec.index('pre-gate.py" --gate %s' % gate), sec.index('answer gate=%s' % gate))
 
     def test_plan_lead_paragraph_required(self):
         plan = (REPO / 'l1-orchestration' / 'phases' / 'plan.md').read_text(encoding='utf-8')
@@ -408,10 +413,10 @@ class ProfilesTest(unittest.TestCase):
     def test_plan_models_section_and_approval(self):
         phases = REPO / 'l1-orchestration' / 'phases'
         plan = (phases / 'plan.md').read_text(encoding='utf-8')
-        step3 = plan.split('## 3. Plan')[1].split('## 4. Plan Review')[0]
+        step3 = plan.split('## 2A Plan')[1].split('## 2B Plan Review')[0]
         self.assertIn('agent-models.py', step3.split('2. Hand it')[1].split('3. Sections')[0])
         self.assertIn('`## Models`', step3.split('3. Sections')[1])
-        step4 = plan.split('## 4. Plan Review')[1].split('## G1b plan approval')[0]
+        step4 = plan.split('## 2B Plan Review')[1].split('## G1-B plan approval')[0]
         self.assertIn('agent-models.py', step4.split('3. Hand it')[1].split('4. Handle')[0])
         approve = plan.split('5. **Approve:**')[1].split('6. **Request changes:**')[0]
         self.assertIn('`## Models`', approve)
@@ -427,13 +432,13 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('pass=', item3)
         self.assertIn('Models:', item3)
         self.assertIn('model: "opus"', item3)
-        rules = build.split('## Workflow rules')[1].split('## 6. Merge')[0]
+        rules = build.split('## Workflow rules')[1].split('## 3B Merge')[0]
         self.assertIn('definition values', rules)
 
     def test_general_g1b_shows_the_scope_confirmed_at_g1a(self):
         g = (REPO / 'l1-orchestration' / 'profiles' / 'general.md').read_text(encoding='utf-8')
-        row = [l for l in g.splitlines() if l.startswith('| G1b')][0]
-        self.assertIn('confirmed at G1a, so do not ask again', row)
+        row = [l for l in g.splitlines() if l.startswith('| G1-B')][0]
+        self.assertIn('confirmed at G1-A, so do not ask again', row)
 
 
     def test_verify_and_review_scope(self):
@@ -442,7 +447,7 @@ class ProfilesTest(unittest.TestCase):
         phases = REPO / 'l1-orchestration' / 'phases'
         accept = (phases / 'accept.md').read_text(encoding='utf-8')
         self.assertIn('Verify and Review are never skipped', accept)
-        verify = accept[accept.index('## 7. Verify'):accept.index('## Back to Execute')]
+        verify = accept[accept.index('## 4A Verify'):accept.index('## Back to Execute')]
         self.assertIn('l4-tools-guards/scripts/changed-files.py" --task', verify)
         self.assertIn('--previous', verify)
         self.assertIn('the previous `verify.md` path', verify)
@@ -451,10 +456,11 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('When only Review is redone, without Verify, do both:', accept)
         self.assertIn('(on a rerun, a carried criterion is `- <n>. PASS (carried from Run <m>) <evidence>`, read as PASS)', verify)   # item 4 names the carried form
         back = accept.split('## Back to Execute')[1].split('\n## ')[0]
-        self.assertIn('archive.py" --task "<absolute task folder>" --name run<Run: value of verify.md> '
-                      '--only verify.md review.md changed-files.md', back)
+        self.assertIn('back-execute.py" --task "<absolute task folder>" --units', back)   # the script archives
         self.assertNotIn('cp -p', back)
-        review = accept[accept.index('## 8. Review'):]
+        self.assertIn('archive.py" --task "<absolute task folder>" --name run<Run: value of verify.md> '
+                      '--only verify.md review.md changed-files.md', accept[accept.index('## 4B Review'):])   # small fix
+        review = accept[accept.index('## 4B Review'):]
         self.assertIn('the `verify.md` and `changed-files.md` paths', review)
         self.assertIn('instead of running the suites again', review)
         self.assertIn('the list of files L1 fixed', review)
@@ -479,7 +485,7 @@ class CoderNotesRulesTest(unittest.TestCase):
 
     def test_item3_passes_notes_file_to_later_coder_calls_only(self):
         item3 = self.build.split('3. Hand out')[1].split('4. When a result')[0]
-        for text in ('coder-notes.md', 'later parallel groups', 'retry of a stopped unit', '6 Merge', 'Back to Execute',
+        for text in ('coder-notes.md', 'later parallel groups', 'retry of a stopped unit', '3B Merge', 'Back to Execute',
                      "each other's notes", 'Only coder calls get it', 'scope-reviewer', 'verifier',
                      'nothing is passed or created'):
             self.assertIn(text, item3, text)
@@ -490,11 +496,11 @@ class CoderNotesRulesTest(unittest.TestCase):
         self.assertIn('only through the notes file', item3)
 
     def test_merge_rerun_passes_notes_file(self):
-        merge = self.build.split('## 6. Merge')[1]
+        merge = self.build.split('## 3B Merge')[1]
         self.assertIn('notes file path', merge)
 
     def test_workflow_return_value_holds_notes_part(self):
-        rules = self.build.split('## Workflow rules')[1].split('## 6. Merge')[0]
+        rules = self.build.split('## Workflow rules')[1].split('## 3B Merge')[0]
         self.assertIn('notes part', rules)
         self.assertIn('Notes for later units:', rules)
         self.assertIn('definition values', rules)
@@ -508,7 +514,7 @@ class CoderNotesRulesTest(unittest.TestCase):
 
 
 class EnvironmentAndUpstreamRulesTest(unittest.TestCase):
-    """Environment check before the gates (Q36) and the upstream check in 6 Merge (Q37)."""
+    """Environment check before the gates (Q36) and the upstream check in 3B Merge (Q37)."""
 
     def read(self, *parts):
         return REPO.joinpath(*parts).read_text(encoding='utf-8')
@@ -540,7 +546,7 @@ class EnvironmentAndUpstreamRulesTest(unittest.TestCase):
 
     def test_dev_merge_checks_upstream_before_verify(self):
         dev = self.read('l1-orchestration', 'profiles', 'dev.md')
-        for phrase in ('## Upstream check (6 Merge)', 'git rev-list --count HEAD..<ref>', 'git merge --autostash <ref>',
+        for phrase in ('## Upstream check (3B Merge)', 'git rev-list --count HEAD..<ref>', 'git merge --autostash <ref>',
                        '`Bring them in now (Recommended)` / `Go on without them`', '`git merge --abort`',
                        'merge unit=upstream'):
             self.assertIn(phrase, dev)
@@ -557,7 +563,7 @@ class SessionFolderCheck(unittest.TestCase):
     def test_build_names_the_check_and_the_popup(self):
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
         line = next(l for l in build.splitlines() if l.lstrip().startswith('- Session folder check'))
-        for part in ('`git rev-parse --show-toplevel`', 'without `isolation: "worktree"`', 'start of 6 Merge',
+        for part in ('`git rev-parse --show-toplevel`', 'without `isolation: "worktree"`', 'start of 3B Merge',
                      'also under delegated approval', '`I moved the session back (Recommended)` / `Abort`',
                      '`/cd <task location>`', '`/my-agent continue`', 'run the check again'):
             self.assertIn(part, line)
@@ -593,13 +599,37 @@ class SessionFolderCheck(unittest.TestCase):
             self.assertLess(item.index(remove), item.index(deletion), name)
 
 
+class AcceptLightPathTest(unittest.TestCase):
+    """Criterion 5: a G3 Rework with only NITPICK small fixes re-runs Review only."""
+
+    def item7(self):
+        accept = (REPO / 'l1-orchestration' / 'phases' / 'accept.md').read_text(encoding='utf-8')
+        return accept[accept.index('7. **Rework:**'):accept.index('8. **Abort:**')]
+
+    def test_light_path_text(self):
+        item = self.item7()
+        for word in ('light path', 'NITPICK', 'small fix', '`fix` line', 'archive.py', 'only Review',
+                     'the list of files L1 fixed', '## Applied after review', 'counts as one G3 Rework round'):
+            self.assertIn(word, item, word)
+        self.assertIn('Back to Execute and Verify are skipped', item)
+
+    def test_other_cases_keep_back_to_execute(self):
+        item = self.item7()   # exception: light path with an open SHOULD-FIX or a larger NITPICK fix
+        self.assertIn('open SHOULD-FIX or a larger fix takes "Back to Execute"', item)
+
+    def test_new_blocker_in_the_rerun_takes_blocker_handling(self):
+        item = self.item7()   # exception: a new BLOCKER in the Review rerun
+        self.assertIn('a new BLOCKER in the Review rerun', item)
+        self.assertIn('item 3', item)
+
+
 class AcceptReviewReworkInputTest(unittest.TestCase):
     """The Accept phase hands the review and the G3 Rework input to the map step."""
 
     def test_accept_passes_the_review_and_rework_input(self):
         """2026-11-24: the map step gets --previous and --review on every rerun and the G3 Rework input."""
         accept = (REPO / 'l1-orchestration' / 'phases' / 'accept.md').read_text(encoding='utf-8')
-        verify = accept[accept.index('## 7. Verify'):accept.index('## Back to Execute')]
+        verify = accept[accept.index('## 4A Verify'):accept.index('## Back to Execute')]
         for token in ('--previous', '--review', '--rework-criterion "<n>: <shortfall>"',
                       '--rework-finding "<path>:<line>"', 'Verify FAIL', 'Review BLOCKER', 'G3 `Rework`', 'exit 2'):
             self.assertIn(token, verify, token)

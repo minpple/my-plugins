@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan gaps before G1b (architecture 4.4 "Plan gaps"): the format checks a plan must pass to be approved.
+"""Plan gaps before G1-B (architecture 4.4 "Plan gaps"): the format checks a plan must pass to be approved.
 
 usage: plan-lint.py --task TASK_FOLDER
 
@@ -8,7 +8,7 @@ Reads intake.md (`Profile:`), scope.md (if any) and plan.md of the task folder a
 tags, in the dev profile a `[check: command]` criterion that no work unit listing it marks with `(criterion <n>)`,
 a `(background b<n>)` mark in plan.md whose `b<n>` is not an ID under `## Background research` in scope.md,
 and a `Files to change` path in the task records folder (a coder cannot write there).
-The G1b hook (`plan-approved-check.py`) runs the same check on the write of the `Approved` line.
+The G1-B hook (`plan-approved-check.py`) runs the same check on the write of the `Approved` line.
 exit: 0 no gap, 1 a gap or plan.md missing, 2 bad arguments.
 """
 import argparse

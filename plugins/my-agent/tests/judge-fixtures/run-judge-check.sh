@@ -21,7 +21,7 @@ for note in "${NOTES[@]}"; do
   printf 'task: %s\nphase: 4\nsession: judge\nstarted: 2026-10-25 00:00\n' "$TASK" > "$proj/${MA_TASK_DIR:-.my-agent}/.active"
   printf 'Status: active\nProfile: research\nTask: %s\nRequest: shlex summary note\n' "$TASK" > "$T/intake.md"
   cp "$HERE/scope.md" "$T/scope.md"
-  printf '# Plan\n\n## Approval\n\n- Approved 2026-10-25 09:30 G1b\n' > "$T/plan.md"   # Verify runs after G1b
+  printf '# Plan\n\n## Approval\n\n- Approved 2026-10-25 09:30 G1-B\n' > "$T/plan.md"   # Verify runs after G1-B
   cp "$HERE/$note" "$T/work/final.md"
   prompt="Call the agent my-agent:verifier exactly once with exactly this prompt, wait for it, then print the first line of $T/verify.md and stop. This is a judge test: do not invoke any skill (no /my-agent continue).
 

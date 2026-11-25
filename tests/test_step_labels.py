@@ -1,6 +1,7 @@
 """Cross-surface checks for the step labels (1A..4B): no numeric step display, equal tables."""
 import ast
 import re
+import sys
 import unittest
 from pathlib import Path
 
@@ -72,6 +73,13 @@ class StepLabels(unittest.TestCase):
         for text, anchor in ((swift, 'let stepNames'), (web, 'const STEP_NAME =')):
             above = text[:text.index(anchor)].rstrip().splitlines()[-1]
             self.assertIn('change both together', above)
+
+    def test_schema_step_ids_equal_step_code(self):
+        sys.path.insert(0, str(REPO / 'plugins/my-agent/l4-tools-guards/lib'))
+        import ma_schema
+        ids = {i + 1: s for i, s in enumerate(ma_schema.STEP_IDS)}
+        self.assertEqual(ids, CODES)
+        self.assertEqual(ids, js_table(read(WEB)))
 
 
 if __name__ == '__main__':

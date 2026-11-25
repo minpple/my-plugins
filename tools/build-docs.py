@@ -45,21 +45,22 @@ LOC, TASK = Path('/LOC'), Path('/LOC/.my-agent/TASK')   # stand-ins for scope-gu
 # 'doc' = a Python file's docstring.
 ARTIFACTS = [
     ('.active', ['1'], 'L1 · L4 intake.py create', [(SKILL, 'h', '`.active` rules')]),
-    ('.gitignore', ['1'], 'L1 · L4 intake.py create', [(NEW_TASK, 'item', ('Intake (step 1, Router)', '5.'))]),
+    ('.gitignore', ['1'], 'L1 · L4 intake.py create', [(NEW_TASK, 'item', ('Intake (step 1A, Router)', '5.'))]),
     ('intake.md', ['1'], 'L1 Router · L4 intake.py create', [(NEW_TASK, 'fence', 'Status: active')]),
     ('run-log.md', ['1', '2', '3', '4', '5', '6', '7', '8'], 'L1 Recorder · L4 hooks',
      [(ARCH, 'b', 'line format'), (ARCH, 'b', 'who records what')]),
     ('explore.md', ['2'], 'my-agent:explorer (L1 saves the report)',
      [('l3-workers/agents/explorer.md', 'h', 'Report format')]),
-    ('scope.md', ['2'], 'L1', [('l1-orchestration/phases/define.md', 'item', ('2. Explore → Scope', '4.'))]),
+    ('scope.md', ['2'], 'L1', [('l1-orchestration/phases/define.md', 'item', ('1B Explore → Scope', '4.'))]),
     ('scope-review.md', ['2'], 'my-agent:scope-reviewer',
      [('l2-design-judge/agents/scope-reviewer.md', 'h', '`scope-review.md` format')]),
     ('background/', ['2'], 'my-agent:researcher', [('l3-workers/agents/researcher.md', 'h', 'Note format')]),
-    ('plan.md', ['3', 'G1b'], 'my-agent:architect · L1 (Approval, Prototype, Revisions lines)',
+    ('plan.md', ['3', 'G1-B'], 'my-agent:architect · L1 (Approval, Prototype, Revisions lines)',
      [('l2-design-judge/agents/architect.md', 'h', '`plan.md` sections')]),
     ('plan-review.md', ['4'], 'my-agent:plan-reviewer',
      [('l2-design-judge/agents/plan-reviewer.md', 'h', '`plan-review.md` format')]),
-    ('prototype/', ['G1b'], 'my-agent:writer', [('l3-workers/agents/writer.md', 'h', 'Rules per job')]),
+    ('prototype/', ['G1-B'], 'my-agent:writer', [('l3-workers/agents/writer.md', 'h', 'Rules per job')]),
+    ('report/', ['G1-B', '8'], 'my-agent:writer', [(ARCH, 'b', 'Gate report files (`report/`)')]),
     ('work/', ['5', '6'], 'my-agent:researcher · my-agent:writer',
      [('l3-workers/agents/researcher.md', 'h', 'Note format'), ('l3-workers/agents/writer.md', 'h', 'Rules per job')]),
     ('coder-notes.md', ['5', '6'], 'L1 (from coder final reports)', [(ARCH, 'h', '4.7.6 Coder notes')]),
@@ -70,23 +71,23 @@ ARTIFACTS = [
     ('gate-report.md', ['R'], 'my-agent:gate-analyst',
      [('l2-design-judge/agents/gate-analyst.md', 'h', '`gate-report.md` format')]),
     ('main-usage.json', ['R'], 'L4 usage-snapshot.py', [('l4-tools-guards/lib/ma_usage.py', 'doc', None)]),
-    ('archive/', ['G1b', '5', 'R'], 'L1', [(ARCH, 'h', '4.8.1 Change requests during a task')]),
+    ('archive/', ['G1-B', '5', 'R'], 'L1', [(ARCH, 'h', '4.8.1 Change requests during a task')]),
     ('.archived/<task-id>/', ['R'], 'the person (archive-tasks.py)',
      [('l4-tools-guards/scripts/archive-tasks.py', 'doc', None)]),
 ]
 
 # The L1 procedure for each step, as the phase files write it.
 STEP_RULES = {
-    '1': [(NEW_TASK, 'Intake (step 1, Router)')],
-    '2': [('l1-orchestration/phases/define.md', '2. Explore → Scope'), ('l1-orchestration/phases/define.md', '2b. Background research'),
+    '1': [(NEW_TASK, 'Intake (step 1A, Router)')],
+    '2': [('l1-orchestration/phases/define.md', '1B Explore → Scope'), ('l1-orchestration/phases/define.md', 'Background research'),
           ('l1-orchestration/phases/define.md', 'Scope Review')],
-    '3': [('l1-orchestration/phases/plan.md', '3. Plan')],
-    '4': [('l1-orchestration/phases/plan.md', '4. Plan Review'), ('l1-orchestration/phases/plan.md', 'G1b plan approval'),
+    '3': [('l1-orchestration/phases/plan.md', '2A Plan')],
+    '4': [('l1-orchestration/phases/plan.md', '2B Plan Review'), ('l1-orchestration/phases/plan.md', 'G1-B plan approval'),
           ('l1-orchestration/phases/plan.md', 'Rewrite before approval')],
-    '5': [('l1-orchestration/phases/build.md', '5. Execute'), ('l1-orchestration/phases/build.md', 'Workflow rules')],
-    '6': [('l1-orchestration/phases/build.md', '6. Merge')],
-    '7': [('l1-orchestration/phases/accept.md', '7. Verify'), ('l1-orchestration/phases/accept.md', 'Back to Execute')],
-    '8': [('l1-orchestration/phases/accept.md', '8. Review → Deliver'),
+    '5': [('l1-orchestration/phases/build.md', '3A Execute'), ('l1-orchestration/phases/build.md', 'Workflow rules')],
+    '6': [('l1-orchestration/phases/build.md', '3B Merge')],
+    '7': [('l1-orchestration/phases/accept.md', '4A Verify'), ('l1-orchestration/phases/accept.md', 'Back to Execute')],
+    '8': [('l1-orchestration/phases/accept.md', '4B Review → Deliver'),
           ('l1-orchestration/profiles/dev.md', 'G3 in the dev profile'),
           ('l1-orchestration/gates.md', 'E escalation')],
     'R': [('l1-orchestration/retro.md', 'Retrospective')],
@@ -498,7 +499,7 @@ def l4_details(agent_list) -> dict:
     arch = read(ARCH)
     return {'hooks': hooks, 'ask': perms['ask'], 'deny': perms['deny'], 'scripts': scripts, 'lib': lib,
             'tools': tools, 'g2': md(cut_bold(arch, 'actions G2 asks about', 'arch')),
-            'hardGate': md(cut_bold(arch, 'G1b hard gate', 'arch'))}
+            'hardGate': md(cut_bold(arch, 'G1-B hard gate', 'arch'))}
 
 
 def frontmatter_skill():
@@ -516,8 +517,8 @@ def steps_and_gates(arch: str):
         c = dict(zip(head, row))
         if c['phase'].strip():
             phase = re.sub(r'\*', '', c['phase']).strip()
-        n = re.match(r'(\d)\.', c['Step']).group(1)
-        steps.append({'n': n, 'phase': phase, 'name': inline(re.sub(r'^\d\.\s*', '', c['Step'])),
+        n = str(ma_schema.step_index(re.match(r'([1-4][AB]) ', c['Step']).group(1)))
+        steps.append({'n': n, 'phase': phase, 'name': inline(re.sub(r'^[1-4][AB]\s*', '', c['Step'])),
                       'level': c['Level in charge'], 'what': inline(c['What it does']),
                       'general': inline(c['General']), 'research': inline(c['Research · docs']), 'dev': inline(c['Dev']),
                       'rules': [{'title': h, 'from': rel(f), 'html': md(cut(read(f), h, rel(f)))} for f, h in STEP_RULES[n]]})
@@ -526,7 +527,7 @@ def steps_and_gates(arch: str):
     grows = table(gsec, 'arch 4.4')
     gates = [dict(zip(['gate', 'when', 'enforcement', 'sees', 'choices'], [inline(c) for c in r])) for r in grows[1:]]
     for g, r in zip(gates, grows[1:]):
-        g['id'] = re.search(r'G1a|G1b|G2|G3|E', r[0]).group(0)
+        g['id'] = re.search(r'G1-A|G1-B|G2|G3|E', r[0]).group(0)
     retro = {'n': 'R', 'phase': '④ Accept', 'name': 'Retrospective', 'level': 'L1 Recorder · L2 gate-analyst · L4 scripts',
              'rules': [{'title': h, 'from': rel(f), 'html': md(cut(read(f), h, rel(f)))} for f, h in STEP_RULES['R']]}
     return flow, steps, retro, skip, gates
@@ -544,7 +545,10 @@ def profiles() -> dict:
         out[p] = {'title': title, 'intro': md(intro), 'file': rel(f),
                   'rules': [[inline(a), inline(b)] for a, b in rules[1:]],
                   'agents': [[inline(c) for c in r] for r in used[1:]],
-                  'used': {re.search(r'my-agent:([\w-]+)', r[0]).group(1): [inline(r[1]), inline(r[2])]
+                  # the page finds an agent's steps by the 4.3 step number, so the step IDs (1A-4B) become 1-8 here
+                  'used': {re.search(r'my-agent:([\w-]+)', r[0]).group(1):
+                           [inline(re.sub(r'\b[1-4][AB]\b', lambda m: str(ma_schema.step_index(m.group(0))), r[1])),
+                            inline(r[2])]
                            for r in used[1:]}}
     return out
 

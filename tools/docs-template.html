@@ -248,7 +248,7 @@ const stepCode = n => STEP_CODE[n] || n;
 const stepLetter = n => STEP_CODE[n] ? STEP_CODE[n].slice(1) : n;
 function stepName(n) {
   if (n === 'R') return 'Retrospective';
-  if (n === 'G1b') return 'G1b approval';
+  if (n.startsWith('G1')) return 'G1-B approval';
   const s = D.steps.find(x => x.n === n);
   return s ? `${stepCode(n)} ${s.name.replace(/<[^>]+>/g, '')}` : n;
 }
@@ -263,7 +263,7 @@ function writes(agentId) { return D.artifacts.filter(a => a.writer.includes('my-
 function viewOverview() {
   const gates = D.gates.length, steps = D.steps.length;
   const phases = [...new Set(D.steps.map(s => s.phase))];
-  const gateAfter = { '2': 'G1a', '4': 'G1b', '8': 'G3' };
+  const gateAfter = { '2': 'G1-A', '4': 'G1-B', '8': 'G3' };
   return `<h1 class="page">How my-agent is put together</h1>
   <p class="lede">${esc(D.description)}. Every value on this page is read from the plugin files of version ${esc(D.version)} (design ${esc(D.design)}) by <code>tools/build-docs.py</code>.</p>
   <div class="kpis">
@@ -331,7 +331,7 @@ function levelDetail(lv) {
 }
 function scopeList(xs) { return xs.length ? xs.map(x => `<code>${esc(x)}</code>`).join(' ') : '<span class="muted">nothing</span>'; }
 function scopeMatrix(list) {
-  return `<div class="tbl"><table><thead><tr><th>Agent</th><th>Reads</th><th>Writes</th><th>Bash writes</th><th>Web</th><th>Before G1b</th></tr></thead><tbody>
+  return `<div class="tbl"><table><thead><tr><th>Agent</th><th>Reads</th><th>Writes</th><th>Bash writes</th><th>Web</th><th>Before G1-B</th></tr></thead><tbody>
     ${list.map(a => `<tr><td><a class="mono" href="#levels/${a.id}">${a.id}</a></td><td>${scopeList(a.scope.read)}</td><td>${scopeList(a.scope.write)}${a.scope.denyWrite.length ? `<br><span class="muted">never: </span>${scopeList(a.scope.denyWrite)}` : ''}</td>
       <td>${a.scope.bashWrites ? '<span class="badge ok">yes</span>' : '<span class="badge no">no</span>'}</td><td>${a.scope.web ? '<span class="badge ok">yes</span>' : '<span class="badge no">no</span>'}</td>
       <td>${a.beforeApproval ? '<span class="badge ok">allowed</span>' : '<span class="badge">after approval</span>'}</td></tr>`).join('')}</tbody></table></div>`;
@@ -350,7 +350,7 @@ function agentDetail(a) {
     <div class="md">${a.role}</div>
     <div class="facts"><div class="fact"><span>Model</span><b>${esc(a.model)}</b></div><div class="fact"><span>Effort</span><b>${esc(a.effort)}</b></div>
       <div class="fact"><span>maxTurns</span><b>${esc(a.maxTurns || '—')}</b></div>
-      <div class="fact"><span>Before G1b approval</span><b>${a.beforeApproval ? 'allowed' : 'blocked'}</b></div>
+      <div class="fact"><span>Before G1-B approval</span><b>${a.beforeApproval ? 'allowed' : 'blocked'}</b></div>
       <div class="fact"><span>Runs plan work units</span><b>${a.unitAgent ? 'yes (unit=u&lt;n&gt;)' : 'no'}</b></div></div>
     <p class="muted mono" style="font-size:11.5px;margin:8px 0 0">${esc(a.file)}</p></div>
   <div class="panel"><h2>Permissions <small>tools from the definition frontmatter; paths enforced by scope-guard.py</small></h2>
@@ -388,7 +388,7 @@ function l4Detail(c) {
       <div class="tbl"><table><thead><tr><th>Event</th><th>Matcher</th><th>Script</th><th>Where</th><th>On failure</th><th>What it does</th></tr></thead><tbody>
       ${L.hooks.map(h => `<tr><td class="mono">${esc(h.event)}</td><td><code>${esc(h.matcher)}</code></td><td class="mono">${esc(h.script)} ${esc(h.arg)}</td><td>${esc(h.where)}</td><td>${h.onFailure === 'block' ? '<span class="badge no">block</span>' : '<span class="badge">exit 0</span>'}</td><td>${esc(h.doc)}</td></tr>`).join('')}
       </tbody></table></div></div>
-      <div class="panel"><h2>G1b hard gate</h2><div class="md">${L.hardGate}</div></div>`;
+      <div class="panel"><h2>G1-B hard gate</h2><div class="md">${L.hardGate}</div></div>`;
   }
   if (c.id === 'permission-rules') {
     return `<div class="panel"><div class="dhead"><span class="badge lv">L4</span><h1>permission rules</h1></div><p class="desc">${esc(c.sub)} · <code>l4-tools-guards/permissions/permissions.json</code>, applied by <code>permission-guard.py</code> only while a task is active</p>
@@ -412,12 +412,12 @@ function l4Detail(c) {
 function viewFlow(sub) {
   const P = D.profiles[profile];
   const phases = [...new Set(D.steps.map(s => s.phase))];
-  const gateAfter = { '2': 'G1a', '4': 'G1b', '8': 'G3' };
+  const gateAfter = { '2': 'G1-A', '4': 'G1-B', '8': 'G3' };
   const gateById = Object.fromEntries(D.gates.map(g => [g.id, g]));
   const agentsIn = n => Object.entries(P.used).filter(([, u]) => new RegExp(`(^|[^0-9])${n}([^0-9]|$)`).test(u[0].replace(/<[^>]+>/g, ''))).map(([id]) => id);
   const stepCard = s => {
     const lvl = (s.level.match(/L\d/) || ['L1'])[0];
-    const arts = D.artifacts.filter(a => a.steps.length <= 3 && (a.steps.includes(s.n) || (s.n === '4' && a.steps.includes('G1b'))));
+    const arts = D.artifacts.filter(a => a.steps.length <= 3 && (a.steps.includes(s.n) || (s.n === '4' && a.steps.some(g => g.startsWith('G1')))));
     const ag = s.n === 'R' ? ['gate-analyst'] : agentsIn(s.n);
     const lines = (s[profile] !== undefined) ? `<div class="row"><span>${esc(profile)} profile</span><div>${s[profile]}</div></div>` : '';
     return `<article class="step ${lvClass(lvl)}${sub === s.n ? ' hl' : ''}" id="step-${s.n}">

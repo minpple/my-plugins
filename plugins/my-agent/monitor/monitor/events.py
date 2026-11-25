@@ -54,7 +54,7 @@ def build_events(lines) -> Events:
     phases_seen = set()
     calls = {}        # agent -> [unpaired items]
     by_id = {}        # agent id -> item
-    asks = {}         # (gate, qn or None) -> open popup item (G1a/G1b/G3/E/Q); one per question of a popup
+    asks = {}         # (gate, qn or None) -> open popup item (G1-A/G1-B/G3/E/Q); one per question of a popup
     g2_open = []      # open G2 popup items
     g2_keys = {}      # id(item) -> the ask's key= (kept out of the item, which the page gets)
     revs, back_wanted = [], None
@@ -72,7 +72,7 @@ def build_events(lines) -> Events:
     for l in lines:
         f = l.f
         if l.kind == 'step':
-            n = _int(f.get('n'))
+            n = ma_schema.step_index(f.get('n'))
             if n is None:
                 continue
             step = n
@@ -139,7 +139,7 @@ def build_events(lines) -> Events:
             if a == 'verifier' and f.get('result'):
                 verdicts.append(ma_schema.verify_failed(f['result']))
         elif l.kind == 'ask':
-            gate = f.get('gate')
+            gate = ma_schema.gate_name(f.get('gate'))
             if gate == 'G2':
                 g2_open.append(item(l, 'popup', 'perms', f"G2 {f.get('q', '')}".strip(), sub=None,
                                     id=f.get('id'), tool=f.get('tool'), agent=f.get('agent')))
@@ -148,7 +148,7 @@ def build_events(lines) -> Events:
             elif gate:
                 asks[(gate, f.get('qn'))] = item(l, 'popup', 'gatekeeper', f"{gate} {f.get('q', '')}".strip(), sub=None)
         elif l.kind == 'answer':
-            gate = f.get('gate')
+            gate = ma_schema.gate_name(f.get('gate'))
             if gate == 'G2':
                 res = f.get('result') or f.get('choice')
                 opened = [g for g in g2_open if g['sub'] in (None, 'not run (denied?)')]
@@ -174,8 +174,8 @@ def build_events(lines) -> Events:
                 e.answered[gate] = f.get('choice')
         elif l.kind == 'revision':
             n = _int(f.get('rev'))
-            if f.get('before'):      # a plan rewritten before G1b: no new rev (B1)
-                item(l, 'phase', 'recorder', f"plan rewrite before {f.get('before')} · {f.get('why', '')}".strip(' ·'))
+            if f.get('before'):      # a plan rewritten before G1-B: no new rev (B1)
+                item(l, 'phase', 'recorder', f"plan rewrite before {ma_schema.gate_name(f.get('before'))} · {f.get('why', '')}".strip(' ·'))
                 continue
             done = next((r for r in revs if r['rev'] == n), None) if n is not None else None
             if done is not None:     # `state=done`: the same revision finished its invalidation (B4)
@@ -190,9 +190,9 @@ def build_events(lines) -> Events:
             back_wanted = entry
             verdicts.append(None)
             item(l, 'rev', 'gatekeeper', f"rev{rev} {f.get('why', '')}".strip(), sub=f.get('keep'))
-        elif l.kind == 'fix':         # L1's own small fixes: plan edits before G1b, scope adjustments, judged fixes
+        elif l.kind == 'fix':         # L1's own small fixes: plan edits before G1-B, scope adjustments, judged fixes
             what = f.get('what') or ''
-            if f.get('before') == ma_schema.PLAN_EDIT_GATE:
+            if ma_schema.gate_name(f.get('before')) == ma_schema.PLAN_EDIT_GATE:
                 tx = f"plan edit by L1 · {what}".rstrip(' ·')
             elif what.startswith('Scope change:'):
                 tx = what

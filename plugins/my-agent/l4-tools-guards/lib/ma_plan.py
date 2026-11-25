@@ -1,4 +1,4 @@
-"""Read the markers L1 writes into plan.md (architecture 4.4 G1b): the `Approved` line under `## Approval` and
+"""Read the markers L1 writes into plan.md (architecture 4.4 G1-B): the `Approved` line under `## Approval` and
 the `Prototype: requested` line under `## Prototype`; and the `### u<n>` work units (4.8.2). Shapes: ma_schema."""
 from pathlib import Path
 
@@ -29,12 +29,12 @@ def prototype_requested(plan_md: Path) -> bool:
 
 
 def scope_prototype_requested(scope_md: Path) -> bool:
-    """`Prototype: requested` under `## Prototype` in scope.md (the G1a prototype); same shape as plan.md's."""
+    """`Prototype: requested` under `## Prototype` in scope.md (the G1-A prototype); same shape as plan.md's."""
     return prototype_text(read(scope_md))
 
 
 def scope_confirmed(scope_md: Path) -> bool:
-    """A `Confirmed ` line under `## Confirmation` in scope.md (G1a Confirm)."""
+    """A `Confirmed ` line under `## Confirmation` in scope.md (G1-A Confirm)."""
     return ma_schema.scope_confirmed(read(scope_md))
 
 

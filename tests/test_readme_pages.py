@@ -96,3 +96,11 @@ class ReadmePagesTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReadmeGateReportTest(unittest.TestCase):
+    def test_label_line_and_pre_gate_are_named(self):
+        for path in READMES:
+            text = read(path)
+            self.assertIn('[1B] Explore → Scope · Q', text, path.name)
+            self.assertIn('pre-gate', text, path.name)

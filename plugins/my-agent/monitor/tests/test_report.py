@@ -20,6 +20,7 @@ FINDINGS = Path(__file__).resolve().parents[2] / 'l4-tools-guards' / 'scripts' /
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'report'
 PROJECT = FIXTURE / 'project'
 FULL, ONLY, FOLLOW = '261102-full-report', '261103-intake-only', '261104-follow-up'
+LETTERED = '261125-lettered-steps'
 KEYS = {'overview', 'timeline', 'criteria', 'units', 'background_research', 'review', 'plan_review', 'decisions', 'gate_report',
         'verdict', 'gate', 'takeaway', 'review_totals'}
 ROUNDS, G1B, G1A, G3, ABORTED, GENERAL = ('261105-review-rounds', '261106-gate-g1b', '261107-gate-g1a', '261108-gate-g3',
@@ -96,7 +97,7 @@ class ReportTest(unittest.TestCase):
     def test_decisions_and_recommended_rate(self):
         d = self.full['decisions']
         self.assertEqual([(x['n'], x['at'], x['gate'], x['choice'], x['picked']) for x in d],
-                         [(1, '09:06', 'G1a', 'Confirm', 'yes'), (2, '09:20', 'G1b', 'Reject', 'no'),
+                         [(1, '09:06', 'G1-A', 'Confirm', 'yes'), (2, '09:20', 'G1-B', 'Reject', 'no'),
                           (3, '09:55', 'G3', 'Commit', 'yes')])
         self.assertEqual(self.full['gate_report']['recommended'], {'picked': 2, 'counted': 3})
 
@@ -116,7 +117,7 @@ class ReportTest(unittest.TestCase):
                 '2026-11-02 09:00:00 step: n=1 name=Intake\n2026-11-02 09:05:00 cost: usd=1.00 session=s\n'
                 '2026-11-02 09:06:00 step: n=2 name=Plan\n2026-11-02 09:20:00 cost: usd=4.00 session=s\n', encoding='utf-8')
             data = report.build_report(Path(tmp), task, {'id': 'a-task', 'profile': 'dev', 'status': 'running'}, [])
-        self.assertEqual([(c['steps'], c['usd']) for c in data['timeline']['cost']], [('1 Intake', None), ('2 Plan', 3.0)])
+        self.assertEqual([(c['steps'], c['usd']) for c in data['timeline']['cost']], [('1A Intake', None), ('1B Plan', 3.0)])
         self.assertEqual(data['timeline']['cost'][0]['span'], '09:00-09:05')
 
     def test_plan_review_runs(self):
@@ -148,7 +149,7 @@ class ReportTest(unittest.TestCase):
         self.assertEqual([b['row'] for b in t['backs']], [3, 5])   # revision in Plan-Review; first Verify, not the second
         self.assertEqual([b['slot'] for b in t['backs']], [0, 0])
         self.assertEqual((t['slots'], t['chart_end']), (1, '2026-11-02T09:50:00'))
-        self.assertEqual(t['gates'], [{'id': 'G1a', 'at': '2026-11-02T09:05:00'}, {'id': 'G1b', 'at': '2026-11-02T09:20:00'},
+        self.assertEqual(t['gates'], [{'id': 'G1-A', 'at': '2026-11-02T09:05:00'}, {'id': 'G1-B', 'at': '2026-11-02T09:20:00'},
                                       {'id': 'G3', 'at': '2026-11-02T09:50:00'}])
         self.assertEqual([(b['from'], b['to'], b['at']) for b in t['backs']],
                          [(4, 3, '2026-11-02T09:14:00'), (7, 5, '2026-11-02T09:33:00')])
@@ -168,6 +169,27 @@ class ReportTest(unittest.TestCase):
 
     def report(self, name):
         return self.e.registry.get_report(self.e.keys[name])
+
+    def test_lettered_log_steps(self):
+        t = self.report(LETTERED)['timeline']
+        self.assertEqual([s['n'] for s in t['steps']], [1, 2, 3, 4, 5, 7, 8])
+        self.assertEqual([s['name'] for s in t['steps']],
+                         ['Intake', 'Explore-Scope', 'Plan', 'Plan-Review', 'Execute', 'Verify', 'Review-Deliver'])
+        self.assertEqual([g['id'] for g in t['gates']], ['G1-A', 'G1-B'])
+
+    def test_counts_table_does_not_change_review_findings(self):
+        from monitor import report
+        tmp, task, info = temp_copy(ROUNDS, 'done')
+        with tmp:
+            plain = report.build_report(PROJECT, task, info, [])
+            path = task / 'review.md'
+            text = path.read_text(encoding='utf-8')
+            first, rest = text.split('\n', 1)
+            path.write_text(first + '\n\n## Counts\n| Round | BLOCKER | SHOULD-FIX | NITPICK |\n|---|---|---|---|\n'
+                            '| 1 | 1 | 1 | 2 |\n| 2 | 0 | 1 | 3 |\n' + rest, encoding='utf-8')
+            counted = report.build_report(PROJECT, task, info, [])
+        self.assertEqual(counted['review'], plain['review'])
+        self.assertEqual(counted['review_totals'], plain['review_totals'])
 
     def test_background_purpose_labeled(self):
         o = self.report(ROUNDS)['overview']
@@ -237,7 +259,8 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         rows = [[c.strip() for c in l.strip('|').split('|')] for l in r.stdout.splitlines() if l.startswith('| ') and l[2:3] in 'BSN']
         opens = [l[2:] for l in r.stdout.splitlines() if l.startswith('- ')]
-        return {row[0]: tuple(int(x) for x in row[1:]) for row in rows if row[0] != 'Severity'}, opens
+        cells = lambda row: [[int(x) for x in c.split('/')] for c in row[1:]]   # per round: Found, Fixed, Open
+        return {row[0]: (sum(cells(row)[0]), sum(cells(row)[1]), cells(row)[2][-1]) for row in rows if row[0] != 'Severity'}, opens
 
     def test_findings_command_equals_review_totals(self):
         """The counts of findings.py are the Report tab's review_totals, the open lines its open items."""
@@ -245,7 +268,9 @@ class ReportTest(unittest.TestCase):
             task = PROJECT / 'docs' / 'agent' / name
             counts, opens = self.findings(task, 'review')
             totals = self.report(name)['review_totals']
-            self.assertEqual(counts, {s: (totals[s]['found'], totals[s]['fixed'], totals[s]['open']) for s in ma_schema.SEVERITIES}, name)
+            # the table's Found counts a finding again in each round that lists it; the totals count it once
+            self.assertEqual({s: (c[1] + c[2], c[1], c[2]) for s, c in counts.items()},
+                             {s: (totals[s]['found'], totals[s]['fixed'], totals[s]['open']) for s in ma_schema.SEVERITIES}, name)
             pairs = [(l.kind, l.f) for l in read_lines(task / 'run-log.md')]
             _totals, items = ma_schema.review_state(task, (task / 'review.md').read_text(encoding='utf-8'), pairs)
             self.assertEqual(opens, [f'{s} {w} {b}'.rstrip() for s, w, b, _m in items] or ['none'], name)
@@ -275,7 +300,7 @@ class ReportTest(unittest.TestCase):
         with tmp:
             log = task / 'run-log.md'
             log.write_text(log.read_text(encoding='utf-8') +
-                           '2026-11-05 10:40:00 fix: what="Plan Review NITPICK plan.md:50 heading" files=plan.md before=G1b\n', encoding='utf-8')
+                           '2026-11-05 10:40:00 fix: what="Plan Review NITPICK plan.md:50 heading" files=plan.md before=G1-B\n', encoding='utf-8')
             counts, _opens = self.findings(task, 'plan-review')
             runs = report.build_report(PROJECT, task, info, [])['plan_review']
         # findings.py counts every run: found is the sum over the runs, open is what the latest run leaves open
@@ -323,14 +348,14 @@ class ReportTest(unittest.TestCase):
 
     def test_gate_g1a(self):
         g = self.report(G1A)['gate']
-        self.assertEqual(g, {'id': 'G1a', 'at': '2026-11-07T09:05:00', 'q': 'Scope confirmation: 261107-gate-g1a',
+        self.assertEqual(g, {'id': 'G1-A', 'at': '2026-11-07T09:05:00', 'q': 'Scope confirmation: 261107-gate-g1a',
                              'purpose': 'Show the export history in the CLI.', 'criteria': 4,
                              'non_goals': ['No change to the file format.', 'No GUI.'],
                              'background_research': None})
 
     def test_gate_g1b(self):
         g = self.report(G1B)['gate']
-        self.assertEqual((g['id'], g['at'], g['q']), ('G1b', '2026-11-06T10:20:00', 'Plan approval: 261106-gate-g1b'))
+        self.assertEqual((g['id'], g['at'], g['q']), ('G1-B', '2026-11-06T10:20:00', 'Plan approval: 261106-gate-g1b'))
         self.assertEqual(g['summary'], 'Two coder units: the dated file name, then the docs.')
         self.assertEqual(g['units'], [{'id': 'u1', 'title': 'Dated export names', 'group': 'group 1'},
                                       {'id': 'u2', 'title': 'Docs', 'group': 'group 2'}])
@@ -629,6 +654,32 @@ class TimelineRowsTest(unittest.TestCase):
     def test_no_return(self):
         t = self.tl(('09:00:00', 'step: n=5 name=Execute'), ('09:05:00', 'step: n=7 name=Verify'))
         self.assertEqual((t['backs'], t['slots']), ([], 0))
+
+    def test_mixed_log_gives_one_ordered_step_list(self):
+        """Old numeric step lines followed by lettered ones: one step list, no error."""
+        t = self.tl(('09:00:00', 'step: n=1 name=Intake'), ('09:01:00', 'step: n=2 name=Explore-Scope'),
+                    ('09:02:00', 'step: n=2A name=Plan'), ('09:03:00', 'step: n=2B name=Plan-Review'),
+                    ('09:04:00', 'step: n=3A name=Execute'), ('09:05:00', 'step: n=4A name=Verify'))
+        self.assertEqual([s['n'] for s in t['steps']], [1, 2, 3, 4, 5, 7])
+        self.assertEqual([s['name'] for s in t['steps']], ['Intake', 'Explore-Scope', 'Plan', 'Plan-Review', 'Execute', 'Verify'])
+
+    def test_pending_gate_of_old_and_new_ask_is_g1_b(self):
+        from monitor import report
+        from monitor.runlog import read_lines
+        for gate in ('G1b', 'G1-B'):
+            with tempfile.TemporaryDirectory() as tmp:
+                log = Path(tmp) / 'run-log.md'
+                log.write_text(HEAD % '09:00:00' + f'ask: gate={gate} q="Plan?" rec=Approve\n', encoding='utf-8')
+                ask = report._waiting_gate(read_lines(log))
+                self.assertEqual(report.ma_schema.gate_name(ask.f['gate']), 'G1-B', gate)
+        for gate in ('G1b', 'G1-B'):
+            with tempfile.TemporaryDirectory() as tmp:
+                task = Path(tmp) / 'a-task'
+                task.mkdir()
+                (task / 'intake.md').write_text('Status: active\nProfile: dev\n', encoding='utf-8')
+                (task / 'run-log.md').write_text(HEAD % '09:00:00' + f'ask: gate={gate} q="Plan?" rec=Approve\n', encoding='utf-8')
+                data = report.build_report(Path(tmp), task, {'id': 'a-task', 'profile': 'dev', 'status': 'running'}, [])
+                self.assertEqual(data['gate']['id'], 'G1-B', gate)
 
     def test_no_steps(self):
         t = self.tl(('09:00:00', 'ask: gate=G1a q="q" rec=Confirm'), ('09:01:00', 'answer: gate=G1a choice=Confirm'))

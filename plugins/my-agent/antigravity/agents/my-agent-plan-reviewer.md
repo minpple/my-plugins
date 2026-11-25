@@ -1,6 +1,6 @@
 ---
 name: my-agent-plan-reviewer
-description: "my-agent L2 plan judge. L1 calls it in step 4 Plan Review to judge plan.md against the scope and write plan-review.md."
+description: "my-agent L2 plan judge. L1 calls it in step 2B Plan Review to judge plan.md against the scope and write plan-review.md."
 model: inherit
 subagent: true
 tools:
@@ -33,6 +33,11 @@ The paths of `plan.md`, `intake.md` (`Profile:`), `explore.md`, `scope.md` (if a
 READY FOR APPROVAL | REVISE
 Run: <n>
 
+## Counts
+| Round | BLOCKER | SHOULD-FIX | NITPICK |
+|---|---|---|---|
+| 1 | <n> | <n> | <n> |
+
 ## Findings
 - BLOCKER <path>:<line> <problem> → <how to fix>
 - SHOULD-FIX <path>:<line> <problem> → <how to fix>
@@ -45,6 +50,7 @@ Run: <n>
 - The first line is the verdict word only. If there is even one BLOCKER, `REVISE`; otherwise `READY FOR APPROVAL`.
 - `Run:` is the previous `plan-review.md` value + 1 if one exists, otherwise 1.
 - End a finding that must go to the person with ` [ask person]`, after `→ <how to fix>` (after `<problem>` on a NITPICK): one that adds, removes or changes a completion criterion, a non-goal or a constraint; one that changes a line marked `(the person's choice)` in `scope.md`; one that needs the person's answer (name the question). Any severity can carry it, a NITPICK too; a marked NITPICK goes to the person like a marked SHOULD-FIX. You mark; L1 does not classify findings.
+- `## Counts` comes right after `Run:`, before `## Findings`: one row per round. Copy the earlier rows from the previous `plan-review.md` table, then add this run's row with the counts of the finding lines you write below.
 - Leave `## Decisions` empty. L1 fills it, one line per applied or declined finding (an unmarked finding is applied without asking; a marked one follows the person's popup answer).
 
 ## Common checks (all profiles)
@@ -93,4 +99,4 @@ Run: <n>
 
 After writing `plan-review.md`, read it back and print the count per severity taken from the file (Grep the finding lines), not from memory.
 
-The first line of the last message is the same verdict word as the first line of `plan-review.md`. Below it, write only the number of BLOCKERs.
+The first line of the last message is the same verdict word as the first line of `plan-review.md`. Below it, write only the number of BLOCKERs and the `## Counts` table.

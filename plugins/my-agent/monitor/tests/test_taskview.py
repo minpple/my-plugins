@@ -10,14 +10,14 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run directly: tests/<name>.py
 from monitor.taskview import build_task
 from monitor.transcript import TranscriptCache
-from tests.fixtures.build_fixtures import CLAUDE, EXPECTED_MAIN, PROJECTS
+from tests.fixtures.build_fixtures import CLAUDE, EXPECTED_MAIN, PROJECTS, lettered_steps
 
 import ma_prices
 from ma_prices import cost, load_prices
 
 PRICES = load_prices(ma_prices.BUNDLED)
 NOW = datetime(2026, 10, 24, 16, 8)
-G = lambda a, b, c, d: {'G1a': a, 'G1b': b, 'G2': c, 'G3': d}
+G = lambda a, b, c, d: {'G1-A': a, 'G1-B': b, 'G2': c, 'G3': d}
 
 EXPECTED = {
     ('claude-sessions', '261024-cli-json-output'): dict(
@@ -53,6 +53,27 @@ class TaskViewTest(unittest.TestCase):
             self.assertNotIn('error', t, t.get('error'))
             self.assertEqual({k: t.get(k) for k in want}, want, tid)
         self.assertEqual(task('obsidian-notes', '261023-hooks-notify-note')['vfailMax'], 1)
+
+    def test_gate_keys_for_old_and_new_logs(self):
+        """The gates map is keyed G1-A/G1-B whether the run-log asks say `G1a` or `G1-A`."""
+        for gate in ('G1a', 'G1-A'):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                d = root / 'p' / 'docs/agent/261125-x'
+                d.mkdir(parents=True)
+                (d / 'intake.md').write_text('Status: active\nProfile: dev\n', encoding='utf-8')
+                (d / 'run-log.md').write_text('2026-11-25 09:00:00 step: n=1 name=Intake\n'
+                                              f'2026-11-25 09:05:00 ask: gate={gate} q="Scope?"\n', encoding='utf-8')
+                t = task('p', '261125-x', root)
+                self.assertEqual(sorted(t['gates']), ['G1-A', 'G1-B', 'G2', 'G3'], gate)
+                self.assertEqual(t['gates']['G1-A'], 'wait', gate)
+
+    def test_lettered_and_mixed_fixture_tasks(self):
+        for mixed in (False, True):
+            tid = lettered_steps(mixed).dir.name
+            t = task('lettered-demo', tid)
+            self.assertNotIn('error', t, t.get('error'))
+            self.assertEqual((t['step'], t['gates']['G1-A'], t['gates']['G1-B']), (5, 'ok', 'ok'), tid)
 
     def test_header_fields(self):
         t = task('claude-sessions', '261024-cli-json-output')
@@ -117,7 +138,7 @@ class TaskViewTest(unittest.TestCase):
     def test_files_steps_and_todo(self):
         f = {r['p']: r for r in task('claude-sessions', '261024-cli-json-output')['files']}
         self.assertTrue(f['verify.md']['todo'])
-        self.assertEqual(f['plan.md']['s'], 4)   # last written at G1b (step 4)
+        self.assertEqual(f['plan.md']['s'], 4)   # last written at G1-B (step 4)
         self.assertEqual(f['explore.md']['s'], 2)
         self.assertEqual(f['plan.md']['t'], '15:55')
         self.assertTrue(f['plan.md']['pv'].startswith('# Plan'))

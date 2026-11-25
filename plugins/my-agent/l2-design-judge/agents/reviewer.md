@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: my-agent L2 quality judge. L1 calls it in step 8 Review to judge the deliverable's quality and write review.md.
+description: my-agent L2 quality judge. L1 calls it in step 4B Review → Deliver to judge the deliverable's quality and write review.md.
 model: sonnet
 effort: high
 level: L2
@@ -37,6 +37,11 @@ The paths of the deliverable, `plan.md`, `intake.md` (`Profile:`), `verify.md`, 
 ```text
 BLOCKER <n>
 
+## Counts
+| Round | BLOCKER | SHOULD-FIX | NITPICK |
+|---|---|---|---|
+| 1 | <n> | <n> | <n> |
+
 ## Findings
 - BLOCKER <path>:<line> <problem> → <how to fix> [criterion <n>]
 - SHOULD-FIX <path>:<line> <problem> → <how to fix> [criterion <n>]
@@ -46,6 +51,8 @@ BLOCKER <n>
 - The first line is only `BLOCKER <count>`. If there are no problems, `BLOCKER 0`.
 - Every BLOCKER and SHOULD-FIX line ends with `[criterion <n>]`, naming the completion criterion the finding puts at risk (several: `[criterion 2, 5]`), or with `[criterion none]` for a quality problem no criterion covers. L1 re-judges the criteria a tag names after a fix.
 - NITPICK lines carry no tag and end with `(new)` or `(carried)`.
+- `## Counts` comes right after the first line, before `## Findings`: one row per round of the current revision. Copy the earlier rows from the previous `review.md` table, then add this run's row (round = the previous last round + 1, or 1) with the counts of the finding lines you write below.
+- With no previous `review.md` (the first Review call of the task), list every finding seen in the reviewed files. The rules for later rounds are unchanged.
 - With a previous `review.md`, the reviewer checks each of its BLOCKER and SHOULD-FIX findings again and lists one that is still present again. This matters most for `[criterion none]` findings, which no verifier re-judges.
 - BLOCKER: a problem that, if shipped as is, leaves the person unable to use it or believing something wrong. SHOULD-FIX: a problem worth fixing. NITPICK: something minor.
 - An observation with nothing to fix is not a finding line.
@@ -71,4 +78,4 @@ BLOCKER <n>
 
 ## When done
 
-The first line of the last message is the same as the first line of `review.md` (`BLOCKER <count>`).
+The first line of the last message is the same as the first line of `review.md` (`BLOCKER <count>`). Below it, print the `## Counts` table.

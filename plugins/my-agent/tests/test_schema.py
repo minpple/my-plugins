@@ -12,7 +12,34 @@ from monitor import events as monitor_events
 from monitor.events import build_events
 from monitor.runlog import parse_line
 
-AGENTS_DIR = {'L2': REPO / 'l2-design-judge' / 'agents', 'L3': REPO / 'l3-workers' / 'agents'}
+class StepAndGateNameTest(unittest.TestCase):
+    def test_step_index_and_id_read_both_forms(self):
+        for value in ('5', '3A'):
+            self.assertEqual((ma_schema.step_index(value), ma_schema.step_id(value)), (5, '3A'))
+        self.assertEqual((ma_schema.step_index('8'), ma_schema.step_id('4B')), (8, '4B'))
+        for value in ('9', '0', '5C', '', None, '3a'):
+            self.assertIsNone(ma_schema.step_index(value))
+            self.assertIsNone(ma_schema.step_id(value))
+
+    def test_gate_name_reads_legacy_values(self):
+        self.assertEqual((ma_schema.gate_name('G1a'), ma_schema.gate_name('G1b')), ('G1-A', 'G1-B'))
+        self.assertEqual((ma_schema.gate_name('G1-B'), ma_schema.gate_name('G3'), ma_schema.gate_name(None)),
+                         ('G1-B', 'G3', None))
+        self.assertEqual(ma_schema.PLAN_EDIT_GATE, 'G1-B')
+
+    def test_plan_review_fixes_read_old_and_new_before(self):
+        what = 'Plan Review SHOULD-FIX plan.md fixed'
+        pairs = [('fix', {'what': what, 'before': 'G1b'}), ('fix', {'what': what, 'before': 'G1-B'}),
+                 ('fix', {'what': what, 'before': 'G3'})]
+        self.assertEqual(len(ma_schema.plan_review_fixes(pairs)), 2)
+
+    def test_review_fix_whats_finds_the_review_step_in_either_form(self):
+        for n in ('8', '4B'):
+            pairs = [('fix', {'what': 'before'}), ('step', {'n': n}), ('fix', {'what': 'after'})]
+            self.assertEqual(ma_schema.review_fix_whats(pairs), ['after'], n)
+
+
+AGENTS_DIR ={'L2': REPO / 'l2-design-judge' / 'agents', 'L3': REPO / 'l3-workers' / 'agents'}
 
 
 def definition(name):

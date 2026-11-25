@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Changed-file map for Verify and Review (accept.md step 7): each changed file with its work units, criteria and fingerprint.
+"""Changed-file map for Verify and Review (accept.md step 4A): each changed file with its work units, criteria and fingerprint.
 
 usage: changed-files.py --task TASK_FOLDER [--previous EARLIER_CHANGED_FILES_MD] [--review ARCHIVED_REVIEW_MD]
                         [--rework-criterion "<n>: <shortfall>"]... [--rework-finding "<path>:<line>"]...

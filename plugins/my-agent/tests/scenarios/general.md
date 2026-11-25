@@ -11,12 +11,12 @@
 | Popup | Answer to pick |
 |---|---|
 | `.gitignore` (first time only) | `Don't commit (Recommended)` |
-| G1b Plan approval | `Approve (Recommended)` — first check that the full `## Mock-up` was pasted in the chat |
+| G1-B Plan approval | `Approve (Recommended)` — first check that the full `## Mock-up` was pasted in the chat |
 | G3 Final acceptance | `Accept (Recommended)` — check that the popup shows the save path `…/templates/meeting-notes.md` |
 
 **Check**
 
 1. `check-run.py` exit 0, `info popups: 2`.
-2. Before G1b, no `Write` went outside the task folder (no `fix`/`deliver` in the run-log before G1b).
+2. Before G1-B, no `Write` went outside the task folder (no `fix`/`deliver` in the run-log before G1-B).
 3. `templates/meeting-notes.md` exists and `intake.md` has `Delivered:`.
 4. `.active` is removed.

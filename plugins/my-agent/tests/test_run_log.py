@@ -27,43 +27,43 @@ class RunLogTest(unittest.TestCase):
 
     def test_step_fills_rev_and_session(self):
         (self.task / 'run-log.md').write_text('2026-10-25 09:00:00 revision: rev=1 why=x\n')
-        r = self.run_log('step', 'n=3', 'name=Plan')
+        r = self.run_log('step', 'n=2A', 'name=Plan')
         self.assertEqual(r.returncode, 0, r.stderr)
         f = parse(log_lines(self.task)[-1])
-        self.assertEqual((f['n'], f['name'], f['rev'], f['session']), ('3', 'Plan', '1', 's-9'))
-        self.assertEqual(events(self.task).step_enter[-1][1], 3)
+        self.assertEqual((f['n'], f['name'], f['rev'], f['session']), ('2A', 'Plan', '1', 's-9'))
+        self.assertEqual(events(self.task).step_enter[-1][1], 3)   # the monitor reads 2A as step index 3
         self.assertIn(log_lines(self.task)[-1], r.stdout)
 
     def test_task_dir_option_finds_docs_agent_task(self):
         other = self.root / 'other'
         task = make_task(other, sub='docs/agent')
         drop = ('MA_TASK_DIR', 'CLAUDE_PLUGIN_OPTION_TASK_DIR')
-        r = run_script(SCRIPT, 'step', 'n=1', 'name=Intake', '--cwd', str(other), env=self.env, drop=drop)
+        r = run_script(SCRIPT, 'step', 'n=1A', 'name=Intake', '--cwd', str(other), env=self.env, drop=drop)
         self.assertEqual(r.returncode, 1, r.stdout)
-        r = run_script(SCRIPT, 'step', 'n=1', 'name=Intake', '--task-dir', 'docs/agent', '--cwd', str(other),
+        r = run_script(SCRIPT, 'step', 'n=1A', 'name=Intake', '--task-dir', 'docs/agent', '--cwd', str(other),
                        env=self.env, drop=drop)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(len(log_lines(task)), 1)
 
     def test_step_session_from_active_without_env(self):
-        r = self.run_log('step', 'n=1', 'name=Intake', env={'CLAUDE_CODE_SESSION_ID': ''})
+        r = self.run_log('step', 'n=1A', 'name=Intake', env={'CLAUDE_CODE_SESSION_ID': ''})
         self.assertEqual(r.returncode, 0, r.stderr)
         f = parse(log_lines(self.task)[-1])
         self.assertEqual((f['rev'], f['session']), ('0', 's-active'))
 
     def test_step_needs_n_and_name(self):
-        r = self.run_log('step', 'n=3')
+        r = self.run_log('step', 'n=2A')
         self.assertEqual(r.returncode, 2)
         self.assertEqual(log_lines(self.task), [])
 
     def test_ask_answer_pair(self):
-        self.assertEqual(self.run_log('ask', 'gate=G1b', 'q=Approve the plan?').returncode, 0)
+        self.assertEqual(self.run_log('ask', 'gate=G1-B', 'q=Approve the plan?').returncode, 0)
         ev = events(self.task)
-        self.assertEqual(ev.gates.get('G1b'), 'wait')
-        self.assertEqual(self.run_log('answer', 'gate=G1b', 'choice=Approve').returncode, 0)
+        self.assertEqual(ev.gates.get('G1-B'), 'wait')
+        self.assertEqual(self.run_log('answer', 'gate=G1-B', 'choice=Approve').returncode, 0)
         ev = events(self.task)
-        self.assertEqual(ev.answered['G1b'], 'Approve')
-        self.assertNotEqual(ev.gates.get('G1b'), 'wait')
+        self.assertEqual(ev.answered['G1-B'], 'Approve')
+        self.assertNotEqual(ev.gates.get('G1-B'), 'wait')
 
     def test_ask_answer_get_session(self):
         self.run_log('ask', 'gate=G3', 'q=x')
@@ -153,7 +153,7 @@ class RunLogTest(unittest.TestCase):
 
     def test_step_1_writes_baseline_cost_line(self):
         env = self.statusline('s-active', '{"cost_usd": 0.4}')
-        r = self.run_log('step', 'n=1', 'name=Intake', env=env)
+        r = self.run_log('step', 'n=1A', 'name=Intake', env=env)
         self.assertEqual(r.returncode, 0, r.stderr)
         lines = log_lines(self.task)
         self.assertEqual(len(lines), 2)
@@ -163,23 +163,23 @@ class RunLogTest(unittest.TestCase):
         self.assertEqual(r.stdout.splitlines()[:2], lines)
 
     def test_step_1_without_statusline_file_writes_one_line(self):
-        r = self.run_log('step', 'n=1', 'name=Intake')
+        r = self.run_log('step', 'n=1A', 'name=Intake')
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(len(log_lines(self.task)), 1)
         self.assertEqual(len(r.stdout.strip().splitlines()), 1)
-        r = self.run_log('step', 'n=1', 'name=Intake', env=self.statusline('s-active', '{oops'))
+        r = self.run_log('step', 'n=1A', 'name=Intake', env=self.statusline('s-active', '{oops'))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(len(log_lines(self.task)), 2)
 
     def test_steps_inside_a_phase_write_no_cost_line(self):
         env = self.statusline('s-active', '{"cost_usd": 0.4}')
-        for n, name in (('2', 'Explore-Scope'), ('4', 'Plan-Review'), ('6', 'Merge'), ('8', 'Review-Deliver')):
+        for n, name in (('1B', 'Explore-Scope'), ('2B', 'Plan-Review'), ('3B', 'Merge'), ('4B', 'Review-Deliver')):
             self.assertEqual(self.run_log('step', f'n={n}', f'name={name}', env=env).returncode, 0)
         self.assertEqual([l.split()[2] for l in log_lines(self.task)], ['step:'] * 4)
 
     def test_phase_opening_steps_write_the_cost_line(self):
         env = self.statusline('s-active', '{"cost_usd": 3.0}')
-        r = self.run_log('step', 'n=3', 'name=Plan', env=env)
+        r = self.run_log('step', 'n=2A', 'name=Plan', env=env)
         self.assertEqual(r.returncode, 0, r.stderr)
         lines = log_lines(self.task)
         self.assertEqual([l.split()[2] for l in lines], ['step:', 'cost:'])
@@ -188,21 +188,21 @@ class RunLogTest(unittest.TestCase):
         self.assertNotIn('baseline', f)
         self.assertEqual(r.stdout.splitlines()[:2], lines)
         self.statusline('s-active', '{"cost_usd": 0.5}')   # a lower value is a reset, as for `cost`
-        self.run_log('step', 'n=5', 'name=Execute', 'back=Verify FAIL 2', 'archive=archive/x', env=env)
+        self.run_log('step', 'n=3A', 'name=Execute', 'back=Verify FAIL 2', 'archive=archive/x', env=env)
         self.assertEqual(parse(log_lines(self.task)[-1])['reset'], '1')
-        self.run_log('step', 'n=7', 'name=Verify', env=env)
+        self.run_log('step', 'n=4A', 'name=Verify', env=env)
         self.assertEqual([l.split()[2] for l in log_lines(self.task)], ['step:', 'cost:'] * 3)
 
     def test_phase_opening_step_without_statusline_file_writes_one_line(self):
-        r = self.run_log('step', 'n=5', 'name=Execute')
+        r = self.run_log('step', 'n=3A', 'name=Execute')
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(len(log_lines(self.task)), 1)
         self.assertEqual(len(r.stdout.strip().splitlines()), 1)
 
     def test_second_step_1_after_a_cost_line_writes_no_baseline(self):
         env = self.statusline('s-active', '{"cost_usd": 0.4}')
-        self.run_log('step', 'n=1', 'name=Intake', env=env)
-        self.run_log('step', 'n=1', 'name=Intake', env=env)
+        self.run_log('step', 'n=1A', 'name=Intake', env=env)
+        self.run_log('step', 'n=1A', 'name=Intake', env=env)
         self.assertEqual([l.split()[2] for l in log_lines(self.task)], ['step:', 'cost:', 'step:'])
 
     def test_ask_rejects_answer_only_fields(self):
@@ -316,10 +316,10 @@ class RunLogTest(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
 
     def test_main_mismatch(self):
-        r = self.run_log('step', 'n=1', 'name=Intake', '--model', 'claude-sonnet-5-5')
+        r = self.run_log('step', 'n=1A', 'name=Intake', '--model', 'claude-sonnet-5-5')
         self.assertIn('MISMATCH: main session configured opus, actual claude-sonnet-5-5', r.stdout)
         self.assertEqual(parse(log_lines(self.task)[-1])['model'], 'claude-sonnet-5-5')
-        r = self.run_log('step', 'n=2', 'name=Explore', '--model', 'claude-opus-5-5')
+        r = self.run_log('step', 'n=1B', 'name=Explore', '--model', 'claude-opus-5-5')
         self.assertNotIn('MISMATCH', r.stdout)
 
     def test_main_model_read_from_transcript(self):
@@ -333,7 +333,7 @@ class RunLogTest(unittest.TestCase):
                 {'type': 'assistant', 'isSidechain': True, 'message': {'model': 'claude-opus-5-5'}},
                 {'type': 'assistant', 'isSidechain': False, 'message': {'model': '<synthetic>'}}]
         t.write_text(''.join(json.dumps(r) + '\n' for r in rows))
-        r = self.run_log('step', 'n=3', 'name=Plan', '--model', 'claude-opus-5-5')
+        r = self.run_log('step', 'n=2A', 'name=Plan', '--model', 'claude-opus-5-5')
         self.assertEqual(parse(log_lines(self.task)[-1])['model'], 'claude-sonnet-5-5')
         self.assertIn('MISMATCH: main session configured opus, actual claude-sonnet-5-5', r.stdout)
         r = self.run_log('ask', 'gate=G3', 'q=x')     # only step lines (or an explicit --model) carry the model
@@ -341,12 +341,12 @@ class RunLogTest(unittest.TestCase):
         self.assertNotIn('MISMATCH', r.stdout)
 
     def test_main_mismatch_reported_once_per_model(self):
-        r = self.run_log('step', 'n=2', 'name=Explore-Scope', '--model', 'claude-sonnet-5-5')
+        r = self.run_log('step', 'n=1B', 'name=Explore-Scope', '--model', 'claude-sonnet-5-5')
         self.assertIn('MISMATCH: main session configured opus, actual claude-sonnet-5-5', r.stdout)
-        r = self.run_log('step', 'n=3', 'name=Plan', '--model', 'claude-sonnet-5-5')
+        r = self.run_log('step', 'n=2A', 'name=Plan', '--model', 'claude-sonnet-5-5')
         self.assertNotIn('MISMATCH', r.stdout)
         self.assertEqual(parse(log_lines(self.task)[-1])['model'], 'claude-sonnet-5-5')   # still recorded
-        r = self.run_log('step', 'n=4', 'name=Plan-Review', '--model', 'claude-haiku-5-5')
+        r = self.run_log('step', 'n=2B', 'name=Plan-Review', '--model', 'claude-haiku-5-5')
         self.assertIn('MISMATCH: main session configured opus, actual claude-haiku-5-5', r.stdout)
 
     def test_reports_subagent_mismatch_once(self):
@@ -355,9 +355,9 @@ class RunLogTest(unittest.TestCase):
             '2026-10-25 09:00:01 start: agent=my-agent:coder id=a1 configured=sonnet effort=medium\n'
             '2026-10-25 09:00:09 stop: id=a1 actual=claude-opus-5-5 tokens=10 in=1 out=1 cw=1 cr=7 secs=8 '
             'result=DONE end=ok mismatch=1\n')
-        r = self.run_log('step', 'n=6', 'name=Merge')
+        r = self.run_log('step', 'n=3B', 'name=Merge')
         self.assertIn('MISMATCH: my-agent:coder configured sonnet, actual claude-opus-5-5', r.stdout)
-        r = self.run_log('step', 'n=7', 'name=Verify')
+        r = self.run_log('step', 'n=4A', 'name=Verify')
         self.assertNotIn('MISMATCH', r.stdout)
 
     def test_guard_line_does_not_hide_subagent_mismatch(self):
@@ -367,7 +367,7 @@ class RunLogTest(unittest.TestCase):
             '2026-10-25 09:00:09 stop: id=a1 actual=claude-opus-5-5 tokens=10 in=1 out=1 cw=1 cr=7 secs=8 '
             'result=DONE end=ok mismatch=1\n'
             '2026-10-25 09:00:10 guard: hook=scope-guard agent=my-agent:coder id=a2 tool=Bash decision=deny why=x\n')
-        r = self.run_log('step', 'n=6', 'name=Merge')
+        r = self.run_log('step', 'n=3B', 'name=Merge')
         self.assertIn('MISMATCH: my-agent:coder configured sonnet, actual claude-opus-5-5', r.stdout)
 
     def test_data_dir_finds_run_index(self):
@@ -380,13 +380,43 @@ class RunLogTest(unittest.TestCase):
             run.mkdir()
             (data / 'active-index.json').write_text(json.dumps({str(run): str(base / 'loc')}), encoding='utf-8')
             env = dict(self.env, MA_TASKS_DIR='')
-            r = run_script(SCRIPT, 'ask', 'gate=G1', '--cwd', str(run), '--data-dir', str(data), env=env)
+            r = run_script(SCRIPT, 'ask', 'gate=G1-A', '--cwd', str(run), '--data-dir', str(data), env=env)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertIn('ask:', log_lines(task)[-1])
 
+    def test_step_takes_only_lettered_ids(self):
+        r = self.run_log('step', 'n=3A', 'name=Execute')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn('n=3A name=Execute', log_lines(self.task)[0])
+        for bad in ('n=5', 'n=9', 'n=5C'):
+            r = self.run_log('step', bad, 'name=Execute')
+            self.assertEqual(r.returncode, 2, bad)
+            self.assertIn('1A', r.stderr)
+            self.assertIn('4B', r.stderr)
+        self.assertEqual(len(log_lines(self.task)), 1)
+
+    def test_cost_line_after_2a_3a_4a_but_not_1b(self):
+        env = self.statusline('s-active', '{"cost_usd": 1.0}')
+        for n in ('2A', '3A', '4A'):
+            self.run_log('step', f'n={n}', 'name=X', env=env)
+        self.assertEqual([l.split()[2] for l in log_lines(self.task)], ['step:', 'cost:'] * 3)
+        before = len(log_lines(self.task))
+        self.run_log('step', 'n=1B', 'name=X', env=env)
+        self.assertEqual(len(log_lines(self.task)), before + 1)
+
+    def test_gate_names_of_ask_and_answer(self):
+        self.assertEqual(self.run_log('ask', 'gate=G1-A', 'q=Confirm?', 'rec=-').returncode, 0)
+        self.assertIn('gate=G1-A', log_lines(self.task)[-1])
+        r = self.run_log('ask', 'gate=G1a', 'q=Confirm?', 'rec=-')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('G1-A', r.stderr)
+        r = self.run_log('answer', 'gate=G1b', 'choice=Approve')
+        self.assertEqual(r.returncode, 2)
+        self.assertEqual(len(log_lines(self.task)), 1)
+
     def test_no_active(self):
         with tempfile.TemporaryDirectory() as d:
-            r = run_script(SCRIPT, 'step', 'n=1', 'name=Intake', '--cwd', d, env=self.env)
+            r = run_script(SCRIPT, 'step', 'n=1A', 'name=Intake', '--cwd', d, env=self.env)
             self.assertEqual(r.returncode, 1)
             self.assertIn('run-log: no active my-agent task under', r.stdout)
             self.assertEqual(list(Path(d).iterdir()), [])

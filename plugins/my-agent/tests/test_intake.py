@@ -518,8 +518,8 @@ class CreateTest(CreateBase):
         self.statusline()
         r = self.ok('--profile', 'dev', '--gitignore', 'ignore', '--preset', 'economy', '--follows', '261115-earlier',
                     '--auto', '--router-pick', 'research',
-                    '--ask', 'gate=Q1 q="Pick one" rec=A qn=1', '--ask', 'gate=Q2 q="Then?" rec=B qn=2',
-                    '--answer', 'gate=Q1 choice=A', '--answer', 'gate=Q2 choice=Other other=1')
+                    '--ask', 'gate=Q q="Pick one" rec=A qn=1', '--ask', 'gate=Q q="Then?" rec=B qn=2',
+                    '--answer', 'gate=Q choice=A qn=1', '--answer', 'gate=Q choice=Other other=1 qn=2')
         folder = self.task_folder()
         self.assertEqual((self.repo / TASK_DIR / '.gitignore').read_text(), '*\n')
         active = (self.repo / TASK_DIR / '.active').read_text().splitlines()
@@ -529,7 +529,7 @@ class CreateTest(CreateBase):
         self.assertEqual(self.kinds(folder), ['step', 'cost', 'ask', 'ask', 'answer', 'answer', 'delegate', 'models',
                                               'profile'])
         lines = log_lines(folder)
-        self.assertEqual(parse(lines[0])['n'], '1')
+        self.assertEqual(lines[0].split(' ', 3)[3].split(' rev=')[0], 'n=1A name=Intake')
         self.assertEqual(parse(lines[1])['baseline'], '1')
         self.assertEqual((parse(lines[2])['qn'], parse(lines[3])['qn']), ('1', '2'))
         self.assertEqual(parse(lines[5])['other'], '1')

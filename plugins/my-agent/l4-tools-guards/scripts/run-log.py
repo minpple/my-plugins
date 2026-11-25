@@ -3,13 +3,13 @@
 
 usage: run-log.py <kind> [key=value ...] [--model MODEL_ID] [--cwd DIR] [--data-dir DIR] [--task-dir DIR]
 
-The time comes from the clock. `step` needs n= and name=; rev= (latest revision:
+The time comes from the clock. `step` needs n= (one of 1A 1B 2A 2B 3A 3B 4A 4B) and name=; rev= (latest revision:
 line, else 0) and session= ($CLAUDE_CODE_SESSION_ID or Codex's $CODEX_THREAD_ID, else .active) are filled in.
 On step lines (and any line given --model), model= is the model of the session
 transcript's last main-chain reply (F13: the skill's `model:` holds for one
 turn), else --model; it is checked against the configured main model (opus, P9; the Codex default for a Codex model id)
 and a main-session MISMATCH is printed once per task and model.
-`ask` and `answer` lines get session= the same way. `cost` takes no value from the command line (usd= or
+`ask` and `answer` lines get session= the same way; their gate= is G1-A, G1-B, G3, E or Q (or G2 for the permission relay), else exit 2. `cost` takes no value from the command line (usd= or
 session= is refused): it reads `cost_usd` from the statusline file `<session>.json` in $MA_STATUSLINE_DIR (default
 ~/.cache/claude-sessions/statusline), session from .active first, else $CLAUDE_CODE_SESSION_ID. Without a value
 there (a cloud session has no statusline file) the cost is tokens times list prices, from the session's transcripts
@@ -22,12 +22,12 @@ first non-empty line of the file (cut to 200 characters); for `file=-` (coder on
 every other role it is refused. A missing result file prints
 `run-log: inline needs the result file <path> (missing)`, exit 1, nothing written. Fields: agent unit file
 result model (--model gives model=).
-After the `step` line with n=1 the script writes a second line `cost: session=<sid> usd=<value> baseline=1` (the
+After the `step` line with n=1A the script writes a second line `cost: session=<sid> usd=<value> baseline=1` (the
 baseline the tally measures the Intake stretch against), when the statusline file gives a value (same lookup as
 `cost`) and the run-log has no `cost:` line yet; otherwise it writes and prints nothing extra.
-After a `step` line that opens a phase (n=3 Plan, n=5 Execute, also with back=, n=7 Verify) the script writes the
+After a `step` line that opens a phase (n=2A Plan, n=3A Execute, also with back=, n=4A Verify) the script writes the
 `cost:` line of that moment itself, as `cost` would (reset=1 when lower), so the two lines keep their order in one
-call; without a statusline value it writes and prints nothing extra. Steps 2, 4, 6 and 8 never write a cost line.
+call; without a statusline value it writes and prints nothing extra. The other steps (1B, 2B, 3B, 4B) never write a cost line.
 `ask` takes no prose=, other= or pre= (they belong on the `answer` line): one line on stderr, exit 1, nothing written.
 Prints the line, then one MISMATCH line per subagent stop: line with
 mismatch=1 written since the previous L1 line, and PARTIAL lines (with unit=)
@@ -56,7 +56,8 @@ import ma_schema  # noqa: E402
 import ma_subagent  # noqa: E402
 import ma_usage  # noqa: E402
 
-PHASE_STEPS = ('3', '5', '7')   # the steps that open phases ② ③ ④: their step line is followed by a cost line
+PHASE_STEPS = ('2A', '3A', '4A')   # the steps that open phases ② ③ ④: their step line is followed by a cost line
+GATE_VALUES = ma_schema.PEOPLE_POPUPS + ('G2',)   # G2 answers are recorded here too (the Codex permission relay, ma_g2)
 KINDS = ('step', 'ask', 'answer', 'revision', 'cost', 'stale', 'base', 'abort', 'deliver', 'resume',
          'rules-changed', 'merge', 'fix', 'delegate', 'profile', 'models', 'inline')
 RESULT_CHARS = 200   # longest `result=` an inline line takes from its result file
@@ -178,6 +179,13 @@ def main(argv=None) -> int:
         print('run-log: step needs n= and name=', file=sys.stderr)
         return 2
     fields_d = dict(fields)
+    if args.kind == 'step' and fields_d.get('n') not in ma_schema.STEP_IDS:
+        print(f"run-log: step n= is one of {' '.join(ma_schema.STEP_IDS)} (got {fields_d.get('n')!r})", file=sys.stderr)
+        return 2
+    if args.kind in ('ask', 'answer') and 'gate' in fields_d and fields_d['gate'] not in GATE_VALUES:
+        print(f"run-log: {args.kind} gate= is one of {' '.join(ma_schema.PEOPLE_POPUPS)} (got {fields_d['gate']!r})",
+              file=sys.stderr)
+        return 2
     if args.kind == 'cost' and keys & {'usd', 'session', ma_gate_report.BASELINE}:
         print('run-log: cost takes no usd=, session= or baseline=; it reads the statusline file', file=sys.stderr)
         return 2
@@ -241,7 +249,7 @@ def main(argv=None) -> int:
         print(f'run-log: cannot write {active.log}: {exc}', file=sys.stderr)
         return 1
     print(line)
-    if args.kind == 'step' and dict(fields).get('n') == '1' and not any(k == 'cost' for k, _ in lines):
+    if args.kind == 'step' and dict(fields).get('n') == '1A' and not any(k == 'cost' for k, _ in lines):
         sid = active.session or ma_host.session_id()
         usd, why = session_cost(sid, args.data_dir)
         if not why:   # no statusline value: no baseline, nothing printed

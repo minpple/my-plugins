@@ -1,4 +1,4 @@
-"""Plan gaps (architecture 4.4 "Plan gaps", Q33): `ma_schema.plan_gaps`, `plan-lint.py` and the G1b hook on the approval write."""
+"""Plan gaps (architecture 4.4 "Plan gaps", Q33): `ma_schema.plan_gaps`, `plan-lint.py` and the G1-B hook on the approval write."""
 import json
 import subprocess
 import sys
@@ -31,7 +31,7 @@ PLAN = '''# Plan: totals
 
 ## Approval
 '''
-APPROVED = '- Approved 2026-11-19 10:00 G1b\n'
+APPROVED = '- Approved 2026-11-19 10:00 G1-B\n'
 
 
 class PlanGapsTest(unittest.TestCase):
@@ -169,7 +169,7 @@ class ApprovalWriteTest(unittest.TestCase):
         (self.task / 'plan.md').write_text(PLAN.replace(' (criterion 1)', ''), encoding='utf-8')
         out = self.approve()
         self.assertEqual(out['permissionDecision'], 'deny')
-        self.assertIn('plan.md cannot be approved yet (G1b, plan gaps): criterion 1: no test to add', out['permissionDecisionReason'])
+        self.assertIn('plan.md cannot be approved yet (G1-B, plan gaps): criterion 1: no test to add', out['permissionDecisionReason'])
         self.assertIn(' guard: ', (self.task / 'run-log.md').read_text(encoding='utf-8'))
 
     def test_approval_write_denied_with_gaps(self):

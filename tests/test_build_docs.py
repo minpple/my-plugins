@@ -52,7 +52,16 @@ class BuildDocsTest(unittest.TestCase):
     def test_four_levels_eight_steps_five_gates(self):
         self.assertEqual([l['id'] for l in self.data['levels']], ['L1', 'L2', 'L3', 'L4'])
         self.assertEqual([s['n'] for s in self.data['steps']], list('12345678'))
-        self.assertEqual([g['id'] for g in self.data['gates']], ['G1a', 'G1b', 'G2', 'G3', 'E'])
+        self.assertEqual([g['id'] for g in self.data['gates']], ['G1-A', 'G1-B', 'G2', 'G3', 'E'])
+
+    def test_step_rules_carry_step_ids(self):
+        import re
+        titles = [r['title'] for s in self.data['steps'] for r in s['rules']]
+        self.assertEqual([t for t in titles if re.match(r'\d[a-z]?\. ', t) or 'step 1,' in t], [])
+        for title in ('Intake (step 1A, Router)', '1B Explore → Scope', 'Background research', '2A Plan', '2B Plan Review',
+                      'G1-B plan approval', '3A Execute', '3B Merge', '4A Verify', '4B Review → Deliver'):
+            self.assertIn(title, titles)
+        self.assertNotIn('"7. Verify"', self.page)
 
     def test_scope_comes_from_scope_guard(self):
         coder = next(a for a in self.data['agents'] if a['id'] == 'coder')
@@ -104,6 +113,11 @@ class BuildDocsTest(unittest.TestCase):
             self.assertNotIn(gone, tpl)
         for kept in ('#flow/${s.n}', 'id="step-${s.n}"'):
             self.assertIn(kept, tpl)
+
+    def test_no_old_gate_names(self):
+        import re
+        page = self.page.replace('G1a G1-A · G1b G1-B', '').replace('(old logs: G1b)', '')
+        self.assertIsNone(re.search(r'G1[ab]\b', page))
 
 
 if __name__ == '__main__':

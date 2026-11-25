@@ -9,6 +9,6 @@ For each profile, run one small task from start to finish together with the pers
 
 | File | Profile | Normal-path popups |
 |---|---|---|
-| `general.md` | general | G1b, G3 |
-| `research.md` | research | G1a, G1b, G3 |
-| `dev.md` | dev (small task) | G1b, G3 commit |
+| `general.md` | general | G1-B, G3 |
+| `research.md` | research | G1-A, G1-B, G3 |
+| `dev.md` | dev (small task) | G1-B, G3 commit |
