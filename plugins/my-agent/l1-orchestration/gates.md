@@ -52,14 +52,14 @@ At G1-A, G1-B and G3 the chat report is the full gate report; the Report tab add
   261120-g3-findings-auto · dev (Router) — commit this change?
   - BLOCKER · 0 / SHOULD-FIX · 1 / NITPICK · 0
   - A SHOULD-FIX is a problem worth fixing that does not block the gate.
-  - Rework: fix all open items fixes them, then Verify and Review run again; only the criteria it touches or the items name are judged again. If every open item is a NITPICK small fix, L1 fixes them and only Review runs again.
+  - Rework: fix all open items fixes them, then Verify and Review run again; only the criteria it touches or the items name are judged again. If every open item is a NITPICK or a `[criterion none]` SHOULD-FIX and the fix is small, L1 fixes them and only Review runs again.
   - SHOULD-FIX gates.md:36 the cap is not named → name the cap
   - Next: Commit → blueprint update, one commit, retrospective.
   ```
 - **G3 with open review items.** Open items are the SHOULD-FIX and NITPICK lines of `review.md` that `## Applied after review` does not list. They set the G3 choices and the recommended one in every profile (dev also: retro.md "Remote update").
   - No open items: `<Take> (Recommended)` / `Rework` / `Abort`, `rec="<Take>"`.
   - Open items: `Rework: fix all open items (Recommended)` / `<Take>` / `Rework` / `Abort`. `Rework: fix all open items` is recommended at every G3 while a SHOULD-FIX or NITPICK is open, also after an earlier Rework answer; `<Take>` only with no open item. L1 gives the same answer under delegated approval ("G3 under delegated approval" above). The `rec=` of the `ask` line is the recommended label.
-  - With open items the question has one plain line on `Rework: fix all open items`: the items are fixed, then Verify and Review run again; only the criteria the fix touches or the open items name (`[criterion <n>]`) are judged again, the others keep their earlier verdict. When every open item is a NITPICK small fix, the line adds that L1 fixes them and only Review runs again. With an open SHOULD-FIX with no valid `[criterion <n>]` tag, or with no `changed-files.md`, the line says every criterion is judged again (`Re-judge: all`). It shows for the remote take in place of `Rework`.
+  - With open items the question has one plain line on `Rework: fix all open items`: the items are fixed, then Verify and Review run again; only the criteria the fix touches or the open items name (`[criterion <n>]`) are judged again, the others keep their earlier verdict. When every open item is a NITPICK or a `[criterion none]` SHOULD-FIX and their fix together is a small fix, the line adds that L1 fixes them and only Review runs again. With an open SHOULD-FIX with no valid `[criterion <n>]` tag, or with no `changed-files.md`, the line says every criterion is judged again (`Re-judge: all`). It shows for the remote take in place of `Rework`.
   - On `Rework: fix all open items`: ask no follow-up question; the shortfalls are all the open items. Go on as for `Rework` (accept.md step 4B item 7). On `Rework` the person names the shortfalls.
 
 ## E escalation

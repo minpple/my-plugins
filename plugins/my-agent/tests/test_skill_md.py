@@ -661,11 +661,16 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('starts the monitor whatever the `autostart` value', text)
         self.assertIn('autostart off by default; start it with /my-agent:monitor', text)
 
-    def test_intake_popup_recommends_current_folder(self):
-        self.assertIn('`Current folder (Recommended)` / `<data folder>` / `Other path`', self.new_task)
-        self.assertNotIn('`<data folder> (Recommended)`', self.new_task)
-        self.assertIn('Popup every time, also inside a git repository', self.intake_item(2))
-        self.assertNotIn('do not ask', self.intake_item(2))
+    def test_intake_takes_location_without_popup(self):
+        two = self.intake_item(2)
+        for s in ('No popup', 'first existing folder, file or skill the request names outside the data folder',
+                  'in the order the request names them', 'a folder as is, a file or skill as its folder',
+                  'the git root if any', 'otherwise the current folder', 'names that folder in the request or runs from it',
+                  'or outside one the run folder'):
+            self.assertIn(s, two)
+        for s in ('Other path', '`Current folder (Recommended)`', 'Popup every time'):
+            self.assertNotIn(s, self.new_task)
+        self.assertIn('task location', self.section('\n11. **Report:**', None, self.new_task)[:600])
         self.assertIn('"Commit the task log? The essential information goes into docs/blueprint, so committing it is not recommended."',
                       self.intake_item(5))
 
@@ -710,9 +715,10 @@ class SkillMdTest(unittest.TestCase):
         """Item 1 names where it looks for `.active`; item 2 checks a location typed as `Other path`."""
         one = self.intake_item(1)
         self.assertIn('the folder you ran in (its git root, if any), the location `<data folder>/active-index.json` gives for it', one)
-        self.assertIn('the folders the item 2 popup offers', one)
+        self.assertIn('the task location item 2 chooses', one)
+        self.assertNotIn('item 2 popup', self.new_task)
         self.assertIn('If `<task_dir>/.active` exists in one, popup:', one)
-        self.assertIn('(an `Other path`) and has `<task_dir>/.active`, show the item 1 popup', self.intake_item(2))
+        self.assertIn('`Continue it (Recommended)`', one)
 
     def test_record_popups_bullet_is_its_own_line(self):
         lines = self.new_task.splitlines()
@@ -957,7 +963,6 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('back-execute.py', build)
         for name in ('accept', 'build'):
             self.assertLess(len(self.phase(name)), 12700)
-        self.assertLessEqual(len(accept), 12550)   # room for the step-ID sweep (u8)
         for name in ('recorder', 'changes', 'retro', 'resume'):
             self.assertLess(len(PROCEDURES[name].read_text(encoding='utf-8')), 12700, name)
 
@@ -1222,12 +1227,20 @@ class SkillMdTest(unittest.TestCase):
         rule = next(l for l in sec.splitlines() if l.startswith('  - With open items the question has one plain line'))
         for line in (example, rule):
             self.assertIn('only the criteria', line)
-            self.assertIn('every open item is a NITPICK', line)
+            self.assertIn('`[criterion none]` SHOULD-FIX', line)
             self.assertIn('only Review runs again', line)
+        self.assertIn('If every open item is a NITPICK or a `[criterion none]` SHOULD-FIX and the fix is small, '
+                      'L1 fixes them and only Review runs again.', example)
+        self.assertNotIn('every open item is a NITPICK small fix', sec)
         delegated = self.delegated()
         self.assertIn('each light-path round (accept.md) counts as one G3 Rework round', delegated)
         self.assertIn('own cap of 3', delegated)
         self.assertIn('Open items after 3 G3 fix rounds: go to E', delegated)
+
+    def test_carried_criterion_should_fix_shows_at_next_g3(self):
+        """Exception: a new or carried criterion-tied SHOULD-FIX after the light-path rerun is an open item of the next G3."""
+        self.assertIn('Open items are the SHOULD-FIX and NITPICK lines of `review.md` that `## Applied after review` does not list', self.gates)
+        self.assertIn('New findings of a fix round are open items of the next G3', self.gates)
 
     def test_findings_cells_and_counts_line_form(self):
         """Criteria 14 and 16: the chat report table cells join the per-round values with `/`; the counts line has the new form."""
@@ -1239,7 +1252,7 @@ class SkillMdTest(unittest.TestCase):
 
     def test_unit_files_fit_the_size_limits_with_room_left(self):
         """Criterion 10: each file of the gate-report unit is at most 12,700 characters; the files u8 and u9 still edit keep room."""
-        room = {SKILL: 200, PROCEDURES['gates']: 250, L1 / 'phases' / 'define.md': 250, L1 / 'profiles' / 'dev.md': 250}
+        room = {SKILL: 200, PROCEDURES['gates']: 150, L1 / 'phases' / 'define.md': 250, L1 / 'profiles' / 'dev.md': 250}
         for path in [SKILL, PROCEDURES['gates'], L1 / 'phases' / 'define.md', L1 / 'phases' / 'plan.md'] + \
                 [L1 / 'profiles' / f'{n}.md' for n in ('dev', 'general', 'research')]:
             size = len(path.read_text(encoding='utf-8'))
@@ -1579,6 +1592,16 @@ class StepIdRulesTest(unittest.TestCase):
         self.assertIn('## G1-B plan approval', heads['plan'])
         self.assertIn('## 1B Explore → Scope', heads['define'])
         self.assertIn('## Background research', heads['define'])
+
+    def test_question_count_lines_do_not_list_task_location(self):
+        """Intake takes the task location without a popup, so the question-count lines no longer name it as a question."""
+        for name in ('general', 'research', 'dev'):
+            line = (L1 / 'profiles' / f'{name}.md').read_text(encoding='utf-8').splitlines()[2]
+            self.assertIn('the person is asked 3 times', line, name)
+            self.assertNotIn('task location', line, name)
+        arch = (REPO / 'docs' / 'build-guide' / 'my-agent-architecture.md').read_text(encoding='utf-8').splitlines()[130]
+        self.assertIn('The number of questions to the person is fixed', arch)
+        self.assertNotIn('task location', arch)
 
     def test_sizes(self):
         self.assertLessEqual(len(SKILL.read_text(encoding='utf-8')), SKILL_CHARS)

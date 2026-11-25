@@ -1,6 +1,6 @@
 # Dev profile (dev)
 
-Tasks that change code in a git repository (feature, bug fix, refactoring). The deliverable is one commit approved at G3. On the normal path the person is asked 3 times: G1-A, G1-B, G3; for a small task, 2 times: G1-B, G3 (not counting first-time-only questions such as the task location and `.gitignore`, or the G2 dialog).
+Tasks that change code in a git repository (feature, bug fix, refactoring). The deliverable is one commit approved at G3. On the normal path the person is asked 3 times: G1-A, G1-B, G3; for a small task, 2 times: G1-B, G3 (not counting the first-time-only question `.gitignore`, or the G2 dialog).
 
 ## Rules per phase
 
@@ -35,7 +35,7 @@ G3 goes to the person; while delegated approval is on, L1 answers per gates.md "
    - `git add <files>`, then `git commit -m "<message>"`. The G2 dialog showing again is a deliberate second check. If the judgments are not fresh, the hook (`verdict-fresh-check.py`) asks (the G2 dialog) and names the stale judgment; do not allow it for the task's commit, redo from Verify. Never use `--no-verify`.
    - Add `Delivered: commit:<short sha>` to `intake.md` and run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" deliver path=commit:<short sha> --data-dir "<data folder>" --task-dir "<task_dir>"`.
    - Change `intake.md` to `Status: done`. On a remote take do retro.md "Remote update" now. If delegated approval is on, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" delegate state=off how=end --data-dir "<data folder>" --task-dir "<task_dir>"`. Read `retro.md` and do its "Retrospective", then run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/cd-guard.py" --remove --location "<task location>" --task "<absolute task folder>"` and show its line, and last of all delete `.active` and this task's line in `<data folder>/active-index.json`.
-5. **Rework** and **Abort** are the same as `accept.md` step 4B items 7 and 8. On abort, do not revert the changed files; only report their list.
+5. **Rework** (with its light path) and **Abort** are the same as `accept.md` step 4B items 7 and 8. On abort, do not revert the changed files; only report their list.
 
 ## Upstream check (3B Merge)
 

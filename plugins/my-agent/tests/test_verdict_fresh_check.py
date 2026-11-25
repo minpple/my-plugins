@@ -135,6 +135,17 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.file(self.T / 'review.md', 'BLOCKER 0\n\n## Applied after review\n\n- rename a (src/a.py)\n', 30)
         self.assertPassed(self.bash('git commit -m x'))
 
+    def test_light_path_criterion_none_should_fix_allowed(self):
+        """Criterion 6: an L1 fix of a `[criterion none]` SHOULD-FIX passes through `## Applied after review`."""
+        self.file(self.L / 'src/a.py', 'x', 0)
+        self.file(self.T / 'verify.md', 'Verdict: ALL PASS\nRun: 1\n', 10)
+        self.file(self.L / 'src/a.py', 'line wrapped', 20)
+        found = 'BLOCKER 0\n\n## Findings\n\n- SHOULD-FIX src/a.py:1 wrap the long line [criterion none]\n'
+        self.file(self.T / 'review.md', found + '\n## Applied after review\n\n- wrap the long line (src/a.py)\n', 30)
+        self.assertPassed(self.bash('git commit -m x'))
+        self.file(self.T / 'review.md', found, 30)
+        self.assertAsked(self.bash('git commit -m x'))
+
     def test_deliver_copy_checked(self):
         self.file(self.T / 'work' / 'note.md', 'n', 0)
         self.assertDenied(self.bash(f'cp -p {rel()}/{TASK}/work/note.md ~/notes/'))

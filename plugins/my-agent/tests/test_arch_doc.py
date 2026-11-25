@@ -241,7 +241,8 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.80 (2026-11-25, plugin 0.31.0:'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.81 (2026-11-25, plugin 0.32.0:'), line[:110])
+        self.assertIn('v0.80 (2026-11-25, plugin 0.31.0:', line)
         self.assertIn('v0.79 (2026-11-24, plugin 0.30.0:', line)
         self.assertNotIn('design draft v0.79', line)
         self.assertIn('v0.78 (2026-11-24, plugin 0.29.1: three fixes from task retrospectives', line)
@@ -777,11 +778,36 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('back-execute.py', back)
         self.assertNotIn('cp -p', back[:back.index('Small fix with only Review rerun')])
         self.assertNotIn('`cmp`', back[:back.index('Small fix with only Review rerun')])
-        self.assert_words(change, ('**Light path after G3 Rework', 'every open item is a NITPICK',
+        self.assert_words(change, ('**Light path after G3 Rework', '`[criterion none]`',
                                    'one G3 Rework round', 'only Review runs again'))
-        self.assertIn('If every open item is a NITPICK small fix, L1 fixes them and only Review runs again.',
-                      self.section('### 4.4 ', '### 4.5 '))
+        self.assertIn('If every open item is a NITPICK or a `[criterion none]` SHOULD-FIX and the fix is small, '
+                      'L1 fixes them and only Review runs again.', self.section('### 4.4 ', '### 4.5 '))
         self.assertNotIn('(open)`', self.text)
+
+    def test_light_path_should_fix_in_design(self):
+        """Criteria 1-4, 7: the light path also takes `[criterion none]` SHOULD-FIX items; any other one does not."""
+        light = self.bullet('### 4.8.1 ', '### 4.8.2 ', '- **Light path after G3 Rework')
+        self.assert_words(light, ('`[criterion none]`', 'their fix together', 'missing or an invalid tag',
+                                  'Back to Execute', 'asked in a popup first', 'one G3 Rework round', 'cap of 3'))
+        row = self.line_of('| **G3 Final acceptance** |')
+        self.assertIn('`[criterion none]` SHOULD-FIX', row)
+        self.assertNotIn('NITPICK small fix', row)
+
+    def test_task_location_without_popup_in_design(self):
+        """Criteria 8, 9: Intake takes the task location without a popup; Q10 is replaced."""
+        resume = self.section('### 4.8.2 ', '### 4.9 ')
+        self.assert_words(resume, ('**Task location without a popup', 'first existing folder, file or skill the request names',
+                                   'in the order the request names them', 'git root', 'run folder', 'Intake report',
+                                   'names that folder in the request or runs from it'))
+        self.assertIn('Replaced 2026-11-25', self.line_of('| Q10 |'))
+        body = '\n'.join(l for l in self.text.splitlines() if not l.startswith('- Status:'))
+        self.assertNotIn('Other path', body)
+        self.assertNotIn('location popup', body)
+
+    def test_intake_order_checks_the_chosen_location(self):
+        """Criterion 9: item 1 checks the chosen location; a running task there still gets the item 1 popup."""
+        order = self.line_of('**Intake order (2026-11-15):**')
+        self.assert_words(order, ('the chosen task location', 'item 1 popup'))
 
     def test_step_ids_in_design(self):
         """Criterion 9: the 4.3 table and the flow text use the step IDs; old numeric lines are still read."""

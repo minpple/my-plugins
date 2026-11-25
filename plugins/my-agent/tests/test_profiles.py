@@ -600,22 +600,41 @@ class SessionFolderCheck(unittest.TestCase):
 
 
 class AcceptLightPathTest(unittest.TestCase):
-    """Criterion 5: a G3 Rework with only NITPICK small fixes re-runs Review only."""
+    """Criteria 1-4, 7: a G3 Rework whose open items are each a NITPICK or a `[criterion none]` SHOULD-FIX, with a small fix together, re-runs Review only."""
 
     def item7(self):
         accept = (REPO / 'l1-orchestration' / 'phases' / 'accept.md').read_text(encoding='utf-8')
         return accept[accept.index('7. **Rework:**'):accept.index('8. **Abort:**')]
 
     def test_light_path_text(self):
-        item = self.item7()
-        for word in ('light path', 'NITPICK', 'small fix', '`fix` line', 'archive.py', 'only Review',
-                     'the list of files L1 fixed', '## Applied after review', 'counts as one G3 Rework round'):
+        item = self.item7()   # exception: a mixed open set of NITPICK and `[criterion none]` SHOULD-FIX qualifies
+        for word in ('light path', 'NITPICK', 'SHOULD-FIX tagged `[criterion none]`', 'their fix together is a small fix',
+                     '`fix` line', 'archive.py', 'only Review', 'the list of files L1 fixed', '## Applied after review'):
             self.assertIn(word, item, word)
         self.assertIn('Back to Execute and Verify are skipped', item)
 
     def test_other_cases_keep_back_to_execute(self):
-        item = self.item7()   # exception: light path with an open SHOULD-FIX or a larger NITPICK fix
-        self.assertIn('open SHOULD-FIX or a larger fix takes "Back to Execute"', item)
+        item = self.item7()   # exception: a criterion-tied, untagged or invalid-tagged SHOULD-FIX; a larger combined fix
+        self.assertIn('Any other SHOULD-FIX (a `[criterion <n>]` tag, or a missing or invalid tag) or a larger fix takes "Back to Execute"', item)
+
+    def test_decision_change_asked_first(self):
+        item = self.item7()   # exception: delegated approval is unchanged, so the rule names none
+        self.assertIn('changes a decision the person made is asked in a popup first', item)
+        self.assertNotIn('delegat', item)
+
+    def test_light_path_round_counts(self):
+        self.assertIn('counts as one G3 Rework round', self.item7())
+
+    def test_back_to_execute_intro_names_the_light_path(self):
+        accept = (REPO / 'l1-orchestration' / 'phases' / 'accept.md').read_text(encoding='utf-8')
+        intro = accept[accept.index('## Back to Execute'):]
+        intro = intro[:intro.index('\n\n', intro.index('\n\n') + 2)]
+        self.assertIn('G3 `Rework` off the light path (item 7)', intro)
+
+    def test_dev_rework_points_to_the_light_path(self):
+        dev = (REPO / 'l1-orchestration' / 'profiles' / 'dev.md').read_text(encoding='utf-8')
+        g3 = dev[dev.index('## G3 in the dev profile'):dev.index('## Agents used')]
+        self.assertIn('**Rework** (with its light path) and **Abort** are the same as `accept.md` step 4B items 7 and 8', g3)
 
     def test_new_blocker_in_the_rerun_takes_blocker_handling(self):
         item = self.item7()   # exception: a new BLOCKER in the Review rerun
