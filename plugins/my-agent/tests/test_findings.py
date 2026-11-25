@@ -72,6 +72,27 @@ class FindingsTest(unittest.TestCase):
                          '- SHOULD-FIX a.py:3 text → fix · criterion 2, 5\n- SHOULD-FIX b.py:4 other\n- NITPICK c.py:5 small\n')
         self.assertNotIn('[criterion', r.stdout)
 
+    def test_plan_mark_listing_and_counts(self):
+        """A `[plan]` mark changes no count and stays in each listed item's text (criterion 2)."""
+        self.put('archive/261120-101500-run1/review.md',
+                 'BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 broken [criterion 2]\n- SHOULD-FIX b.py:2 two [criterion 3]\n'
+                 '- NITPICK c.py:3 three\n')
+        plain = ('BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 broken [criterion 2]\n- SHOULD-FIX b.py:2 two [criterion 3]\n'
+                 '- NITPICK c.py:3 three (carried)\n- NITPICK d.py:4 four (new)\n')
+        marked = ('BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 broken [plan] [criterion 2]\n'
+                  '- SHOULD-FIX b.py:2 two [plan] [criterion 3]\n- NITPICK c.py:3 three [plan] (carried)\n'
+                  '- NITPICK d.py:4 four [plan] (new)\n')
+        self.put('review.md', plain)
+        r_plain = self.run_f()
+        self.put('review.md', marked)
+        r = self.run_f()
+        self.assertEqual((r_plain.returncode, r.returncode), (0, 0), r.stdout + r.stderr)
+        head = 'findings: review.md (2 rounds)\n' + table([('1/1', '0/0', '1/1'), ('1/1', '0/0', '1/1'), ('1/2', '0/0', '1/2')])
+        self.assertEqual(r_plain.stdout, head + counts(1, 1, 2) + '- BLOCKER a.py:1 broken · criterion 2\n'
+                         '- SHOULD-FIX b.py:2 two · criterion 3\n- NITPICK c.py:3 three\n- NITPICK d.py:4 four\n')
+        self.assertEqual(r.stdout, head + counts(1, 1, 2) + '- BLOCKER a.py:1 broken [plan] · criterion 2\n'
+                         '- SHOULD-FIX b.py:2 two [plan] · criterion 3\n- NITPICK c.py:3 three [plan]\n- NITPICK d.py:4 four [plan]\n')
+
     def test_review_range_finding_counts_as_fixed(self):
         self.put('review.md', 'BLOCKER 0\n\n## Findings\n- SHOULD-FIX work/final.md:28-30 three lines\n'
                               '- NITPICK tests/fixtures/x/ folder\n- NITPICK general remark\n\n'

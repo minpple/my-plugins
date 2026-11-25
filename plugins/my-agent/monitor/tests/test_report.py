@@ -294,6 +294,30 @@ class ReportTest(unittest.TestCase):
         self.assertFalse(any('[criterion' in i['text'] for i in open_items))
         self.assertEqual(opens, [f"{i['sev']} {i['where']} {i['text']}" for i in open_items])
 
+    def test_review_finding_keeps_plan_mark(self):
+        """A `[plan]` mark stays in the open item's text in the Report tab and the G3 gate; the counts do not change."""
+        from monitor import report
+        plain = ('BLOCKER 0\n\n## Findings\n- SHOULD-FIX src/cli.py:30 no unit → add one [criterion 2]\n'
+                 '- SHOULD-FIX src/util.py:8 two helpers [criterion none]\n- NITPICK src/app.py:70 long line (new)\n')
+        marked = ('BLOCKER 0\n\n## Findings\n- SHOULD-FIX src/cli.py:30 no unit → add one [plan] [criterion 2]\n'
+                  '- SHOULD-FIX src/util.py:8 two helpers [criterion none]\n- NITPICK src/app.py:70 long line [plan] (new)\n')
+        built = {}
+        tmp, task, info = temp_copy(G3, 'running')
+        with tmp:
+            for name, text in (('plain', plain), ('marked', marked)):
+                (task / 'review.md').write_text(text, encoding='utf-8')
+                built[name] = report.build_report(PROJECT, task, info, [])
+            _counts, opens = self.findings(task, 'review')
+        texts = [f['text'] for f in built['marked']['review']['findings']]
+        self.assertEqual(texts, ['no unit → add one [plan] · criterion 2', 'two helpers', 'long line [plan]'])
+        self.assertEqual(built['marked']['review']['findings'][2]['mark'], 'new')
+        self.assertEqual(built['marked']['review']['blockers'], built['plain']['review']['blockers'])
+        self.assertEqual(built['marked']['review_totals'], built['plain']['review_totals'])
+        open_items = built['marked']['gate']['review']['open']
+        self.assertEqual([i['text'] for i in open_items], texts)
+        self.assertEqual(len(open_items), len(built['plain']['gate']['review']['open']))
+        self.assertEqual(opens, [f"{i['sev']} {i['where']} {i['text']}" for i in open_items])
+
     def test_findings_command_equals_plan_review_entry(self):
         from monitor import report
         tmp, task, info = temp_copy(ROUNDS, 'done')

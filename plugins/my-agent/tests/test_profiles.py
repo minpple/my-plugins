@@ -71,6 +71,14 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('L1 answers per gates.md "Delegated approval details"', g3)
         self.assertIn('Popup: `Commit (Recommended)` / `Rework` / `Abort`', g3)
 
+    def test_dev_g3_plan_items(self):
+        """2026-11-26: the dev G3 popup keeps the `[plan]` mark and points a Rework of such an item to the popup."""
+        text = (PROFILES / 'dev.md').read_text(encoding='utf-8')
+        g3 = text[text.index('## G3 in the dev profile'):text.index('## Upstream check')]
+        popup = next(l for l in g3.splitlines() if l.startswith('   - Popup: `Commit (Recommended)`'))
+        for word in ('`[plan]`', 'keeps its mark', 'Rework sending one back', 'first takes changes.md "Plan findings (Review)"'):
+            self.assertIn(word, popup, word)
+
     def test_remote_take(self):
         """Q41: the dev G3 popup offers a take that brings the remote default branch up to the commit."""
         dev = (PROFILES / 'dev.md').read_text(encoding='utf-8')

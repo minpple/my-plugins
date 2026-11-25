@@ -382,6 +382,29 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertIsNone(self.findings()[1])
         self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
 
+    def test_marked_blocker_keeps_rejudge_scope(self):
+        marked = '- BLOCKER web/view.html:4 broken → new unit [plan] [criterion 2]'
+        res = self.rerun([marked])
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '2, 3')   # 3 from the changed file, 2 from the finding; the mark does not give all
+        self.assertEqual(self.findings()[1], [marked])
+        self.assertTrue(res.stdout.strip().endswith(', 1 criterion from findings'), res.stdout)
+
+    def test_marked_none_adds_nothing(self):
+        res = self.rerun(['- BLOCKER a.py:1 reuse parse() [plan] [criterion none]'])
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '3')
+        self.assertIsNone(self.findings()[1])
+        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
+
+    def test_marked_picked_should_fix(self):
+        marked = '- SHOULD-FIX src/cli.py:30 exit code → other approach [plan] [criterion 3]'
+        res = self.rerun([marked, self.SN], '--rework-finding', 'src/cli.py:30', first='BLOCKER 0', changed=None)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '3')   # nothing changed: the 3 comes from the finding alone
+        self.assertEqual(self.findings()[1], [marked])
+        self.assertTrue(res.stdout.strip().endswith(', 1 criterion from findings'), res.stdout)
+
     def test_missing_or_invalid_tag_gives_all_and_is_copied(self):
         for tagged in ('- BLOCKER web/view.html:4 off by one → use <=',
                        '- BLOCKER web/view.html:4 x → y [criterion 9]', '- BLOCKER web/view.html:4 x → y [criterion 0]',

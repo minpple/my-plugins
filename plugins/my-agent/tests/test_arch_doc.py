@@ -241,7 +241,9 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.80 (2026-11-25, plugin 0.31.0:'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.82 (2026-11-26, plugin 0.33.0:'), line[:110])
+        self.assertIn('v0.80 (2026-11-25, plugin 0.31.0:', line)
+        self.assertNotIn('design draft v0.80', line)
         self.assertIn('v0.79 (2026-11-24, plugin 0.30.0:', line)
         self.assertNotIn('design draft v0.79', line)
         self.assertIn('v0.78 (2026-11-24, plugin 0.29.1: three fixes from task retrospectives', line)
@@ -286,6 +288,52 @@ class ArchDocTest(unittest.TestCase):
         self.assertIn('v0.43 (', line)
         self.assertIn('plugin 0.8.0', line)
         self.assertIn('plugin 0.9.0', line)
+
+    def test_plan_findings_route_described(self):
+        """Criterion 9: the mark, the popup, the choices, the order, delegated approval and the architect input."""
+        block = self.section('**Plan findings (Review) (2026-11-26', '**What the files look like after a revision**')
+        self.assert_words(block, (
+            '`[plan]`', 'plan-finding popup', 'marked-finding popup', '`Adjust within approved scope`',
+            '`Revise this task`', '`Fix within current plan`', 'before the small fix', 'light path',
+            'right before `[criterion', 'reads as unmarked', 'not sent back', 'unmarked findings',
+            'never recommended', 'approved request does not stand', 'the largest need decides',
+            'SHOULD-FIX is', '`[4B] Review → Deliver · Q`', '`ask gate=Q', '`answer gate=Q', '`Scope change:`',
+            'to the files to change in each later rerun call of that unit', 'writes `plan finding`',
+            'counts as a target file', '(item 3 above)',
+            'delegated approval', 'Review BLOCKER loop', 'G3 fix loop', 'no new cap',
+            'settled-popup rule', 'same severity and location', 'question back', '4th revision',
+            'archive/<time>-rev<new rev>/review.md` as the change request', 'architect',
+            'locations (severity and `path:line`, no explanation)', 'in their own words', '`## Revisions`',
+            'no `back-execute.py`', 'four-choice'))
+        change = self.section('### 4.8.1 ', '### 4.8.2 ')
+        for prefix in ('This is for going back to ③ Build', '- **Small fix with only Review rerun',
+                       '- **Light path after G3 Rework'):
+            self.assertIn('`[plan]`', self.line_of(prefix), prefix)
+        reviewer = self.line_of('  - **reviewer:** each NITPICK')
+        self.assert_words(reviewer, ('`[plan]`', 'A file added by a `Scope change:` line under `## Approval` of '
+                                     '`plan.md` counts as a target file'))
+        self.assert_words(self.line_of('- If the WHAT/WHY changes ('),
+                          ('purpose, completion criteria, non-goals, constraints or exception cases', '① Define'))
+        popup_line = self.line_of('- **Plan-finding popup at G3 (2026-11-26')
+        self.assert_words(popup_line, ('comes last of the explanation lines, before the open item lines',
+                                       'right before `[criterion …]` or `(new)`/`(carried)`'))
+        self.assertIn('`[plan]`', self.bullet('### 4.3 ', '### 4.4 ', '- **Plan mark on a review finding'))
+        self.assertIn('plan-finding popup', self.line_of('6. **The number of questions to the person'))
+        self.assertIn('plan-finding popup', self.line_of('| **G3 Final acceptance**'))
+        self.assertIn('plan-finding popup', self.bullet('### 4.4 ', '### 4.5 ', '- **Plan-finding popup at G3'))
+        self.assertIn('`[plan]`', self.line_of('- **Verify and Review scope (2026-11-06'))
+        # later reruns of a unit still get the files a `Scope change:` line added (build.md 3A item 3)
+        self.assert_words(self.line_of('4. Each rerun of a work unit goes to a new worker'), (
+            'files to change include those a `Scope change:` line under `## Approval` of `plan.md` adds for that unit',
+            'as their source', '`build.md` step 3A item 3', 'every coder call'))
+        self.assertIn('plan-finding popup', self.line_of('| `Rework` in the G3 popup |'))
+        self.assertIn('plan-finding popup', self.line_of('- **G3 under delegated approval (2026-11-20, Q39):**'))
+        self.assertIn('`[plan]` review finding', self.line_of('- **Core rule in SKILL.md (review B6):**'))
+        archive = next(l for l in change.splitlines() if l.startswith('- **The archive folder is only a record.**'))
+        self.assert_words(archive, ('previous `verify.md`', 'previous `review.md`', '`archive/<ts>-run<N>/`',
+                                    'architect', '`archive/<time>-rev<N>/review.md` path as the change request'))
+        self.assertNotIn('never in the paths passed to judges', self.text)
+        self.assertNotIn('judges (L2) do not read it', self.text)
 
     def test_codex_ask_bullet_names_the_asking_hooks(self):
         bullet = next(l for l in self.text.splitlines() if l.startswith('- **On Codex (plugin 0.11.0):**'))

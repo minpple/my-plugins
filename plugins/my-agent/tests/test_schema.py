@@ -395,6 +395,50 @@ class ReportParsersTest(unittest.TestCase):
         self.assertEqual([(s, w, m) for s, w, _b, m in open_tag], [(s, w, m) for s, w, _b, m in open_plain])
         self.assertEqual([b for _s, _w, b, _m in open_plain], ['x', 'y', 'z'])
 
+    def test_plan_mark_keeps_criterion_tag(self):
+        for sev in ('BLOCKER', 'SHOULD-FIX'):
+            line = f'- {sev} a.py:3 p → f [plan] [criterion 2]'
+            self.assertEqual(ma_schema.review_findings('## Findings\n' + line + '\n'), [(sev, 'a.py:3', 'p → f [plan] · criterion 2', None)])
+            body, tag = ma_schema.split_finding_criterion(line.split('a.py:3 ', 1)[1])
+            self.assertEqual((body, tag), ('p → f [plan]', '2'))
+            self.assertEqual(ma_schema.finding_tag_numbers(tag), (2,))
+
+    def test_plan_mark_on_nitpick_keeps_new_mark(self):
+        self.assertEqual(ma_schema.review_findings('## Findings\n- NITPICK a.py:3 p [plan] (carried)\n'),
+                         [('NITPICK', 'a.py:3', 'p [plan]', 'carried')])
+        self.assertEqual(ma_schema.review_findings('## Findings\n- NITPICK a.py:3 p [plan] (new)\n'),
+                         [('NITPICK', 'a.py:3', 'p [plan]', 'new')])
+
+    def test_plan_mark_same_finding_and_counts(self):
+        """Round 1 unmarked, round 2 marked at the same (severity, location): same totals as with no mark; a carried
+        NITPICK that gains `[plan]` is not counted again."""
+        round1 = 'BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 x [criterion 2]\n- SHOULD-FIX b.py:2 y [criterion 3]\n- NITPICK c.py:3 z\n'
+        plain2 = ('BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 x [criterion 2]\n- SHOULD-FIX b.py:2 y [criterion 3]\n'
+                  '- NITPICK c.py:3 z (carried)\n')
+        marked2 = ('BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 x [plan] [criterion 2]\n- SHOULD-FIX b.py:2 y [plan] [criterion 3]\n'
+                   '- NITPICK c.py:3 z [plan] (carried)\n')
+        states = []
+        for current in (plain2, marked2):
+            with tempfile.TemporaryDirectory() as tmp:
+                arch = Path(tmp) / 'archive' / '261126-100000-run1'
+                arch.mkdir(parents=True)
+                (arch / 'review.md').write_text(round1, encoding='utf-8')
+                states.append(ma_schema.review_state(tmp, current, []))
+        (t_plain, open_plain), (t_marked, open_marked) = states
+        self.assertEqual(t_marked, t_plain)
+        self.assertEqual(t_marked['rounds'], 2)
+        self.assertEqual(t_marked['NITPICK']['found'], 1)
+        self.assertEqual({sev: t_marked[sev]['found'] for sev in ma_schema.SEVERITIES}, {'BLOCKER': 2, 'SHOULD-FIX': 2, 'NITPICK': 1})
+        self.assertEqual([(s, w, m) for s, w, _b, m in open_marked], [(s, w, m) for s, w, _b, m in open_plain])
+        self.assertEqual([b for _s, _w, b, _m in open_marked], ['x [plan] · criterion 2', 'y [plan] · criterion 3', 'z [plan]'])
+
+    def test_review_without_mark_read_as_before(self):
+        text = ('BLOCKER 1\n\n## Findings\n- BLOCKER a.py:1 x → y [criterion 2]\n- SHOULD-FIX b.py:2 y [criterion none]\n'
+                '- NITPICK c.py:3 z (new)\n- NITPICK d.py:4 w\n')
+        self.assertEqual(ma_schema.review_findings(text), [('BLOCKER', 'a.py:1', 'x → y · criterion 2', None),
+                                                           ('SHOULD-FIX', 'b.py:2', 'y', None),
+                                                           ('NITPICK', 'c.py:3', 'z', 'new'), ('NITPICK', 'd.py:4', 'w', None)])
+
     def test_plan_review_ignores_tags(self):
         pr = 'REVISE\nRun: 2\n\n## Findings\n- BLOCKER p:1 a [criterion 2]\n- NITPICK q b\n'
         self.assertEqual(ma_schema.plan_review(pr), {'verdict': 'REVISE', 'run': 2, 'blockers': 1, 'should_fix': 0, 'nitpicks': 1})

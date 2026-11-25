@@ -50,11 +50,14 @@ BLOCKER <n>
 - BLOCKER <path>:<line> <problem> → <how to fix> [criterion <n>]
 - SHOULD-FIX <path>:<line> <problem> → <how to fix> [criterion <n>]
 - NITPICK <path>:<line> <problem> (new)
+- SHOULD-FIX <path>:<line> <problem> → <how to fix> [plan] [criterion <n>]
+- NITPICK <path>:<line> <problem> [plan] (new)
 ```
 
 - The first line is only `BLOCKER <count>`. If there are no problems, `BLOCKER 0`.
 - Every BLOCKER and SHOULD-FIX line ends with `[criterion <n>]`, naming the completion criterion the finding puts at risk (several: `[criterion 2, 5]`), or with `[criterion none]` for a quality problem no criterion covers. L1 re-judges the criteria a tag names after a fix.
 - NITPICK lines carry no tag and end with `(new)` or `(carried)`.
+- Mark a finding `[plan]` (exact lower-case token) when fixing it needs a change to the approach of `plan.md`, to its set of work units or to its target files (`Files to change`). A file added by a `Scope change:` line under `## Approval` of `plan.md` counts as a target file. Leave a finding that can be fixed inside the plan unmarked. This holds for any severity and in every profile. The mark stands right before `[criterion …]` on a BLOCKER or SHOULD-FIX line and right before `(new)` or `(carried)` on a NITPICK line. The criterion tag and `(new)` or `(carried)` stay. L1 asks how to change course before such a fix.
 - `## Counts` comes right after the first line, before `## Findings`: one row per round of the current revision. Copy the earlier rows from the previous `review.md` table, then add this run's row (round = the previous last round + 1, or 1) with the counts of the finding lines you write below.
 - With no previous `review.md` (the first Review call of the task), list every finding seen in the reviewed files. The rules for later rounds are unchanged.
 - With a previous `review.md`, the reviewer checks each of its BLOCKER and SHOULD-FIX findings again and lists one that is still present again. This matters most for `[criterion none]` findings, which no verifier re-judges.

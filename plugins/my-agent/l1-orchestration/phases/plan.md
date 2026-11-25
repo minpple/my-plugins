@@ -4,6 +4,7 @@
 
 1. Record: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" step n=2A name=Plan --model <main session model ID> --data-dir "<data folder>" --task-dir "<task_dir>"`
 2. Hand it to `my-agent:architect`. Pass: the paths of `intake.md`, `explore.md` (and `scope.md`; for a small task, its 5-line summary), the `background/*.md` paths (when Background research ran) and the background candidates that were not researched (define.md "Background questions"), the preset name from `intake.md` `Models:` with the lines of `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/agent-models.py" show --profile <p> --preset <name> --data-dir "<data folder>"` (none when there is no `Models:` line), and the result path `<task_dir>/<task-id>/plan.md`.
+   - After a plan-finding `Revise this task` (changes.md "Plan findings (Review)"), also pass as the change request the archived `review.md` path with the sent-back finding locations (locations only) and the shortfalls the person named in their own words, both from that revision's `## Revisions` line.
 3. Sections `plan.md` must have (if one is missing, have architect rewrite only that section):
    - a lead paragraph right after the `# Plan: <task-id>` title: one or two sentences on what the plan builds (not a `Profile:` line or a pointer to the criteria); the G1-B Report view shows it as the plan summary
    - `## Scope summary` (small task): purpose, non-goals
