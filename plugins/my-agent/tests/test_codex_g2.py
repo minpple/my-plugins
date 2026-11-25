@@ -170,7 +170,7 @@ class PrintedCommandShellTest(G2Base):
         with clean_task_env(MA_TASK_DIR=sub):
             self.T = make_task(self.L, task='261025-probe-task', git=False, session=SID)
         (self.L / 'src').mkdir()
-        self.env = {'MA_TASKS_DIR': str(self.root / f'agent-tasks {self.ODD}'), 'MA_TASK_DIR': sub,
+        self.env = {'MA_DATA_DIR': str(self.root / f'agent-tasks {self.ODD}'), 'MA_TASK_DIR': sub,
                     'MA_GATE_REPORT_DIR': str(self.root / 'gate-report')}
         self.t0 = time.time() - 1000
 

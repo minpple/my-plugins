@@ -62,7 +62,7 @@ class PricesTest(unittest.TestCase):
 
     def test_prices_file_override(self):
         import ma_prices
-        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {'MA_TASKS_DIR': d}):
+        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {'MA_DATA_DIR': d}):
             self.assertEqual(ma_prices.prices_file(), ma_prices.BUNDLED)
             Path(d, 'prices.json').write_text('{"models": {}}')
             self.assertEqual(ma_prices.prices_file(), Path(d, 'prices.json'))

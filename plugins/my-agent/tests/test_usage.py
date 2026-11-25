@@ -32,7 +32,7 @@ class Base(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
         self.claude = self.root / 'claude'
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none'), 'MA_CLAUDE_PROJECTS': str(self.claude)}
+        self.env = {'MA_DATA_DIR': str(self.root / 'none'), 'MA_CLAUDE_PROJECTS': str(self.claude)}
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -173,7 +173,7 @@ class SnapshotScriptTest(Base):
         data.mkdir()
         run.mkdir()
         (data / 'active-index.json').write_text(json.dumps({str(run): str(self.root / 'proj')}), encoding='utf-8')
-        env = dict(self.env, MA_TASKS_DIR='')
+        env = dict(self.env, MA_DATA_DIR='')
         r = run_script(SNAP, '--cwd', str(run), '--data-dir', str(data), env=env)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((d / ma_usage.SNAPSHOT).is_file())
@@ -184,7 +184,7 @@ class SnapshotScriptTest(Base):
         data = self.root / 'data'
         data.mkdir()
         (data / 'prices.json').write_text('{"models": {"claude-opus-5-5": {"input": 1000.0}}}', encoding='utf-8')
-        r = run_script(SNAP, '--task-folder', str(d), env=dict(self.env, MA_TASKS_DIR=str(data)))
+        r = run_script(SNAP, '--task-folder', str(d), env=dict(self.env, MA_DATA_DIR=str(data)))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue(r.stdout.strip().endswith('(1 rows, \u2248 $1.00)'), r.stdout)
         r = run_script(SNAP, '--task-folder', str(d), env=self.env)
@@ -254,7 +254,7 @@ class ArchiveTest(Base):
         data = self.root / 'data'
         data.mkdir()
         (data / 'prices.json').write_text('{"models": {"claude-opus-5-5": {"input": 100000.0}}}', encoding='utf-8')
-        self.env.update(MA_TASKS_DIR='')
+        self.env.update(MA_DATA_DIR='')
         r = self.run_archive('--days', '7', '--data-dir', str(data))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn('(1 rows, \u2248 $1.00)', r.stdout)
@@ -266,7 +266,7 @@ class ArchiveTest(Base):
         data = self.root / 'data'
         data.mkdir()
         (data / 'projects.txt').write_text(f'{self.root / "proj"}\n', encoding='utf-8')
-        self.env.update(MA_PROJECTS_FILE='', MA_TASKS_DIR='')
+        self.env.update(MA_PROJECTS_FILE='', MA_DATA_DIR='')
         r = self.run_archive('--dry-run', '--days', '7', '--data-dir', str(data))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn('would move', r.stdout)

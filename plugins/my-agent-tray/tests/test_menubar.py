@@ -105,7 +105,7 @@ class MenubarTest(unittest.TestCase):
         if config is not None:
             (self.dir / 'monitor-config.json').write_text(config)
         self.write_state(port, root)
-        env = dict(os.environ, MA_TASKS_DIR=str(self.dir))
+        env = dict(os.environ, MA_DATA_DIR=str(self.dir))
         r = subprocess.run([str(BINARY), '--print-menu', '--ports', PORTS], capture_output=True, text=True,
                            env=env, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -251,7 +251,7 @@ class MenubarTest(unittest.TestCase):
 
     def print_list(self, port, *extra):
         self.write_state(port, CORE)
-        env = dict(os.environ, MA_TASKS_DIR=str(self.dir))
+        env = dict(os.environ, MA_DATA_DIR=str(self.dir))
         r = subprocess.run([str(BINARY), '--print-list', '--ports', PORTS, *extra], capture_output=True, text=True,
                            env=env, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -497,7 +497,7 @@ class MenubarTest(unittest.TestCase):
     # ---- data folder from the setting ----
 
     def clean_env(self, **extra):
-        env = {k: v for k, v in os.environ.items() if k not in ('MA_TASKS_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR')}
+        env = {k: v for k, v in os.environ.items() if k not in ('MA_DATA_DIR', 'MA_TASKS_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR')}
         env.update(extra)
         return env
 
@@ -515,7 +515,7 @@ class MenubarTest(unittest.TestCase):
         other = self.dir / 'other'
         other.mkdir()
         (other / 'monitor-config.json').write_text('{"browser": "safari"}')
-        env = self.clean_env(MA_TASKS_DIR=str(other), CLAUDE_PLUGIN_OPTION_DATA_DIR=str(self.dir / 'unused'))
+        env = self.clean_env(MA_DATA_DIR=str(other), CLAUDE_PLUGIN_OPTION_DATA_DIR=str(self.dir / 'unused'))
         r = subprocess.run([str(BINARY), '--print-menu', '--ports', PORTS], capture_output=True, text=True, env=env, timeout=30)
         self.assertEqual(self.browser_marks(r.stdout.splitlines()), [False, True, False])
 
@@ -566,7 +566,7 @@ class MenubarTest(unittest.TestCase):
         root = self.fake_root()
         port = self.stub(self.MIXED[1:2], root=root)
         self.write_state(None, None)
-        env = dict(os.environ, MA_TASKS_DIR=str(self.dir))
+        env = dict(os.environ, MA_DATA_DIR=str(self.dir))
         r = subprocess.run([str(BINARY), '--print-menu', '--ports', f'{port}-{port}'], capture_output=True, text=True,
                            env=env, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -606,7 +606,7 @@ class MenubarTest(unittest.TestCase):
 
     def test_state_root_not_a_string_is_unknown(self):
         (self.dir / 'monitor.json').write_text(json.dumps({'port': 8792, 'root': 5}))
-        env = dict(os.environ, MA_TASKS_DIR=str(self.dir))
+        env = dict(os.environ, MA_DATA_DIR=str(self.dir))
         r = subprocess.run([str(BINARY), '--print-menu', '--ports', PORTS], capture_output=True, text=True, env=env, timeout=30)
         self.unknown_folder_lines(r.stdout.splitlines())
 

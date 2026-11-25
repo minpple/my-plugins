@@ -46,7 +46,7 @@ class BlueprintTest(unittest.TestCase):
         self.loc = self.root / 'proj'
         self.folder = self.loc / 'docs' / 'blueprint'
         self.folder.mkdir(parents=True)
-        self.env = {'MA_TASKS_DIR': str(self.root / 'data')}
+        self.env = {'MA_DATA_DIR': str(self.root / 'data')}
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -147,7 +147,7 @@ class BlueprintTest(unittest.TestCase):
         data.mkdir()
         r = self.script(data)
         self.assertEqual((r.returncode, r.stdout), (0, 'blueprint: off (the task location is the data folder)\n'))
-        with mock.patch.dict(os.environ, MA_TASKS_DIR=str(data)):
+        with mock.patch.dict(os.environ, MA_DATA_DIR=str(data)):
             self.assertIsNone(ma_blueprint.root(data))
             self.assertEqual(ma_blueprint.root(self.loc), self.loc / 'docs' / 'blueprint')
 

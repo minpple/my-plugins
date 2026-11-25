@@ -51,7 +51,7 @@ class AgentModelsTest(unittest.TestCase):
         self.write(data)
 
     def run_cli(self, *args, host='claude'):
-        return run_script(SCRIPT, *args, '--data-dir', str(self.data), env={'MA_HOST': host}, drop=('MA_TASKS_DIR',))
+        return run_script(SCRIPT, *args, '--data-dir', str(self.data), env={'MA_HOST': host}, drop=('MA_DATA_DIR',))
 
     def show(self, profile, preset):
         r = self.run_cli('show', '--profile', profile, '--preset', preset)

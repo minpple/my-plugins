@@ -34,7 +34,7 @@ class HookHealthTest(unittest.TestCase):
             t = time.time() - age
             os.utime(p, (t, t))
 
-    def check(self, env=None, drop=('MA_TASKS_DIR', 'CLAUDE_CODE_SESSION_ID', 'CLAUDECODE')):
+    def check(self, env=None, drop=('MA_DATA_DIR', 'CLAUDE_CODE_SESSION_ID', 'CLAUDECODE')):
         return run_script(L4 / 'scripts' / 'data-dir.py', env=dict(self.env, **(env or {})), cwd=self.root,
                           drop=drop)
 
@@ -82,7 +82,7 @@ class HookHealthTest(unittest.TestCase):
 
     def test_claude_untouched(self):
         env = {'MA_HOST': 'claude', 'CLAUDE_CODE_SESSION_ID': 's-1'}
-        r = self.check(env=env, drop=('MA_TASKS_DIR',))
+        r = self.check(env=env, drop=('MA_DATA_DIR',))
         self.assertEqual((r.returncode, r.stdout.strip(), r.stderr), (0, str(self.root / 'data'), ''))
         run_hook('plan-approved-check.py', None, json.loads((FIX / 'hook-pre-tool-use-bash.json').read_text()),
                  self.root, env=dict(self.env, **env))

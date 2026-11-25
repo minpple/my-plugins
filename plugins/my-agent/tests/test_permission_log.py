@@ -15,7 +15,7 @@ class PermissionLogTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
         self.task = make_task(self.root)
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none')}
+        self.env = {'MA_DATA_DIR': str(self.root / 'none')}
 
     def tearDown(self):
         self.tmp.cleanup()

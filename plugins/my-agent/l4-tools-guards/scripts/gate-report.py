@@ -9,7 +9,7 @@ usage: gate-report.py tally [--cwd DIR] [--data-dir DIR] [--task-dir DIR]   prin
                                           run-log `start:` lines and list `stop:` lines whose `mode=` is not auto; writes no file
 --task-dir is the task subfolder (setting `task_dir`, default .my-agent).
 $MA_GATE_REPORT_DIR sets the report folder (default <data folder>/gate-report;
-the data folder is $MA_TASKS_DIR, else the setting (--data-dir or CLAUDE_PLUGIN_OPTION_DATA_DIR), else ~/.my-agent-data).
+the data folder is $MA_DATA_DIR, else the setting (--data-dir or CLAUDE_PLUGIN_OPTION_DATA_DIR), else ~/.my-agent-data).
 tally exit: 0 printed (also with no decisions), 1 no active task, 2 bad arguments,
             3 gate-tally.md could not be written (the cause is printed).
 copy exit: 0 copied, 1 no active task or no gate-report.md, 2 bad arguments,

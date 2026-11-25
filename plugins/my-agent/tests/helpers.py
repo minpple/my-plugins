@@ -66,7 +66,10 @@ def events(task_dir):
     return build_events(read_lines(Path(task_dir) / 'run-log.md'))
 
 
-_STRIP_HOST_ENV = ('ANTIGRAVITY_AGENT', 'ANTIGRAVITY_CONVERSATION_ID', 'PLUGIN_ROOT', 'PLUGIN_DATA')
+# The deprecated name of MA_DATA_DIR is removed too: set in the person's shell, it would win over the setting
+# the test passes (the tests that cover the deprecated name set it themselves).
+os.environ.pop('MA_TASKS_DIR', None)
+_STRIP_HOST_ENV = ('ANTIGRAVITY_AGENT', 'ANTIGRAVITY_CONVERSATION_ID', 'PLUGIN_ROOT', 'PLUGIN_DATA', 'MA_TASKS_DIR')
 
 
 def run_script(path, *args, payload=None, cwd=None, env=None, drop=()) -> subprocess.CompletedProcess:

@@ -5,7 +5,7 @@ usage: open-html.py <file> [--data-dir DIR]
        open-html.py --report <task folder> [--url | --pointer] [--ports A-B] [--data-dir DIR]
 
 The mode (window or tab) and the browser come from monitor-config.json in the data folder (ma_data.data_dir:
-$MA_TASKS_DIR, else --data-dir, else $CLAUDE_PLUGIN_OPTION_DATA_DIR, else ~/.my-agent-data); the file is opened
+$MA_DATA_DIR, else --data-dir, else $CLAUDE_PLUGIN_OPTION_DATA_DIR, else ~/.my-agent-data); the file is opened
 as a file:// URL through monitor.opener.open_monitor (macOS: window or tab commands; other platforms: one tab
 through webbrowser). Prints exactly one line and always exits 0 (argparse's 2 for bad arguments aside), so the
 Router carries on: `window`, `tab`, or `failed: <reason>`. Reads only; writes nothing.

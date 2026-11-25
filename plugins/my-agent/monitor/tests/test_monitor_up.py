@@ -37,7 +37,7 @@ class MonitorUpBase(unittest.TestCase):
         d = Path(self.tmp.name)
         (d / 'projects.txt').write_text('')
         (d / 'monitor-config.json').write_text('{"autostart": true}')
-        self.env = dict(os.environ, MA_TASKS_DIR=str(d), MA_PROJECTS_FILE=str(d / 'projects.txt'),
+        self.env = dict(os.environ, MA_DATA_DIR=str(d), MA_PROJECTS_FILE=str(d / 'projects.txt'),
                         MA_CLAUDE_PROJECTS=str(d / 'claude'))
         self.state = d / 'monitor.json'
         self.foreign = []
@@ -198,7 +198,7 @@ class OpenModeTest(unittest.TestCase):
         (d / 'projects.txt').write_text('')
         self.d = d
         (d / 'monitor-config.json').write_text('{"autostart": true}')
-        self.env = dict(os.environ, MA_TASKS_DIR=str(d), MA_PROJECTS_FILE=str(d / 'projects.txt'),
+        self.env = dict(os.environ, MA_DATA_DIR=str(d), MA_PROJECTS_FILE=str(d / 'projects.txt'),
                         MA_CLAUDE_PROJECTS=str(d / 'claude'))
         spec = importlib.util.spec_from_file_location('monitor_up_under_test', SCRIPT)
         self.mod = importlib.util.module_from_spec(spec)
@@ -497,7 +497,7 @@ class DataDirTest(unittest.TestCase):
     def test_ma_tasks_dir_beats_data_dir_option(self):
         other = Path(self.tmp.name) / 'other'
         self.on(other)
-        env = dict(self.env, MA_TASKS_DIR=str(other))
+        env = dict(self.env, MA_DATA_DIR=str(other))
         self.up('--no-open', '--ports', PORTS, '--data-dir', str(self.d), env=env)
         self.assertTrue((other / 'monitor.json').exists())
         self.assertFalse((self.d / 'monitor.json').exists())

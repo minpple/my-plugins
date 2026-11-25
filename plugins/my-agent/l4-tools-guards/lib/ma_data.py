@@ -1,16 +1,17 @@
 """The my-agent data folder and the files inside it (one place decides the order).
 
-Data folder: $MA_TASKS_DIR, else the setting (a script's `--data-dir` argument, or for hooks the environment
-variable $CLAUDE_PLUGIN_OPTION_DATA_DIR), else ~/.my-agent-data. `~` is expanded. An empty value or one starting with `${`
+Data folder: $MA_DATA_DIR, else $MA_TASKS_DIR (the name before 0.32.0, deprecated: it works and prints one warning on
+stderr), else the setting (a script's `--data-dir` argument, or for hooks the environment variable
+$CLAUDE_PLUGIN_OPTION_DATA_DIR), else ~/.my-agent-data. `~` is expanded. An empty value or one starting with `${`
 (a placeholder that was never substituted) counts as "not set".
 Per-file overrides win first: $MA_PROJECTS_FILE, $MA_FEEDBACK_FILE, $MA_GATE_REPORT_DIR.
 The run index, monitor state, logs, open settings and price override sit directly in the data folder.
 
 Task subfolder (`task_dir()`): $MA_TASK_DIR (tests), else the setting (a script's `--task-dir` argument, or the
-environment variable $CLAUDE_PLUGIN_OPTION_TASK_DIR), else `.my-agent`. $MA_TASK_DIR is not $MA_TASKS_DIR (the data
-folder, an older name); the names differ by one letter.
+environment variable $CLAUDE_PLUGIN_OPTION_TASK_DIR), else `.my-agent`.
 """
 import os
+import sys
 from pathlib import Path
 
 import ma_host
@@ -18,6 +19,7 @@ import ma_host
 SETTING_ENV = 'CLAUDE_PLUGIN_OPTION_DATA_DIR'
 TASK_SETTING_ENV = 'CLAUDE_PLUGIN_OPTION_TASK_DIR'
 TASK_DIR_DEFAULT = '.my-agent'
+_warned_old_env = False
 
 
 def _value(raw):
@@ -33,8 +35,21 @@ def _path(raw: str) -> Path:
     return p if p.is_absolute() else Path.cwd() / p
 
 
+def _env_data_dir():
+    """$MA_DATA_DIR, else the deprecated $MA_TASKS_DIR (one stderr warning per process), else None."""
+    global _warned_old_env
+    raw = _value(os.environ.get('MA_DATA_DIR'))
+    if raw:
+        return raw
+    raw = _value(os.environ.get('MA_TASKS_DIR'))
+    if raw and not _warned_old_env:
+        _warned_old_env = True
+        print('my-agent: MA_TASKS_DIR is deprecated, use MA_DATA_DIR (same meaning).', file=sys.stderr)
+    return raw
+
+
 def data_dir(arg=None) -> Path:
-    raw = _value(os.environ.get('MA_TASKS_DIR')) or _value(arg) or _value(ma_host.plugin_option(SETTING_ENV))
+    raw = _env_data_dir() or _value(arg) or _value(ma_host.plugin_option(SETTING_ENV))
     return _path(raw) if raw else Path.home() / '.my-agent-data'
 
 
@@ -56,7 +71,7 @@ def report_dir(arg=None) -> Path:
 def task_dir(arg=None) -> str:
     """The task subfolder (a normalized relative path, case kept). The first set value of $MA_TASK_DIR, `arg`,
     $CLAUDE_PLUGIN_OPTION_TASK_DIR is used; an invalid one (absolute, `~`, a `..` segment, no segment left, first
-    segment `.git` or `.claude`) gives the default, never the next source. $MA_TASK_DIR is not $MA_TASKS_DIR."""
+    segment `.git` or `.claude`) gives the default, never the next source."""
     raw = _value(os.environ.get('MA_TASK_DIR')) or _value(arg) or _value(ma_host.plugin_option(TASK_SETTING_ENV))
     if not raw or raw.startswith(('/', '~')):
         return TASK_DIR_DEFAULT

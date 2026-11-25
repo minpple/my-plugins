@@ -87,7 +87,7 @@ class CodexBuild(unittest.TestCase):
         try:
             (data / 'agent-models.json').write_text(json.dumps(
                 {'presets': {'fast': {'coder': {'model': 'haiku', 'effort': 'low'}}}}))
-            env = dict(os.environ, MA_TASKS_DIR=str(data), CLAUDE_PLUGIN_OPTION_DATA_DIR=str(data))
+            env = dict(os.environ, MA_DATA_DIR=str(data), CLAUDE_PLUGIN_OPTION_DATA_DIR=str(data))
             tmp = copy_tree()
             try:
                 r = run('--write', root=tmp, env=env)

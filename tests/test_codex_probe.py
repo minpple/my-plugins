@@ -107,7 +107,7 @@ class RealHookAssumptionsTest(unittest.TestCase):
             f'task: 260101-demo\nphase: 5\nsession: {MAIN_SESSION}\nstarted: 2026-01-01 09:00\n', encoding='utf-8')
         self.plan = self.agent / '260101-demo' / 'plan.md'
         self.plan.write_text(APPROVED_PLAN, encoding='utf-8')
-        self.env = dict(os.environ, MA_TASKS_DIR=str(self.root / 'data'))
+        self.env = dict(os.environ, MA_DATA_DIR=str(self.root / 'data'))
 
     def fixture(self, name, **over):
         d = json.loads((CODEX_FIX / name).read_text(encoding='utf-8'))
