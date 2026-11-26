@@ -72,6 +72,12 @@ def parse_facts(stdout):
     return head, cands
 
 
+def parse_targets(stdout):
+    """[{'target', 'resolved', 'location', 'exists', 'skip'}] of the `target:` lines, in order (parse_facts keeps one)."""
+    return [dict(part.partition(': ')[::2] for part in line.split(' | '))
+            for line in stdout.splitlines() if line.startswith('target: ')]
+
+
 def expected_plugin(folder):
     """The `plugin:` value the design gives for `folder`: short hash of its last commit, `-dirty`, or none."""
     log = subprocess.run(['git', '-C', str(folder), 'log', '-1', '--format=%h', '--', '.'], capture_output=True, text=True)
@@ -348,6 +354,201 @@ class FactsTest(FactsBase):
             r = run_script(SCRIPT, *args, env=self.env, cwd=self.root, drop=self.drop)
             self.assertEqual(r.returncode, 2, args)
 
+
+
+class TargetTest(FactsBase):
+    """The `target:` lines of `facts --candidate`: lookup, task location mapping and skip (new-task.md item 2)."""
+
+    def targets(self, cwd, *candidates, env=None, drop=None):
+        args = [a for c in candidates for a in ('--candidate', str(c))]
+        r = self.facts(cwd, *args, env=env, drop=drop)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return parse_targets(r.stdout), parse_facts(r.stdout)[1], r.stdout
+
+    def blocks(self, cands):
+        return [(c['path'], c['kind']) for c in cands]
+
+    def test_given_file_maps_to_its_folder(self):
+        run = init_repo(self.root / 'repo')
+        notes = self.root / 'notes'
+        notes.mkdir()
+        (notes / 'a.md').write_text('a')
+        targets, cands, _ = self.targets(run, notes / 'a.md')
+        self.assertEqual(targets, [{'target': str(notes / 'a.md'), 'resolved': str(notes / 'a.md'),
+                                    'location': str(notes), 'exists': 'yes', 'skip': 'no'}])
+        self.assertEqual(self.blocks(cands), [(str(run), 'repo'), (str(notes), 'given')])
+
+    def test_given_subfolder_maps_to_repo_root(self):
+        repo = init_repo(self.root / 'repo')
+        (repo / 'sub').mkdir()
+        (repo / 'sub' / 'g.txt').write_text('g')
+        targets, cands, _ = self.targets(repo, repo / 'sub', repo / 'sub' / 'g.txt')
+        self.assertEqual([(t['location'], t['exists'], t['skip']) for t in targets],
+                         [(str(repo), 'yes', 'no'), (str(repo), 'yes', 'no')])
+        self.assertEqual(self.blocks(cands), [(str(repo), 'repo')])
+
+    def test_given_link_is_followed(self):
+        run = init_repo(self.root / 'run')
+        src = init_repo(self.root / 'skills-src')
+        (src / 'my-skill').mkdir()
+        plain = self.root / 'plain-skills' / 'other-skill'
+        plain.mkdir(parents=True)
+        links = self.root / 'config' / 'skills'
+        links.mkdir(parents=True)
+        (links / 'my-skill').symlink_to(src / 'my-skill')
+        (links / 'other-skill').symlink_to(plain)
+        targets, cands, _ = self.targets(run, links / 'my-skill', links / 'other-skill')
+        self.assertEqual([(t['resolved'], t['location']) for t in targets],
+                         [(str(src / 'my-skill'), str(src)), (str(plain), str(plain))])
+        self.assertEqual(self.blocks(cands), [(str(run), 'repo'), (str(src), 'given'), (str(plain), 'given')])
+
+    def linked_worktree(self):
+        main = init_repo(self.root / 'main')
+        wt = self.root / 'wt'
+        git(main, 'worktree', 'add', '-q', '-b', 'task-x', str(wt))
+        (wt / 'sub').mkdir()
+        return main, wt
+
+    def test_given_in_linked_worktree_maps_to_worktree_top(self):
+        _, wt = self.linked_worktree()
+        run = init_repo(self.root / 'run')
+        targets, cands, _ = self.targets(run, wt / 'sub')
+        self.assertEqual(targets[0]['location'], str(wt))
+        self.assertEqual(self.blocks(cands), [(str(run), 'repo'), (str(wt), 'given')])
+
+    def test_run_folder_in_linked_worktree(self):
+        _, wt = self.linked_worktree()
+        head, cands = self.parsed(wt / 'sub')
+        self.assertEqual(head['run_git'], str(wt))
+        self.assertEqual(self.blocks(cands), [(str(wt), 'repo')])
+
+    def test_target_lines_in_order_with_deduplicated(self):
+        repo = init_repo(self.root / 'repo')
+        (repo / 'sub').mkdir()
+        other = init_repo(self.root / 'other')
+        (other / 'docs').mkdir()
+        targets, cands, stdout = self.targets(repo, repo / 'sub', other / 'docs')
+        self.assertEqual([(t['target'], t['location']) for t in targets],
+                         [(str(repo / 'sub'), str(repo)), (str(other / 'docs'), str(other))])
+        keys = [line.split(':')[0] for line in stdout.splitlines() if not line.startswith(' ')]
+        self.assertEqual(keys[8:14], ['presets general', 'presets research', 'presets dev', 'target', 'target',
+                                      'candidate'])
+        self.assertEqual(self.blocks(cands), [(str(repo), 'repo'), (str(other), 'given')])
+
+    def test_relative_target_looked_up_from_run_folder_then_root(self):
+        repo = init_repo(self.root / 'repo')
+        run = repo / 'sub'
+        (run / 'x').mkdir(parents=True)
+        (repo / 'y').mkdir()
+        for name in ('x', 'y', 'z'):   # the process folder of facts holds every name: it must not be used
+            (self.root / name).mkdir()
+        targets, _, _ = self.targets(run, 'x', 'y', 'z')
+        self.assertEqual([(t['target'], t['resolved'], t['exists']) for t in targets],
+                         [('x', str(run / 'x'), 'yes'), ('y', str(repo / 'y'), 'yes'), ('z', str(run / 'z'), 'no')])
+        self.assertEqual([t['location'] for t in targets], [str(repo), str(repo), str(run / 'z')])
+
+    def test_given_root_with_active_task(self):
+        run = self.root / 'plain'
+        run.mkdir()
+        proj = init_repo(self.root / 'proj')
+        (proj / 'sub').mkdir()
+        (proj / TASK_DIR).mkdir()
+        (proj / TASK_DIR / '.active').write_text('task: 261126-x\nphase: 2\nsession: s-0\nstarted: t\n')
+        targets, cands, _ = self.targets(run, proj / 'sub')
+        self.assertEqual(targets[0]['location'], str(proj))
+        given = [c for c in cands if c['kind'] == 'given']
+        self.assertEqual([c['path'] for c in given], [str(proj)])
+        self.assertEqual((given[0]['active'], given[0]['git']), ('261126-x phase 2 session s-0 started t', 'true'))
+
+    def test_given_folder_outside_git(self):
+        run = init_repo(self.root / 'repo')
+        plain = self.root / 'plain'
+        plain.mkdir()
+        targets, cands, _ = self.targets(run, plain)
+        self.assertEqual((targets[0]['location'], targets[0]['exists']), (str(plain), 'yes'))
+        self.assertEqual((cands[1]['path'], cands[1]['kind'], cands[1]['git']), (str(plain), 'given', 'false'))
+
+    def test_missing_target_says_so(self):
+        run = init_repo(self.root / 'repo')
+        empty = self.root / 'empty'
+        empty.mkdir()
+        targets, cands, _ = self.targets(run, self.root / 'nowhere', empty)
+        self.assertEqual([(t['resolved'], t['location'], t['exists'], t['skip']) for t in targets],
+                         [(str(self.root / 'nowhere'), str(self.root / 'nowhere'), 'no', 'no'),
+                          (str(empty), str(empty), 'yes', 'no')])
+        self.assertEqual((cands[1]['path'], cands[1]['git'], cands[1]['active']), (str(self.root / 'nowhere'), 'false', 'none'))
+
+    def test_target_of_an_unknown_user_home_is_missing(self):
+        """`~<unknown user>` cannot be expanded: a missing target, and the call goes on."""
+        run = init_repo(self.root / 'repo')
+        raws = ['~ma-no-such-user-q7/x', '~ma-no-such-user-q7/y']
+        (run / raws[0]).mkdir(parents=True)   # a leading `~` is never looked up as a relative path
+        other = self.root / 'other'
+        other.mkdir()
+        targets, cands, _ = self.targets(run, *raws, other)
+        self.assertEqual([(t['target'], t['location'], t['exists'], t['skip']) for t in targets],
+                         [(raws[0], str(run / raws[0]), 'no', 'no'), (raws[1], str(run / raws[1]), 'no', 'no'),
+                          (str(other), str(other), 'yes', 'no')])
+        self.assertEqual(self.blocks(cands), [(str(run), 'repo'), (str(run / raws[0]), 'given'),
+                                              (str(run / raws[1]), 'given'), (str(other), 'given')])
+
+    def test_target_in_data_folder_is_skipped(self):
+        proj = init_repo(self.root / 'proj')
+        real = proj / 'data-real'
+        (real / 'notes').mkdir(parents=True)
+        (real / 'notes' / 'x.md').write_text('x')
+        (proj / 'other.md').write_text('o')
+        link = self.root / 'data-link'
+        link.symlink_to(real)
+        run = init_repo(self.root / 'run')
+        targets, _, stdout = self.targets(run, real / 'notes' / 'x.md', link / 'notes' / 'x.md', proj / 'other.md',
+                                          env={'MA_DATA_DIR': str(link)})
+        self.assertIn(f'data: {link}', stdout.splitlines())
+        self.assertEqual([(t['location'], t['skip']) for t in targets],
+                         [(str(proj), 'data folder'), (str(proj), 'data folder'), (str(proj), 'no')])
+        # data folder outside git, session run from it: the skip changes no block
+        (self.data / 'n.md').write_text('n')
+        _, plain_cands, _ = self.targets(self.data)
+        targets, cands, _ = self.targets(self.data, self.data / 'n.md')
+        self.assertEqual([(t['location'], t['skip']) for t in targets], [(str(self.data), 'data folder')])
+        self.assertEqual(cands, plain_cands)
+        self.assertEqual(self.blocks(cands), [(str(self.data), 'data')])
+        for c in cands:
+            self.assertNotIn('skip', c)
+
+    def test_target_in_plugin_cache_is_skipped(self):
+        real = self.root / 'real-plugins'
+        skill = real / 'cache' / 'mkt' / 'some-plugin' / '1.0.0' / 'skills' / 'some-skill'
+        skill.mkdir(parents=True)
+        config = self.root / 'config'
+        config.mkdir()
+        (config / 'plugins').symlink_to(real)
+        (self.root / 'skills').mkdir()
+        (self.root / 'skills' / 'some-skill').symlink_to(skill)
+        run = init_repo(self.root / 'run')
+        inside = config / 'plugins' / 'cache' / 'mkt' / 'some-plugin' / '1.0.0' / 'skills' / 'some-skill'
+        targets, _, _ = self.targets(run, inside, self.root / 'skills' / 'some-skill', run,
+                                     env={'CLAUDE_CONFIG_DIR': str(config)})
+        self.assertEqual([(t['resolved'], t['skip']) for t in targets],
+                         [(str(skill), 'plugin cache'), (str(skill), 'plugin cache'), (str(run), 'no')])
+        other_root = self.root / 'host' / 'plugins' / 'cache' / 'm' / 'p' / '2.0'
+        (other_root / 'skills' / 't').mkdir(parents=True)
+        targets, _, _ = self.targets(run, other_root / 'skills' / 't', run,
+                                     env={'CLAUDE_CONFIG_DIR': str(config), 'CLAUDE_PLUGIN_ROOT': str(other_root)},
+                                     drop=KEEP)
+        self.assertEqual([t['skip'] for t in targets], ['plugin cache', 'no'])
+
+    def test_target_in_codex_plugin_cache_is_skipped(self):
+        """Codex's install cache (`<codex home>/plugins/cache`, tools/codex-probe/probe.py) is skipped on every host."""
+        run = init_repo(self.root / 'run')
+        for home, env in ((self.root / 'codex-home', {'CODEX_HOME': str(self.root / 'codex-home')}),
+                          (self.root / 'user' / '.codex', {'CODEX_HOME': '', 'HOME': str(self.root / 'user')})):
+            skill = home / 'plugins' / 'cache' / 'mkt' / 'p' / '1.0.0' / 'skills' / 's'
+            skill.mkdir(parents=True)
+            own = home / 'skills' / 'mine'
+            own.mkdir(parents=True)
+            targets, _, _ = self.targets(run, skill, own, env=env)
+            self.assertEqual([t['skip'] for t in targets], ['plugin cache', 'no'], env)
 
 
 NAME = 'claude-opus-5-5'

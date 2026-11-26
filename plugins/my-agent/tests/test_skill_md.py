@@ -661,13 +661,46 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('starts the monitor whatever the `autostart` value', text)
         self.assertIn('autostart off by default; start it with /my-agent:monitor', text)
 
-    def test_intake_popup_recommends_current_folder(self):
-        self.assertIn('`Current folder (Recommended)` / `<data folder>` / `Other path`', self.new_task)
+    def test_intake_takes_location_without_popup(self):
+        """Criterion 2: item 2 picks the task location by a fixed order and asks nothing."""
+        two = self.intake_item(2)
+        for s in ('No popup', 'the existing folder, file or skill the request names as what the work is on',
+                  'the first one named', 'one `--candidate "<target as named>"` per named target, in the order named',
+                  'Read only the `target:` lines', 'the repository root for a target inside a git repository',
+                  "in a linked worktree, that worktree's own top folder", 'A relative path is passed as written',
+                  'in the run folder, then in its repository root', 'installed skill folder',
+                  'follows the link to the source', 'is not counted and not passed',
+                  "Otherwise: the run folder's repository root (`run_git:`", 'outside a repository the run folder'):
+            self.assertIn(s, two)
+        for s in ('`Current folder (Recommended)`', '`<data folder>` /', 'Other path', 'Popup every time'):
+            self.assertNotIn(s, two)
         self.assertNotIn('`<data folder> (Recommended)`', self.new_task)
-        self.assertIn('Popup every time, also inside a git repository', self.intake_item(2))
-        self.assertNotIn('do not ask', self.intake_item(2))
         self.assertIn('"Commit the task log? The essential information goes into docs/blueprint, so committing it is not recommended."',
                       self.intake_item(5))
+
+    def test_intake_location_first_named_target(self):
+        """Exception: the request names several work targets; the first usable one in the order named is picked."""
+        two = self.intake_item(2)
+        self.assertIn('the first one named when there are several', two)
+        self.assertIn('The first one with `exists: yes` and `skip: no` gives the location (`location:`)', two)
+
+    def test_intake_location_reference_paths_not_counted(self):
+        """Exception: paths named only as a reference, a comparison or a cause are not counted; the run folder is used."""
+        two = self.intake_item(2)
+        self.assertIn('A path the request names only as a reference, a comparison or the explanation of a cause is not counted', two)
+        self.assertLess(two.index('is not counted'), two.index("Otherwise: the run folder's repository root"))
+
+    def test_intake_location_missing_target_skipped(self):
+        """Exception: a named work target that does not exist is skipped, the next is tried, then the run folder."""
+        two = self.intake_item(2)
+        self.assertIn('`exists: no` (a missing target)', two)
+        self.assertIn('are skipped, and the next line is tried', two)
+        self.assertLess(two.index('the next line is tried'), two.index("Otherwise: the run folder's repository root"))
+
+    def test_intake_location_data_and_cache_skipped(self):
+        """Exception: a named target inside the data folder or the plugin install cache is skipped like a missing one."""
+        two = self.intake_item(2)
+        self.assertIn('`exists: no` (a missing target) and `skip: data folder` or `skip: plugin cache` are skipped', two)
 
     # --- apply open feedback ---
     def section(self, start, end, text=None):
@@ -707,12 +740,69 @@ class SkillMdTest(unittest.TestCase):
             self.assertTrue(self.intake_item(n).startswith(f'{n}. {head}'), n)
 
     def test_intake_running_task_candidates(self):
-        """Item 1 names where it looks for `.active`; item 2 checks a location typed as `Other path`."""
+        """Item 1 names where it looks for `.active`, the location item 2 picks included, after the facts rerun."""
         one = self.intake_item(1)
         self.assertIn('the folder you ran in (its git root, if any), the location `<data folder>/active-index.json` gives for it', one)
-        self.assertIn('the folders the item 2 popup offers', one)
+        self.assertIn('and the location item 2 picks', one)
+        self.assertIn('read from the `candidate:` block of that path', one)
+        self.assertIn('work item 2 out first, with its facts rerun', one)
+        self.assertLess(one.index('work item 2 out first'), one.index('If `<task_dir>/.active` exists in one, popup:'))
         self.assertIn('If `<task_dir>/.active` exists in one, popup:', one)
-        self.assertIn('(an `Other path`) and has `<task_dir>/.active`, show the item 1 popup', self.intake_item(2))
+        self.assertIn('`Continue it (Recommended)`', one)
+        self.assertNotIn('item 2 popup', self.new_task)
+        self.assertNotIn('Other path', self.new_task)
+
+    def test_intake_continue_it_only_for_the_task_shown(self):
+        """Criterion 4: `continue` searches on its own, so `Continue it` never continues another task than shown."""
+        one = self.intake_item(1)
+        for s in ('`Continue it` runs `continue` for the task the popup showed', "`continue`'s search (`resume.md` status item 1)",
+                  'finds no `.active` or the one of another task, continue none',
+                  'tell the person to run `/my-agent continue` from a session in the folder of the shown task',
+                  'stop, creating nothing'):
+            self.assertIn(s, one)
+
+    def test_intake_preamble_allows_only_the_named_facts_reruns(self):
+        """Item 2 and the Git check rerun the facts call, so the preamble must not say they run no command."""
+        preamble = self.section('## Intake (step 1A, Router)', '\n1. **', self.new_task)
+        self.assertIn('Items 1–5 and the Git check read the facts output; the only commands they run are the facts reruns they name.',
+                      preamble)
+        self.assertNotIn('and run no command', preamble)
+
+    def test_intake_checks_read_the_picked_location(self):
+        """Criterion 4: item 3's `--dev` outside git popup and the Git check read the picked location's block."""
+        three = self.intake_item(3)
+        self.assertIn("For `--dev` with a picked location outside a git repository (its `candidate:` block has `git: false`)", three)
+        self.assertIn('`Proceed as general (Recommended)` / `Abort`', three)
+        git_check = self.section('**Git check (item 2)**', '**Models preset', self.new_task)
+        self.assertIn("read the `git:` line of the picked location's `candidate:` block", git_check)
+
+    def test_intake_report_names_location_and_reason(self):
+        """Criterion 3: the report names the picked location and why, in one line, within 7 lines."""
+        eleven = self.section('\n11. **Report:**', '\n\n', self.new_task)
+        self.assertIn('7 lines or fewer', eleven)
+        self.assertIn('`Location: <path> (<reason>)`', eleven)
+        self.assertIn('the named target', eleven)
+        self.assertIn('the folder you ran in', eleven)
+        # every named target skipped: the reason says so, so it does not read like a request that named none
+        self.assertIn('when every `target:` line was skipped, add `; skipped <target>: <missing | data folder | plugin cache>` '
+                      'for each', eleven)
+        self.assertIn('A person who wants another place names it in the request or runs the session from it.',
+                      self.intake_item(2))
+
+    def test_no_task_location_popup_in_runtime_text(self):
+        """Criterion 5: no runtime rule describes a task-location popup."""
+        for path in [SKILL] + sorted(L1.rglob('*.md')):
+            text = path.read_text(encoding='utf-8')
+            for s in ('Other path', 'Current folder (Recommended)', 'location popup', 'Where should the task location'):
+                self.assertNotIn(s, text, f'{path.name}: {s}')
+
+    def test_question_count_lines_do_not_list_task_location(self):
+        """Criterion 5: Intake takes the task location without a popup, so the question-count lines do not name it."""
+        for name in ('general', 'research', 'dev'):
+            line = (L1 / 'profiles' / f'{name}.md').read_text(encoding='utf-8').splitlines()[2]
+            self.assertIn('the person is asked 3 times', line, name)
+            self.assertIn('`.gitignore`', line, name)
+            self.assertNotIn('task location', line, name)
 
     def test_record_popups_bullet_is_its_own_line(self):
         lines = self.new_task.splitlines()

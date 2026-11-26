@@ -582,10 +582,24 @@ class SessionFolderCheck(unittest.TestCase):
         i = next(k for k, l in enumerate(lines) if 'l4-tools-guards/scripts/cd-guard.py" --location "<task location>"' in l)
         self.assertIn('--task "<absolute task folder>"', lines[i])
         self.assertIn('`.claude/settings.local.json`', lines[i])
-        self.assertIn('`added` or `not added`', lines[i])
+        self.assertIn('`added`, `taken over` or `not added` (or `present`)', lines[i])
         self.assertIn('info/exclude', lines[i - 1])
         self.assertLess(i, next(k for k, l in enumerate(lines) if l.startswith('3. Hand out the work units')))
         self.assertTrue((REPO / 'l4-tools-guards' / 'scripts' / 'cd-guard.py').is_file())
+
+    def test_cd_rule_added_only_in_the_dev_build_step(self):
+        # a dev task that ends before its build step, and a task of another profile, neither adds nor takes over
+        l1 = REPO / 'l1-orchestration'
+        add = 'cd-guard.py" --location'   # the removal calls put `--remove` before `--location`
+        hits = [(p.relative_to(l1).as_posix(), line) for p in sorted(l1.rglob('*.md'))
+                for line in p.read_text(encoding='utf-8').splitlines() for _ in range(line.count(add))]
+        self.assertEqual([name for name, _ in hits], ['phases/build.md'])
+        lines = (l1 / 'phases' / 'build.md').read_text(encoding='utf-8').splitlines()
+        i = lines.index(hits[0][1])
+        head = max(k for k in range(i) if re.match(r'\d+\. ', lines[k]))
+        self.assertLess(next(k for k, l in enumerate(lines) if l == '## 3A Execute'), head)
+        self.assertTrue(lines[head].startswith('2. In the dev profile, '), lines[head])
+        self.assertNotIn(add, SKILL.read_text(encoding='utf-8'))
 
     def test_cd_rule_removed_before_active_is_deleted(self):
         # criterion 4: every path that deletes `.active` removes the `Cd(...)` rule first, in the same item

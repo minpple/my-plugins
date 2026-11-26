@@ -241,7 +241,9 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.83 (2026-11-26, plugin 0.34.0:'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.84 (2026-11-26, plugin 0.35.0:'), line[:110])
+        self.assertIn('v0.83 (2026-11-26, plugin 0.34.0:', line)
+        self.assertNotIn('design draft v0.83', line)
         self.assertIn('v0.82 (2026-11-26, plugin 0.33.0:', line)
         self.assertNotIn('design draft v0.82', line)
         self.assertIn('v0.80 (2026-11-25, plugin 0.31.0:', line)
@@ -852,6 +854,109 @@ class ArchDocTest(unittest.TestCase):
             text = ARCH.with_name(name).read_text(encoding='utf-8')
             self.assertEqual(re.findall(r'G1[ab]\b', text), [], name)
         self.assertIn('old lowercase gate names', self.section('- **Step IDs (2026-11-25, plugin 0.31.0):**', '### 4.4 '))
+
+    def test_blueprint_popup_recommendation_in_design(self):
+        """Criterion 8: the keep-or-change popup lists the judged choice first, one popup per line."""
+        sec = self.section('### 4.7.5 ', '### 4.7.6 ')
+        found = [l for l in sec.splitlines() if l.startswith('  - **Scope:**')]
+        self.assertEqual(len(found), 1, found)
+        self.assert_words(found[0], (
+            'one popup per line', '`Keep it` / `Change it`', 'listed first with `(Recommended)`',
+            'the question gives the reason in one line',
+            'recommends `Change it` when the request cannot be met while the line stays', 'judges a change better',
+            'otherwise `Keep it`', 'incidental', '`ask gate=Q … rec="<that choice>"`', '`answer gate=Q`',
+            'settled popup', 'delegated approval'))
+        self.assertNotIn('Keep it (Recommended)', found[0])
+        self.assertNotIn('rec="Keep it"', found[0])
+
+    def test_task_location_without_popup_in_design(self):
+        """Criteria 5, 8: the location order and its exceptions; no current text names a location popup."""
+        bullet = self.bullet('### 4.8.2 ', '### 4.9 ', '- **Task location without a popup (2026-11-26')
+        self.assert_words(bullet, (
+            'Intake asks no popup', 'what the work is on', 'the first one named when there are several',
+            'only as a reference, a comparison or the explanation of a cause', '`--candidate`', '`target:`',
+            'then in its repository root', 'installed skill', 'a repository name', 'subfolder',
+            'gives the repository root', 'linked worktree', "that worktree's own top folder", 'does not exist',
+            'data folder', 'plugin install cache', 'next named target', 'Otherwise the run folder',
+            '`Location: <path> (<reason>)`', 'in one line',
+            'names it in the request or runs the session from it', 'running-task popup', 'Git check',
+            '`--dev`'))
+        self.assertLess(bullet.index('what the work is on'), bullet.index('Otherwise the run folder'))
+        q10 = self.line_of('| Q10 |')
+        self.assertIn('Replaced 2026-11-26', q10)
+        for number, line in enumerate(self.text.splitlines(), 1):
+            if line.startswith(('- Status:', '| Q10 |')) or 'replaced 2026-11-26' in line.lower():
+                continue
+            for stale in ('Other path', 'location popup', 'Where should the task location', 'Current folder',
+                          'item 2 offers', 'item 2 popup', 'Asking the location'):
+                self.assertNotIn(stale, line, f'line {number}')
+        self.assertNotIn('task location', self.line_of('6. **The number of questions to the person'))
+        # the data folder bullet no longer says its line goes into popups (only the removed popup showed it)
+        source = self.line_of('- **Where the data folder comes from:**')
+        self.assertNotIn('popup', source)
+        self.assertIn('uses its output line as `<data folder>` in file paths and as `--data-dir "<data folder>"`', source)
+        # SKILL.md "Data folder" no longer points to the removed popup
+        skill = SKILL.read_text(encoding='utf-8')
+        self.assertNotIn('Use it for the popup', skill)
+        self.assertIn('Use it for `projects.txt`', skill)
+
+    def test_intake_order_checks_the_chosen_location(self):
+        """Criterion 8: the Intake order and the facts text describe the picked location and how it is found."""
+        order = self.line_of('  - **Intake order (2026-11-15):**')
+        self.assert_words(order, ('the location item 2 picks', '`.active`', 'picked location', '`candidate:` block',
+                                  'item 1 popup', 'Git check', '`--dev`'))
+        facts = self.line_of('    - **`facts` (read-only):**')
+        self.assert_words(facts, (
+            '`target: <as given> | resolved: <resolved path> | location: <task location> | exists: yes|no | '
+            'skip: no|data folder|plugin cache`', 'after the `presets` lines', 'before the first `candidate:` block',
+            'in the order given', 'de-duplicated', 'in the run folder, then in `run_git`', 'links followed',
+            'a file gives its folder', 'its top folder', 'linked worktree', "the target's own resolved path",
+            '`plugins/cache`', '`CLAUDE_CONFIG_DIR`', 'one `--candidate "<target as named>"` per',
+            'after `Fix it first`'))
+
+    def test_intake_runs_only_the_named_facts_reruns_in_design(self):
+        """Criterion 8: between the facts call and create, the only commands are the named facts reruns."""
+        script = self.line_of('  - **Intake script (2026-11-16, plugin 0.15.0):**')
+        self.assert_words(script, ('Items 1–5 and the Git check read the facts output',
+                                   'the only commands they run are the facts reruns they name'))
+
+    def test_continue_it_continues_only_the_shown_task_in_design(self):
+        """Criterion 8: `Continue it` never continues another task than the one the popup showed."""
+        bullet = self.bullet('### 4.8.2 ', '### 4.9 ', '- If `.active` already exists at Intake')
+        self.assert_words(bullet, (
+            '`Continue it` continues only the task the popup showed', '`status` item 1',
+            'finds no `.active` or the one of another task', 'L1 continues none',
+            '`/my-agent continue` from a session in the folder of the shown task', 'stops, creating nothing'))
+
+    def test_codex_cache_and_unknown_home_target_in_design(self):
+        """Criterion 8: the Codex cache folder is skipped on every host; an unknown user's `~` path is missing."""
+        facts = self.line_of('    - **`facts` (read-only):**')
+        self.assert_words(facts, (
+            '`CODEX_HOME` (otherwise under `~/.codex`)', 'on every host',
+            'where Antigravity installs plugins is not confirmed',
+            'A `~<unknown user>` path is a missing target (`exists: no`', 'below the run folder',
+            'does not stop the call'))
+
+    def test_report_reason_names_skipped_targets_in_design(self):
+        """Criterion 8: the report reason, and the skipped targets when every named one was passed over."""
+        bullet = self.bullet('### 4.8.2 ', '### 4.9 ', '- **Task location without a popup (2026-11-26')
+        self.assert_words(bullet, (
+            '`repository root of the named target <target>`', '`the folder you ran in`',
+            'every `target:` line was skipped',
+            '`; skipped <target>: <missing | data folder | plugin cache>` for each'))
+
+    def test_cd_rule_take_over_in_design(self):
+        """Criterion 8: a rule already there is taken over, and every copy of the exact string is removed."""
+        rule = self.line_of('  - **The `Cd(...)` rule of `cd-guard.py` (2026-11-23):**')
+        guard = self.line_of('  - **Session folder guard (2026-11-21):**')
+        for line in (rule, guard):
+            self.assert_words(line, ('taken over', 'every copy', 'exact', 'neither taken over nor removed',
+                                     'byte for byte', 'this task folder already records', 'no longer kept'))
+            for stale in ('stays, and so does every other entry', '`present`, no record', 'had before',
+                          'prints `present` and writes no record'):
+                self.assertNotIn(stale, line, stale)
+        self.assert_words(guard, ('cannot write <record>', 'cannot write <file>',
+                                  '`added`, `taken over`, `present` or `not added`'))
 
     def test_reference_articles_list_both_local_copies(self):
         ref = (REPO / 'docs' / 'reference.md').read_text(encoding='utf-8')

@@ -20,6 +20,17 @@ updates). On Codex it first runs the hook-health check of
   prints a line; none without a commit or outside git), date: (%y%m%d, local time),
   `presets <profile>: <line>` (the lines of `agent-models.py presets` for general, research and dev; a rejected
   file gives one line `presets <profile>: error: <its stderr line>`),
+  then one line per `--candidate`, in the order given (a de-duplicated one included):
+    `target: <as given> | resolved: <path> | location: <task location> | exists: yes|no | skip: <s>`
+    A relative candidate (not absolute, no leading `~`) is looked up in --cwd, then in run_git when set; the first
+    that exists is used, else the --cwd form (missing). A `~<unknown user>` path is a missing target (shown below
+    --cwd). resolved: follows links. location: a file gives its folder; a folder inside a git work tree gives its top
+    folder (`git rev-parse --show-toplevel`: in a linked worktree that worktree's own top); any other folder is used
+    as it is; a missing target keeps its resolved path.
+    skip: no | data folder | plugin cache, when the resolved path or the location is inside (equal to or below) the
+    data folder or a plugin install cache folder, both sides with links followed: `plugins/cache` under
+    `$CLAUDE_CONFIG_DIR` (else `~/.claude`) and under `$CODEX_HOME` (else `~/.codex`), and the `plugins/cache` folder
+    that holds the plugin root, when there is one.
   then one block per candidate task location: `candidate: <path> (<kind>)` and indented lines
     active: none | <task> phase <n> session <s> started <t> | broken (<path of .active>)
     git: true|false
@@ -34,7 +45,9 @@ updates). On Codex it first runs the hook-health check of
     ids: (folders of `<task_dir>/` that start with `<date>-`, comma-separated, or none)
     listed: yes|no (the location is in `projects.txt`)
   Candidates: inside git, the git root of the run folder (repo); outside git, the index location (index), the data
-  folder (data) and the run folder (current); plus every `--candidate PATH` (given). Exit 0; 2 bad arguments.
+  folder (data) and the run folder (current); plus the task location of every `--candidate PATH` (given), skipped
+  or missing ones included. A path already printed has no second block. The skip is in the `target:` line only.
+  Exit 0; 2 bad arguments.
 
 create: makes every Intake record in a fixed order and starts the monitor. Arguments:
   --loc DIR          the task location (an absolute, existing folder)
@@ -284,6 +297,54 @@ def block(loc, kind, args, task_dir, date, listed):
     return out
 
 
+def is_within(path, bases):
+    """True when `path` is one of `bases` or below one."""
+    return any(path == b or b in path.parents for b in bases)
+
+
+def cache_folders():
+    """The plugin install cache folders, links followed: `plugins/cache` under `$CLAUDE_CONFIG_DIR` (else `~/.claude`)
+    and under `$CODEX_HOME` (else `~/.codex`), plus the `plugins/cache` folder that holds the plugin root, when there
+    is one."""
+    homes = (os.environ.get('CLAUDE_CONFIG_DIR') or '~/.claude', os.environ.get('CODEX_HOME') or '~/.codex')
+    out = [resolved(Path(home) / 'plugins' / 'cache') for home in homes]
+    root = resolved(ma_host.plugin_root(Path(__file__).resolve().parents[2]))
+    for d in ([root, *root.parents] if root else []):
+        if d.name == 'cache' and d.parent.name == 'plugins':
+            out.append(d)
+            break
+    return [p for p in out if p is not None]
+
+
+def target(raw, run_folder, root, data, caches):
+    """(the `target:` line, the task location) of one `--candidate` as given."""
+    try:
+        p, unknown_home = Path(raw).expanduser(), False
+    except RuntimeError:   # `~<unknown user>`: a missing target
+        p, unknown_home = run_folder / raw, True
+    if p.is_absolute():
+        path = p
+    else:
+        tries = [run_folder / p] + ([Path(root) / p] if root else [])
+        path = next((t for t in tries if t.exists()), tries[0])
+    found = resolved(path) or path
+    exists = not unknown_home and found.exists()
+    loc = found
+    if exists:
+        folder = found if found.is_dir() else found.parent
+        top = git_root(folder)
+        loc = (resolved(top) if top else None) or folder
+    datas = [data] if data is not None else []
+    skip = 'no'
+    if is_within(found, datas) or is_within(loc, datas):
+        skip = 'data folder'
+    elif is_within(found, caches) or is_within(loc, caches):
+        skip = 'plugin cache'
+    line = (f'target: {raw} | resolved: {found} | location: {loc} | exists: {"yes" if exists else "no"} | '
+            f'skip: {skip}')
+    return line, loc
+
+
 def facts(args) -> int:
     if ma_host.env_host() == 'codex':
         problems = ma_host.hook_health(ma_host.session_id())
@@ -306,7 +367,11 @@ def facts(args) -> int:
     else:
         candidates = [(index, 'index')] if index else []
         candidates += [(data, 'data'), (run_folder, 'current')]
-    candidates += [(Path(c).expanduser(), 'given') for c in args.candidate]
+    real_data, caches = resolved(data), cache_folders()
+    for raw in args.candidate:
+        line, loc = target(raw, run_folder, root, real_data, caches)
+        out.append(line)
+        candidates.append((loc, 'given'))
     listed = listed_paths(data)
     seen = []
     for loc, kind in candidates:

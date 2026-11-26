@@ -1,6 +1,6 @@
 # Dev profile (dev)
 
-Tasks that change code in a git repository (feature, bug fix, refactoring). The deliverable is one commit approved at G3. On the normal path the person is asked 3 times: G1-A, G1-B, G3; for a small task, 2 times: G1-B, G3 (not counting first-time-only questions such as the task location and `.gitignore`, or the G2 dialog).
+Tasks that change code in a git repository (feature, bug fix, refactoring). The deliverable is one commit approved at G3. On the normal path the person is asked 3 times: G1-A, G1-B, G3; for a small task, 2 times: G1-B, G3 (not counting the first-time-only question `.gitignore`, or the G2 dialog).
 
 ## Rules per phase
 

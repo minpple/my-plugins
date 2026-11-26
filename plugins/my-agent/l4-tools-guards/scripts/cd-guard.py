@@ -11,22 +11,27 @@ move request), so a move into `agent-<id>` is refused; a coder starts in its wor
 `task-<id>` worktrees do not match. In a git repository that does not ignore the file yet, the line
 `.claude/settings.local.json` is added to the clone's `info/exclude`, so the file stays out of the task's commit.
 
-Prints one line: `cd-guard: present`, or `cd-guard: added <rule> to <file> (<startup warning note>)` (then ` (new file: …)`
-when the file was created and `; excluded from git` when the exclude line was written), or `cd-guard: not added: <cause>`.
+Prints one line: `cd-guard: added <rule> to <file> (<startup warning note>)` (then ` (new file: …)` when the file was
+created and `; excluded from git` when the exclude line was written), `cd-guard: taken over <rule> in <file>: it was
+already there and is removed when the task ends`, `cd-guard: present`, or `cd-guard: not added: <cause>`.
 The note says Claude Code may warn at startup that the rule matches no tool (`Cd` is not a model-callable tool) and that
 the rule still works.
-When it really adds the rule it first writes `<TASK_FOLDER>/cd-guard.json` (`{"file": …, "rule": …}`) and then the settings
-file, so a rule is never there without a record. `present` (the rule was already there, for example the person's own)
-writes no record.
+When it adds the rule it first writes `<TASK_FOLDER>/cd-guard.json` (`{"file": …, "rule": …}`) and then the settings
+file, so a rule is never there without a record. When the exact rule is already in the file (an identical rule of the
+person's own or of another task is not kept) and the task folder has no record of that rule and file, it takes it over: it
+writes the record only and leaves the settings file byte for byte. `present` means this task folder already records the
+rule; nothing is written. A record that cannot be written gives `cd-guard: not added: cannot write <record> (<cause>)`;
+a settings file that cannot be written after the record gives `cd-guard: not added: cannot write <file> (<cause>)` (the
+record stays). A rule written differently, even by one character, is neither taken over nor removed.
 
-`--remove` takes one occurrence of the recorded rule out of `permissions.deny` of the recorded `file` (`<location>/.claude/settings.local.json`
+`--remove` takes every copy of the recorded rule out of `permissions.deny` of the recorded `file` (`<location>/.claude/settings.local.json`
 when the record has none) and keeps every other key and entry
 (an empty `deny` list too). It never deletes the record and touches nothing else in the task folder. It prints one line:
 `cd-guard: removed <rule> from <file>`, `cd-guard: nothing to remove (<no record | rule not in file | file absent>)`, or
-`cd-guard: not removed: <cause>` (invalid JSON, not a JSON object, a `deny` that is not a list, a failed write; the file
-stays as it was).
-exit: 0 added, present, removed or nothing to remove, 1 not added or not removed (the settings file is left as it was),
-2 bad arguments.
+`cd-guard: not removed: <cause>` (invalid JSON, not a JSON object, a `deny` that is not a list, or
+`cannot write <file> (<cause>)`; the file stays as it was).
+exit: 0 added, taken over, present, removed or nothing to remove, 1 not added or not removed (the settings file is left
+as it was), 2 bad arguments.
 """
 import argparse
 import json
@@ -91,7 +96,7 @@ def remove(location: Path, task: Path) -> int:
     if rule not in deny:
         print('cd-guard: nothing to remove (rule not in file)')
         return 0
-    deny.remove(rule)
+    deny[:] = [entry for entry in deny if entry != rule]   # every copy of the exact string
     try:
         write_json(path, data)
     except OSError as e:
@@ -162,12 +167,27 @@ def main() -> int:
     permissions = data.setdefault('permissions', {})
     if not isinstance(permissions, dict) or not isinstance(permissions.setdefault('deny', []), list):
         return fail(f'`permissions.deny` in {path} is not a list')
+    record = {'file': str(path), 'rule': rule}
     if rule in permissions['deny']:
-        print('cd-guard: present')
+        try:
+            recorded = json.loads((task / RECORD).read_text(encoding='utf-8')) == record
+        except (OSError, UnicodeDecodeError, ValueError):
+            recorded = False
+        if recorded:   # this task already added or took over the rule
+            print('cd-guard: present')
+            return 0
+        try:
+            write_json(task / RECORD, record)   # the settings file stays byte for byte
+        except OSError as e:
+            return fail(f'cannot write {task / RECORD} ({e.strerror or e})')
+        print(f'cd-guard: taken over {rule} in {path}: it was already there and is removed when the task ends')
         return 0
     permissions['deny'].append(rule)
     try:
-        write_json(task / RECORD, {'file': str(path), 'rule': rule})   # the record first
+        write_json(task / RECORD, record)   # the record first
+    except OSError as e:
+        return fail(f'cannot write {task / RECORD} ({e.strerror or e})')
+    try:
         write_json(path, data)
     except OSError as e:
         return fail(f'cannot write {path} ({e.strerror or e})')

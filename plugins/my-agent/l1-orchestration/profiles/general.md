@@ -1,6 +1,6 @@
 # General profile (general)
 
-Multi-step tasks that fit neither the research nor the dev profile. On the normal path the person is asked 3 times: G1-A, G1-B, G3; for a small task, 2 times: G1-B, G3 (not counting questions asked only the first time, such as the task location and `.gitignore`).
+Multi-step tasks that fit neither the research nor the dev profile. On the normal path the person is asked 3 times: G1-A, G1-B, G3; for a small task, 2 times: G1-B, G3 (not counting the question asked only the first time, `.gitignore`).
 
 ## Rules per phase
 

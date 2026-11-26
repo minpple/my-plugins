@@ -1,6 +1,6 @@
 # Research profile (research)
 
-Tasks that research a topic on the web and produce a note or report with sources. On the normal path the person is asked 3 times: G1-A, G1-B, G3 (not counting questions asked only the first time, such as the task location and `.gitignore`).
+Tasks that research a topic on the web and produce a note or report with sources. On the normal path the person is asked 3 times: G1-A, G1-B, G3 (not counting the question asked only the first time, `.gitignore`).
 
 ## Rules per phase
 

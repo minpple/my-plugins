@@ -164,6 +164,10 @@ class BlueprintRulesTest(unittest.TestCase):
     def text(self, *parts):
         return REPO.joinpath(*parts).read_text(encoding='utf-8')
 
+    def blueprint_bullet(self):
+        define = self.text('l1-orchestration', 'phases', 'define.md')
+        return next(line for line in define.splitlines() if '**Blueprint:**' in line)
+
     def test_format_file_names_what_the_check_reads(self):
         fmt = self.text('l3-workers', 'blueprint-format.md')
         self.assertIn(f'`{ma_blueprint.DIR}/`', fmt)
@@ -233,7 +237,26 @@ class BlueprintRulesTest(unittest.TestCase):
         define = self.text('l1-orchestration', 'phases', 'define.md')
         self.assertIn(f'`<task location>/{ma_blueprint.DIR}/` has a file', define)
         self.assertIn('hand Explore to explorer in every profile', define)
-        self.assertIn('`Keep it (Recommended)` / `Change it`', define)
+        bullet = self.blueprint_bullet()
+        self.assertIn('`Keep it` / `Change it`', bullet)
+        self.assertNotIn('Keep it (Recommended)', bullet)
+        self.assertNotIn('rec="Keep it"', bullet)
+        self.assertIn('rec="<', bullet)
+
+    def test_blueprint_popup_recommends_the_judged_choice(self):
+        bullet = self.blueprint_bullet()
+        for part in ('the choice you judge right first with `(Recommended)`', 'the question gives the reason in one line',
+                     'Recommend `Change it` when the request cannot be met while the line stays or a change is better',
+                     'else `Keep it` (e.g. an incidental conflict)', '`answer gate=Q`',
+                     'on `Change it`, write the change into the scope'):
+            self.assertIn(part, bullet)
+
+    def test_blueprint_popup_one_per_line(self):
+        self.assertIn('one popup per line', self.blueprint_bullet())
+
+    def test_define_size_kept(self):
+        size = len(self.text('l1-orchestration', 'phases', 'define.md'))
+        self.assertLessEqual(size, 12450, f'define.md: {size} characters')
 
     def test_agents_know_their_part(self):
         writer = self.text('l3-workers', 'agents', 'writer.md')
