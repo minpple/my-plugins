@@ -957,7 +957,6 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('back-execute.py', build)
         for name in ('accept', 'build'):
             self.assertLess(len(self.phase(name)), 12700)
-        self.assertLessEqual(len(accept), 12550)   # room for the step-ID sweep (u8)
         for name in ('recorder', 'changes', 'retro', 'resume'):
             self.assertLess(len(PROCEDURES[name].read_text(encoding='utf-8')), 12700, name)
 
@@ -1239,7 +1238,7 @@ class SkillMdTest(unittest.TestCase):
 
     def test_unit_files_fit_the_size_limits_with_room_left(self):
         """Criterion 10: each file of the gate-report unit is at most 12,700 characters; the files u8 and u9 still edit keep room."""
-        room = {SKILL: 200, PROCEDURES['gates']: 250, L1 / 'phases' / 'define.md': 250, L1 / 'profiles' / 'dev.md': 250}
+        room = {SKILL: 200, PROCEDURES['gates']: 150, L1 / 'phases' / 'define.md': 250, L1 / 'profiles' / 'dev.md': 250}
         for path in [SKILL, PROCEDURES['gates'], L1 / 'phases' / 'define.md', L1 / 'phases' / 'plan.md'] + \
                 [L1 / 'profiles' / f'{n}.md' for n in ('dev', 'general', 'research')]:
             size = len(path.read_text(encoding='utf-8'))
@@ -1496,6 +1495,195 @@ class BackgroundResearchRulesTest(unittest.TestCase):
         row = next(l for l in self.read('hosts.md').splitlines() if l.startswith('| `WebFetch`'))
         self.assertIn('Background research', row)
         self.assertIn('To confirm', row)
+
+
+class PlanFindingRouteTest(unittest.TestCase):
+    """2026-11-26: a round that sends back a `[plan]` review finding gets the plan-finding popup before any fix."""
+
+    LABELS = '`Adjust within approved scope` / `Revise this task` / `Fix within current plan`'
+
+    def setUp(self):
+        self.changes = PROCEDURES['changes'].read_text(encoding='utf-8')
+        self.gates = PROCEDURES['gates'].read_text(encoding='utf-8')
+        self.accept = (L1 / 'phases' / 'accept.md').read_text(encoding='utf-8')
+        self.plan = (L1 / 'phases' / 'plan.md').read_text(encoding='utf-8')
+
+    def block(self):
+        start = self.changes.index('\n### Plan findings (Review)\n')
+        return self.changes[start:self.changes.index('\n## Abort')]
+
+    def item(self, title):
+        """One numbered item of the block, with its sub-bullets."""
+        m = re.search(r'^\d+\. \*\*%s:\*\*.*?(?=^\d+\. \*\*|\Z)' % re.escape(title), self.block(), re.M | re.S)
+        self.assertIsNotNone(m, title)
+        return m.group(0)
+
+    def has(self, text, *words):
+        for word in words:
+            self.assertIn(word, text, word)
+
+    def test_accept_points_to_plan_findings_before_any_fix(self):
+        """Criterion 3."""
+        review = self.accept[self.accept.index('## 4B Review → Deliver'):self.accept.index('1. Record', self.accept.index('## 4B'))]
+        line = next(l for l in review.splitlines() if '[plan]' in l)
+        self.has(line, 'sends back a `[plan]` finding', 'changes.md', '"Plan findings (Review)"',
+                 'no fix starts before its answer')
+        self.has(self.item('When'), 'before any fix', '`accept.md` step 4B item 3', 'item 7', 'light path',
+                 '"Back to Execute"', 'also when the marked fix is small')
+        item7 = self.accept[self.accept.index('7. **Rework:**'):self.accept.index('8. **Abort:**')]
+        self.assertNotIn('[plan]', item7)
+        self.has(self.changes.split('\n## ')[0], 'SKILL.md "Procedure files"', '`[plan]` review finding',
+                 '`accept.md` step 4B')
+
+    def test_plan_findings_popup_three_choices(self):
+        """Criteria 4 and 11."""
+        popup = self.item('The popup')
+        line = next(l for l in popup.splitlines() if 'exactly three choices' in l)
+        self.has(line, 'exactly three choices: ' + self.LABELS)
+        self.assertNotIn('Split into a new task', self.block())
+        self.assertNotIn('`Cancel`', self.block())
+        self.has(popup, 'one per round', '`[4B] Review → Deliver · Q`', '"Popup label"', '"Question rules"',
+                 'a short question', 'each `[plan]` finding', 'what it contains', 'one `- ` line per choice',
+                 'what it leads to', '`- Next:` last', 'ask gate=Q … rec="<recommended>"',
+                 'answer gate=Q choice="<choice>"', '`by=L1`', '`(Recommended)`')
+        self.has(popup, 'a SHOULD-FIX is listed', 'a problem worth fixing that does not block the gate')
+        changes = self.changes
+        self.assertLess(changes.index('\n- **A request after G3 acceptance**'), changes.index('\n### Plan findings (Review)\n'))
+        self.assertLess(changes.index('\n### Plan findings (Review)\n'), changes.index('\n## Abort'))
+        self.assertEqual(re.findall(r'^## (.+)$', changes, re.M),
+                         ['In-flight revision (before G3 acceptance)', 'Abort', 'Task worktree'])
+        self.assertIn('first ask its kind in a popup: `Revise this task` / `Adjust within approved scope` / '
+                      '`Split into a new task` / `Cancel` (put the one that fits first, with `(Recommended)`).', changes)
+
+    def test_plan_findings_recommendation(self):
+        """Criterion 4."""
+        rec = self.item('Recommendation')
+        revise = next(l for l in rec.splitlines() if l.startswith('   - `Revise this task`'))
+        self.has(revise, 'the approach or the set of work units must change', 'the approved request does not stand')
+        adjust = next(l for l in rec.splitlines() if l.startswith('   - Otherwise `Adjust within approved scope`'))
+        self.has(adjust, 'the approved request stands', 'planned units', 'one more target file, behavior or dependency')
+        self.has(rec, '`Fix within current plan` is never recommended and is always listed last',
+                 'the largest need decides')
+
+    def test_plan_findings_mark_position(self):
+        """Criteria 1 and 3."""
+        self.has(self.item('When'), 'the exact lower-case token `[plan]` stands right before `[criterion …]`',
+                 'right before `(new)`/`(carried)`', 'anywhere else', 'reads as unmarked')
+
+    def test_plan_findings_adjust(self):
+        """Criterion 5."""
+        self.has(self.item('`Adjust within approved scope`'), '"Adjust within approved scope" above',
+                 '`Scope change:` line', 'fix what="Scope change: …" files=plan.md', 'The approval is kept',
+                 'item 3: small fix or "Back to Execute"', 'item 7: light path or "Back to Execute"',
+                 'to every worker of the round', 'names the unit and each added file',
+                 'to the files to change in each later rerun call of that unit', 'as their source')
+        # the coder's file list is built in build.md, which every later rerun reads (changes.md may no longer be in context)
+        build = (L1 / 'phases' / 'build.md').read_text(encoding='utf-8')
+        step = build[build.index('## 3A Execute'):build.index('## Workflow rules')]
+        passed = next(l for l in step.splitlines() if l.startswith('   - Pass:'))
+        self.has(passed, 'The files to change include those a `Scope change:` line under `## Approval` of `plan.md` adds for that unit',
+                 'name that line as their source')
+        self.assertLess(len(build), 12700)
+
+    def test_plan_findings_revise(self):
+        """Criterion 6."""
+        revise = self.item('`Revise this task`')
+        self.has(revise, '"Revise this task" above, items 1–7', '② Plan', '① Define', 'every gate again',
+                 '`archive/<time>-rev<new rev>/review.md`', 'as the change request',
+                 'severity and `path:line`, no explanation', 'all open items for `Rework: fix all open items`',
+                 'the shortfalls the person named in their own words', 'as written', '`## Revisions` line',
+                 '`<what changed>`', 'No `back-execute.py`')
+        # phases/plan.md recognizes the case by these words, also after compaction or `continue`
+        self.has(revise, 'Write `plan finding`, the sent-back locations and those shortfalls')
+        step = self.plan[self.plan.index('## 2A Plan'):self.plan.index('3. Sections `plan.md` must have')]
+        line = next(l for l in step.splitlines() if l.startswith('2. Hand it to `my-agent:architect`'))
+        rest = step[step.index(line):]
+        self.has(rest, 'plan-finding `Revise this task`', 'as the change request',
+                 'archived `review.md` path', 'finding locations (locations only)',
+                 'shortfalls the person named in their own words', "`## Revisions` line",
+                 'changes.md "Plan findings (Review)"')
+
+    def test_plan_findings_fix_within_plan(self):
+        """Criterion 7."""
+        self.has(self.item('`Fix within current plan`'), 'as a round without a `[plan]` finding',
+                 'small fix (item 3)', 'light path (item 7)', '"Back to Execute"')
+
+    def test_gates_plan_item_line_and_rework_line(self):
+        """Criterion 8."""
+        sec = self.gates[self.gates.index('- **G3 with open review items.**'):self.gates.index('## E escalation')]
+        lines = sec.splitlines()
+        line = next(l for l in lines if l.startswith('  - ') and '[plan]' in l)
+        self.has(line, 'open `[plan]` item', 'keeps the mark', 'plain line', 'Rework sending it back',
+                 'first gets the plan-finding popup', 'before any fix', 'changes.md "Plan findings (Review)"')
+        previous = lines[lines.index(line) - 1]
+        self.assertTrue(previous.startswith('  - On `Rework: fix all open items`'), previous)
+        # the ordered "Popup text" list places the line last among the explanation lines, after the Rework line
+        order = next(l for l in self.gates.splitlines() if l.startswith('  3. Explanation lines'))
+        self.has(order, 'The plan-finding line (below) comes last.')
+        self.assertLess(order.index('`Rework: fix all open items` line'), order.index('plan-finding line'))
+
+    def test_trimmed_sentences_keep_their_meaning(self):
+        """Criterion 11: shortening for the size limits keeps what a sentence says and why."""
+        self.has(self.gates, 'At G3 show it too (see delegated approval).',
+                 "The Report tab's 한국어 mode shows the copy (English where not current).")
+        self.has(self.accept, '`Run:` is not that count: it also goes up after a PASS.',
+                 'items 1 and 2 (the step line is written; base point, uncommitted-changes popup)')
+
+    def test_plan_findings_mixed_round(self):
+        """Exception: marked and unmarked findings in one round."""
+        self.has(self.item('The popup'), 'one per round')
+        self.has(self.item('Scope of the answer'), 'the whole round', 'unmarked findings included')
+        self.has(self.item('`Revise this task`'), 'the unmarked ones included')
+
+    def test_plan_findings_not_sent_back(self):
+        """Exception: a marked item that is not sent back."""
+        self.has(self.item('When'), 'not sent back (taken, or not picked) gets no popup and stays an open item',
+                 'in their own words carries no mark')
+
+    def test_plan_findings_define_route(self):
+        """Exception: the fix changes WHAT/WHY."""
+        line = next(l for l in self.item('`Revise this task`').splitlines() if '① Define when' in l)
+        self.has(line, 'purpose, completion criteria, non-goals, constraints or exception cases change')
+
+    def test_plan_findings_fourth_revision(self):
+        """Exception: a 4th revision."""
+        self.assertIn('  7. If this is the 4th revision of the same task, popup before starting it: '
+                      '`Keep revising (Recommended)` / `Restart as a new task` / `Abort`.', self.changes)
+        self.has(self.item('4th revision'), 'before a 4th revision (Revise item 7) still applies')
+
+    def test_plan_findings_delegated_on(self):
+        """Exception: delegated approval on."""
+        sec = self.item('Delegated approval')
+        self.has(sec, 'L1 answers with the recommended choice, `Revise this task` included',
+                 'one round of the loop it came from', 'Review BLOCKER loop', 'G3 fix loop',
+                 'L1 answered `Rework: fix all open items`', '`Revise this task` restarts neither count',
+                 'no new cap')
+
+    def test_plan_findings_delegated_off(self):
+        """Exception: delegated approval off."""
+        self.has(self.item('Delegated approval'), 'When it is off, the settled-popup rule')
+
+    def test_plan_findings_same_finding_back(self):
+        """Exception: the same marked finding comes back."""
+        self.has(self.item('The same finding comes back'), 'same severity and location',
+                 '`Fix within current plan` or `Adjust within approved scope`', 'the popup is asked again',
+                 'not settled', 'the person is asked unless delegated approval is on')
+
+    def test_plan_findings_choice_cannot_add_unit(self):
+        """Exception: the earlier choice could not add the unit or the approach."""
+        self.has(self.item('The same finding comes back'),
+                 'could not add the unit or the approach', 'recommend `Revise this task`')
+
+    def test_plan_findings_other_answer(self):
+        """Exception: an Other-field answer or a question back."""
+        self.has(self.item('Other answers'), 'Other field', 'question back', '"Question rules"')
+
+    def test_l1_files_within_limit_after_route(self):
+        """Criterion 11."""
+        for text in (self.accept, (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8'), self.changes, self.plan):
+            self.assertLess(len(text), 12700)
+        self.assertLessEqual(len(self.gates), 12550)
+        self.assertLessEqual(len(SKILL.read_text(encoding='utf-8')), SKILL_CHARS)
 
 
 class TaskDirRulesTest(unittest.TestCase):

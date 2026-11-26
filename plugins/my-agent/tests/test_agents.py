@@ -658,6 +658,39 @@ class AgentsTest(unittest.TestCase):
                      '### Overview', '### Takeaway', '| Item | Value |', 'Commit message', 'no findings table'):
             self.assertIn(word, row)
 
+    def test_reviewer_plan_mark_rule(self):
+        """A finding that needs a plan change is marked [plan]; the format shows where the mark goes (criterion 1)."""
+        r = self._agent('reviewer')
+        fmt = r.split('## `review.md` format')[1].split('```text\n')[1].split('```')[0]
+        for line in ('- BLOCKER <path>:<line> <problem> → <how to fix> [criterion <n>]',
+                     '- SHOULD-FIX <path>:<line> <problem> → <how to fix> [criterion <n>]',
+                     '- NITPICK <path>:<line> <problem> (new)',
+                     '- SHOULD-FIX <path>:<line> <problem> → <how to fix> [plan] [criterion <n>]',
+                     '- NITPICK <path>:<line> <problem> [plan] (new)'):
+            self.assertIn(line, fmt.splitlines())
+        rule = next((l for l in r.splitlines() if l.startswith('- Mark a finding `[plan]`')), '')
+        for word in ('exact lower-case token', 'when fixing it needs a change to', 'the approach of `plan.md`',
+                     'its set of work units', 'its target files (`Files to change`)',
+                     'A file added by a `Scope change:` line under `## Approval` of `plan.md` counts as a target file.',
+                     'Leave a finding that can be fixed inside the plan unmarked.', 'any severity', 'every profile',
+                     'right before `[criterion …]` on a BLOCKER or SHOULD-FIX line',
+                     'right before `(new)` or `(carried)` on a NITPICK line',
+                     'The criterion tag and `(new)` or `(carried)` stay.',
+                     'L1 asks how to change course before such a fix.'):
+            self.assertIn(word, rule)
+        self.assertNotIn('asks the person', rule)
+
+    def test_writer_g3_report_plan_items(self):
+        """At G3 the report says that a Rework sending a [plan] item back gets the popup first (criterion 8)."""
+        row = next(l for l in self._agent('writer').splitlines() if l.startswith('- **Gate report:**'))
+        for word in ('At G3', 'open `review.md` item carries `[plan]`', 'what each choice leads to',
+                     'right before `[criterion …]` or `(new)`/`(carried)` on its line',
+                     'the token anywhere else does not count',
+                     'a Rework that sends the item back first gets the plan-finding popup',
+                     '`Adjust within approved scope` / `Revise this task` / `Fix within current plan`',
+                     'before any fix'):
+            self.assertIn(word, row)
+
     def test_reviewer_first_run_lists_every_finding(self):
         """With no previous review.md the reviewer lists every finding it sees (criterion 6)."""
         reviewer = self._agent('reviewer')
