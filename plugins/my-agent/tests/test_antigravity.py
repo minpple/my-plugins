@@ -219,7 +219,7 @@ class AntigravityHooksEndToEndTest(unittest.TestCase):
         self.proj.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.proj)], check=True)
         self.task = make_task(self.proj, phase='2', session='conv-1', git=False)
-        self.env = {'MA_TASKS_DIR': str(self.data), 'PLUGIN_ROOT': str(REPO)}
+        self.env = {'MA_DATA_DIR': str(self.data), 'PLUGIN_ROOT': str(REPO)}
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -245,7 +245,7 @@ class AntigravityHooksEndToEndTest(unittest.TestCase):
         claude_call = {'hook_event_name': 'PreToolUse', 'tool_name': 'Write',
                        'tool_input': {'file_path': str(self.proj / 'note.txt'), 'content': 'has "toolCall" text'}}
         r = run_hook('scope-guard.py', None, claude_call, self.proj,
-                     env={'MA_TASKS_DIR': str(self.data), 'CLAUDECODE': '1'})
+                     env={'MA_DATA_DIR': str(self.data), 'CLAUDECODE': '1'})
         self.assertEqual((r.returncode, r.stdout), (0, ''), r.stderr)
 
         secret_call = agy_payload('PreToolUse', 'read_file', {'Path': str(self.proj / '.env')},
@@ -346,7 +346,7 @@ class AntigravityModelsAndDocsTest(unittest.TestCase):
             }
         }), encoding='utf-8')
         r = run_script(MODELS, 'show', '--profile', 'dev', '--preset', 'fast', '--data-dir', str(data),
-                       env={'MA_HOST': 'antigravity'}, drop=('MA_TASKS_DIR',))
+                       env={'MA_HOST': 'antigravity'}, drop=('MA_DATA_DIR',))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn('antigravity section', r.stdout)
         self.assertIn('explorer        model=flash', r.stdout)

@@ -5,7 +5,7 @@ usage: agent-models.py show --profile P --preset NAME [--data-dir DIR]
        agent-models.py show --plan PLAN.md
        agent-models.py presets --profile P [--data-dir DIR]
 
-The presets are in `<data folder>/agent-models.json` (data folder: $MA_TASKS_DIR, else --data-dir, else
+The presets are in `<data folder>/agent-models.json` (data folder: $MA_DATA_DIR, else --data-dir, else
 $CLAUDE_PLUGIN_OPTION_DATA_DIR, else ~/.my-agent-data); an agent or a key a preset leaves out keeps the value of
 its definition file. A missing, empty or `{}` file, and a profile without presets, mean "no file": `show` prints
 the definition values (for the preset `standard`) and `presets` prints `none`.

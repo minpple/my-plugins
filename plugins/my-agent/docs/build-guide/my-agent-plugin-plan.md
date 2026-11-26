@@ -86,13 +86,13 @@ Rulings to ledger: `version`/`author` added against §4.5.1 "no version field" �
 - Test: `monitor/tests/test_server.py`, `monitor/tests/test_registry.py`
 
 **Interfaces:**
-- Produces: `GET /api/health` → `200 {"app": "my-agent-monitor", "root": "<absolute monitor folder>"}`. `registry.default_prices_file() -> Path`: `$MA_TASKS_DIR/prices.json` (default `~/dev/agent-tasks/prices.json`) when that file exists, else `<monitor>/prices.json`.
+- Produces: `GET /api/health` → `200 {"app": "my-agent-monitor", "root": "<absolute monitor folder>"}`. `registry.default_prices_file() -> Path`: `$MA_DATA_DIR/prices.json` (default `~/dev/agent-tasks/prices.json`) when that file exists, else `<monitor>/prices.json`.
 
 - [ ] **Step 1:** Copy with `rsync -a --exclude .git --exclude .superpowers --exclude __pycache__ ~/dev/my-agent-monitor/ ~/dev/my-agent/monitor/`. Run the monitor tests. Expected: `Ran 50 tests … OK`.
 - [ ] **Step 2: Failing tests**
   - `test_health`: GET `/api/health` → status 200, JSON `{"app": "my-agent-monitor", "root": str(ROOT)}` where `ROOT` is the folder holding `server.py`.
-  - `test_prices_override_used_when_present`: with `MA_TASKS_DIR` set to a temp dir containing `prices.json`, `default_prices_file()` returns that path.
-  - `test_prices_default_when_absent`: with an empty `MA_TASKS_DIR`, it returns `ROOT / 'prices.json'`.
+  - `test_prices_override_used_when_present`: with `MA_DATA_DIR` set to a temp dir containing `prices.json`, `default_prices_file()` returns that path.
+  - `test_prices_default_when_absent`: with an empty `MA_DATA_DIR`, it returns `ROOT / 'prices.json'`.
 - [ ] **Step 3:** Run them. Expected: FAIL (404 / no attribute `default_prices_file`).
 - [ ] **Step 4:** Implement the route and `default_prices_file()`; `Registry.__init__` uses it when `prices_file` is not given. README: run path `monitor/`, the override, `/api/health`.
 - [ ] **Step 5:** Run the monitor tests. Expected: `Ran 53 tests … OK`.
@@ -110,9 +110,9 @@ Rulings to ledger: `version`/`author` added against §4.5.1 "no version field" �
   - `monitor: http://127.0.0.1:<port>/ (started)` / `(running)`
   - `monitor: not running` (status), `monitor: stopped <port>` / `monitor: nothing to stop` (stop)
   - `monitor: not started (<reason>)`
-- State: `$MA_TASKS_DIR/monitor.json` = `{"port", "pid", "root", "started"}`; log `$MA_TASKS_DIR/monitor.log`. Default ports `8765-8775`.
+- State: `$MA_DATA_DIR/monitor.json` = `{"port", "pid", "root", "started"}`; log `$MA_DATA_DIR/monitor.log`. Default ports `8765-8775`.
 
-- [ ] **Step 1: Failing tests** (spawn the real `server.py` on test ports 8791–8794, `MA_TASKS_DIR` and `MA_PROJECTS_FILE` in a temp dir, `--no-open`; kill any spawned pid in `tearDown`):
+- [ ] **Step 1: Failing tests** (spawn the real `server.py` on test ports 8791–8794, `MA_DATA_DIR` and `MA_PROJECTS_FILE` in a temp dir, `--no-open`; kill any spawned pid in `tearDown`):
   - `test_starts_when_none`: output matches `^monitor: http://127\.0\.0\.1:8791/ \(started\)$`; `monitor.json` has that port and a live pid; `/api/health` root equals the monitor folder.
   - `test_second_call_reports_running`: second call prints `(running)` with the same port and does not start a second process.
   - `test_skips_foreign_port`: a plain `http.server` on 8791 → started on 8792; the foreign server still answers.
@@ -134,7 +134,7 @@ Rulings to ledger: `version`/`author` added against §4.5.1 "no version field" �
 **Interfaces:**
 - Produces:
   - `ma_active.Active` (NamedTuple): `location: Path, task: str, phase: str, session: str, started: str, task_dir: Path, log: Path` (`log = task_dir / 'run-log.md'`).
-  - `ma_active.find_active(cwd: str, tasks_dir: Path = None) -> Active | None`. `tasks_dir` defaults to `$MA_TASKS_DIR` or `~/dev/agent-tasks`.
+  - `ma_active.find_active(cwd: str, tasks_dir: Path = None) -> Active | None`. `tasks_dir` defaults to `$MA_DATA_DIR` or `~/dev/agent-tasks`.
   - `ma_logline.format_line(kind: str, fields: list[tuple[str, object]], now: datetime = None) -> str` (no trailing newline; `None` → `-`; `True`/`False` → `true`/`false`).
   - `ma_logline.append(log: Path, line: str) -> None` (one `write` of `line + '\n'`, creates the file, not the folder).
   - `ma_logline.log_error(active: Active, where: str, exc: BaseException) -> None` (writes `log-error: where=… error="…"`, swallows its own failure).
@@ -202,7 +202,7 @@ Ruling to ledger: `'` also forces quotes — the spec names only spaces and `"`,
   - `end=error` when `last_assistant_message` is empty or the last assistant entry has `isApiErrorMessage: true`; otherwise `end=ok`.
   - `mismatch=1` when the model family (opus/sonnet/haiku/fable) of the `start:` line's `configured` differs from `actual`'s.
 
-- [ ] **Step 1: Failing tests** (`run_hook` with real stdin; `tasks_dir` isolated with `MA_TASKS_DIR`):
+- [ ] **Step 1: Failing tests** (`run_hook` with real stdin; `tasks_dir` isolated with `MA_DATA_DIR`):
   - `test_call_written_for_my_agent`: `{"tool_name":"Agent","tool_input":{"subagent_type":"my-agent:probe-worker","model":"opus","isolation":"worktree","run_in_background":true}}` → `call: agent=my-agent:probe-worker model=opus effort=- isolation=worktree background=true`.
   - `test_call_ignored_for_others`: `subagent_type: "Explore"` → nothing written, exit 0.
   - `test_start_uses_call_model_then_definition`: with the call above → `configured=opus`; with no call, a temp `plugin.json` + definition `model: haiku`, `effort: low` → `configured=haiku effort=low`.

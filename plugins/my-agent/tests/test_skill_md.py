@@ -157,7 +157,7 @@ class SkillMdTest(unittest.TestCase):
                     filled = filled.replace('agent=my-agent:<role>', 'agent=my-agent:explorer').replace('<result file, or - for coder>', str(result))
                 argv = shlex.split(re.sub(r'<[^>]*>', 'x', filled))
                 r = subprocess.run([sys.executable, str(L4 / 'scripts' / 'run-log.py'), *argv, '--cwd', str(proj)],
-                                   capture_output=True, text=True, env={'MA_TASKS_DIR': tmp, 'MA_TASK_DIR': rel(), 'PATH': '/usr/bin:/bin'})
+                                   capture_output=True, text=True, env={'MA_DATA_DIR': tmp, 'MA_TASK_DIR': rel(), 'PATH': '/usr/bin:/bin'})
                 self.assertEqual(r.returncode, 0, f'{name}: {args}\n{r.stdout}{r.stderr}')
 
     def test_gate_answers_use_choice(self):
@@ -192,7 +192,7 @@ class SkillMdTest(unittest.TestCase):
             make_task(proj)
             argv = ['ask', 'gate=G3', 'q=x', 'rec=x', '--task-dir', rel()]
             r = subprocess.run([sys.executable, str(L4 / 'scripts' / 'run-log.py'), *argv, '--cwd', str(proj)],
-                               capture_output=True, text=True, env={'MA_TASKS_DIR': tmp, 'MA_TASK_DIR': rel(), 'PATH': '/usr/bin:/bin'})
+                               capture_output=True, text=True, env={'MA_DATA_DIR': tmp, 'MA_TASK_DIR': rel(), 'PATH': '/usr/bin:/bin'})
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_revision_edits_use_headings_and_edit_tool(self):

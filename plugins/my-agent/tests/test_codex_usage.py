@@ -42,7 +42,7 @@ class Base(unittest.TestCase):
         self.root = Path(self.tmp.name).resolve()
         self.codex = self.root / 'codex-sessions'
         (self.root / 'statusline-empty').mkdir()
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none'), 'MA_CODEX_SESSIONS': str(self.codex),
+        self.env = {'MA_DATA_DIR': str(self.root / 'none'), 'MA_CODEX_SESSIONS': str(self.codex),
                     'MA_CLAUDE_PROJECTS': str(self.root / 'claude'),
                     'MA_STATUSLINE_DIR': str(self.root / 'statusline-empty')}
         patch = mock.patch.dict('os.environ', {'MA_CODEX_SESSIONS': str(self.codex)})   # in-process calls
@@ -230,7 +230,7 @@ class RunLogTest(Base):
         data.mkdir()
         (data / 'prices.json').write_text(json.dumps({'models': {'gpt-6-luna': {
             'input': 1000000.0, 'output': 2000000.0, 'cache_write': 0.0, 'cache_read': 500000.0}}}), encoding='utf-8')
-        r = self.run_log('cost', env={'MA_TASKS_DIR': str(data)})
+        r = self.run_log('cost', env={'MA_DATA_DIR': str(data)})
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertRegex(log_lines(self.d)[-1], rf'cost: session={SESSION} usd=880(\.0)?$')
 

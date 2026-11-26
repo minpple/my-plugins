@@ -1,4 +1,4 @@
-"""ma_data (data folder resolution) and data-dir.py: MA_TASKS_DIR > setting > ~/.my-agent-data, per-file overrides first."""
+"""ma_data (data folder resolution) and data-dir.py: MA_DATA_DIR > setting > ~/.my-agent-data, per-file overrides first."""
 import json
 import os
 import tempfile
@@ -10,7 +10,7 @@ from helpers import L4, run_script  # also puts lib/ on sys.path
 import ma_data
 
 SCRIPT = L4 / 'scripts' / 'data-dir.py'
-VARS = ('MA_TASKS_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR', 'MA_PROJECTS_FILE', 'MA_FEEDBACK_FILE',
+VARS = ('MA_DATA_DIR', 'MA_TASKS_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR', 'MA_PROJECTS_FILE', 'MA_FEEDBACK_FILE',
         'MA_GATE_REPORT_DIR', 'HOME', 'MA_TASK_DIR', 'CLAUDE_PLUGIN_OPTION_TASK_DIR')
 PLACEHOLDER = '${user_config.data_dir}'
 
@@ -48,7 +48,7 @@ class DataDirTest(unittest.TestCase):
         os.environ['CLAUDE_PLUGIN_OPTION_DATA_DIR'] = str(c)
         self.assertEqual(ma_data.data_dir(), c)
         self.assertEqual(ma_data.data_dir(str(b)), b)
-        os.environ['MA_TASKS_DIR'] = str(a)
+        os.environ['MA_DATA_DIR'] = str(a)
         self.assertEqual(ma_data.data_dir(str(b)), a)
 
     def test_tilde_expanded(self):
@@ -105,7 +105,7 @@ class DataDirTest(unittest.TestCase):
         os.environ['MA_PROJECTS_FILE'] = str(self.root / 'p.txt')
         os.environ['MA_FEEDBACK_FILE'] = str(self.root / 'fb.md')
         os.environ['MA_GATE_REPORT_DIR'] = str(self.root / 'rep')
-        os.environ['MA_TASKS_DIR'] = str(self.root / 't')
+        os.environ['MA_DATA_DIR'] = str(self.root / 't')
         self.assertEqual(ma_data.projects_file(str(d)), self.root / 'p.txt')
         self.assertEqual(ma_data.feedback_file(str(d)), self.root / 'fb.md')
         self.assertEqual(ma_data.report_dir(str(d)), self.root / 'rep')
@@ -121,8 +121,29 @@ class DataDirTest(unittest.TestCase):
         self.assertEqual(r.stdout, f'{self.home}/.my-agent-data\n')
         r = self.run_clean('--data-dir', '')
         self.assertEqual(r.stdout, f'{self.home}/.my-agent-data\n')
-        r = self.run_clean('--data-dir', '~/x', MA_TASKS_DIR='/tmp/t')
-        self.assertEqual(r.stdout, '/tmp/t\n')
+        r = self.run_clean('--data-dir', '~/x', MA_DATA_DIR='/tmp/t')
+        self.assertEqual((r.stdout, r.stderr), ('/tmp/t\n', ''))
+
+    def test_data_dir_env_only(self):
+        os.environ['MA_DATA_DIR'] = str(self.root / 'd')
+        self.assertEqual(ma_data.data_dir(), self.root / 'd')
+
+    def test_old_env_name_is_ignored(self):
+        os.environ['MA_TASKS_DIR'] = str(self.root / 'old')
+        self.assertEqual(ma_data.data_dir(), self.home / '.my-agent-data')
+        self.assertEqual(ma_data.data_dir(str(self.root / 'arg')), self.root / 'arg')
+        r = self.run_clean('--data-dir', '~/x', MA_TASKS_DIR='/tmp/old')
+        self.assertEqual((r.stdout, r.stderr), (f'{self.home}/x\n', ''))
+        os.environ['MA_DATA_DIR'] = str(self.root / 'new')
+        self.assertEqual(ma_data.data_dir(), self.root / 'new')
+
+    def test_task_dir_unchanged_by_data_dir_names(self):
+        os.environ['MA_DATA_DIR'] = 'docs/a'
+        os.environ['MA_TASKS_DIR'] = 'docs/b'
+        self.assertEqual(ma_data.task_dir(), '.my-agent')
+        os.environ['MA_TASK_DIR'] = 'docs/agent'
+        self.assertEqual(ma_data.task_dir('x'), 'docs/agent')
+        self.assertEqual(ma_data.data_dir(), Path.cwd() / 'docs/a')  # MA_TASK_DIR does not touch the data folder
 
     def test_script_task_dir_second_line(self):
         want = (('', '.my-agent'), ('   ', '.my-agent'), ('${user_config.task_dir}', '.my-agent'),

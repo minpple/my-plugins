@@ -43,7 +43,7 @@ The monitor shows these four things as a local web page on the Mac. **It only re
 - The server listens only on `127.0.0.1` and uses only the Python 3 standard library. There must be no dependencies to install.
 - The frontend is one HTML file (+ JS/CSS files if needed), with no build step. The web font (IBM Plex) loads from Google Fonts; offline, system fonts take its place.
 - `~/dev/tools/claude-sessions` is read-only. The monitor does not reuse its code (the price table is its own file).
-- The server writes no files. Only the launch script `monitor-up.py` writes `<data folder>/monitor.json` and `monitor.log` (section 6.1). The data folder is the plugin setting `data_dir` (default `~/dev/my-agent`; `$MA_TASKS_DIR` wins; architecture 4.7).
+- The server writes no files. Only the launch script `monitor-up.py` writes `<data folder>/monitor.json` and `monitor.log` (section 6.1). The data folder is the plugin setting `data_dir` (default `~/dev/my-agent`; `$MA_DATA_DIR` wins; architecture 4.7).
 
 ## 4. Screen (fixed by mock-up v22)
 

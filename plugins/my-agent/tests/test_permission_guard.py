@@ -24,7 +24,7 @@ class Base(unittest.TestCase):
         self.L = self.root / 'proj'
         self.L.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.L)], check=True)
-        self.env = dict(CLAUDE_HOOK_ENV, MA_TASKS_DIR=str(self.root / 'agent-tasks'))
+        self.env = dict(CLAUDE_HOOK_ENV, MA_DATA_DIR=str(self.root / 'agent-tasks'))
 
     def tearDown(self):
         self.tmp.cleanup()

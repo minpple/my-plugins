@@ -10,7 +10,7 @@ The task named in that project's `.active` never moves. Before a move, a task wi
 The monitor, the menu bar app and `/my-agent status` read only `<task_dir>/*/`, so moved tasks leave them without any
 change there. To bring a task back, move its folder back to `<task_dir>/`. --task-dir is the task subfolder (setting `task_dir`, default .my-agent).
 --dry-run prints what would move and changes nothing. The project list is $MA_PROJECTS_FILE, else
-<data folder>/projects.txt ($MA_TASKS_DIR, else the setting (--data-dir or CLAUDE_PLUGIN_OPTION_DATA_DIR), else ~/.my-agent-data). Transcripts: $MA_CLAUDE_PROJECTS.
+<data folder>/projects.txt ($MA_DATA_DIR, else the setting (--data-dir or CLAUDE_PLUGIN_OPTION_DATA_DIR), else ~/.my-agent-data). Transcripts: $MA_CLAUDE_PROJECTS.
 Run by the person (not by L1). exit: 0 done (also when nothing was due), 2 bad arguments, 3 a move failed.
 """
 import argparse

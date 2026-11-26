@@ -2,7 +2,7 @@
 """Print the resolved my-agent data folder (absolute path, one line); with --task-dir, a second line: the task subfolder.
 
 usage: data-dir.py [--data-dir X] [--task-dir Y]
-X is the `data_dir` setting. $MA_TASKS_DIR wins over it; an empty X or an unsubstituted `${...}` placeholder means
+X is the `data_dir` setting. $MA_DATA_DIR wins over it; an empty X or an unsubstituted `${...}` placeholder means
 "not set" and gives ~/.my-agent-data. Y is the `task_dir` setting; the second line is the relative task subfolder
 ($MA_TASK_DIR wins; unset, absolute, `..` or reserved gives .my-agent). Exit 0.
 On Codex it first checks the hook marks (ma_host.hook_health): a hook that did not run for this session (not

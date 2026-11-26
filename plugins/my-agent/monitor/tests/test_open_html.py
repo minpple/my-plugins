@@ -20,12 +20,12 @@ SCRIPT = ROOT / 'open-html.py'
 
 
 def without_tasks_dir_env(test):
-    """`ma_data.data_dir` takes $MA_TASKS_DIR before `--data-dir`, so a set variable would make the script read the
+    """`ma_data.data_dir` takes $MA_DATA_DIR before `--data-dir`, so a set variable would make the script read the
     shell's data folder instead of the test's; drop it for the test and restore it afterwards."""
     patcher = mock.patch.dict(os.environ)
     patcher.start()
     test.addCleanup(patcher.stop)
-    os.environ.pop('MA_TASKS_DIR', None)
+    os.environ.pop('MA_DATA_DIR', None)
 
 
 class FakeRun:

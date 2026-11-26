@@ -125,12 +125,12 @@ class RegistryTest(unittest.TestCase):
 
 class PricesFileTest(unittest.TestCase):
     def test_prices_override_used_when_present(self):
-        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {'MA_TASKS_DIR': d}):
+        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {'MA_DATA_DIR': d}):
             Path(d, 'prices.json').write_text('{"models": {}}')
             self.assertEqual(registry.default_prices_file(), Path(d, 'prices.json'))
 
     def test_prices_default_when_absent(self):
-        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {'MA_TASKS_DIR': d}):
+        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {'MA_DATA_DIR': d}):
             self.assertEqual(registry.default_prices_file(), ma_prices.BUNDLED)
 
 

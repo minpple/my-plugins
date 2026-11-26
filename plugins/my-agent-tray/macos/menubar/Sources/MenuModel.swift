@@ -97,7 +97,7 @@ func iconText(_ state: MenuState) -> String {
     }
 }
 
-/// The my-agent data folder: MA_TASKS_DIR, else the plugin setting CLAUDE_PLUGIN_OPTION_DATA_DIR, else ~/.my-agent-data.
+/// The my-agent data folder: MA_DATA_DIR, else the plugin setting CLAUDE_PLUGIN_OPTION_DATA_DIR, else ~/.my-agent-data.
 /// Empty values and unsubstituted "${...}" placeholders count as not set; a leading "~" is expanded.
 func dataDir(env: [String: String]) -> String {
     func value(_ key: String) -> String? {
@@ -105,7 +105,7 @@ func dataDir(env: [String: String]) -> String {
         return raw
     }
     let home = value("HOME") ?? NSHomeDirectory()
-    guard let raw = value("MA_TASKS_DIR") ?? value("CLAUDE_PLUGIN_OPTION_DATA_DIR") else { return home + "/.my-agent-data" }
+    guard let raw = value("MA_DATA_DIR") ?? value("CLAUDE_PLUGIN_OPTION_DATA_DIR") else { return home + "/.my-agent-data" }
     if raw == "~" { return home }
     return raw.hasPrefix("~/") ? home + String(raw.dropFirst(1)) : raw
 }

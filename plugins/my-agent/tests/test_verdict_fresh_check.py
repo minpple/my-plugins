@@ -22,7 +22,7 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.T = make_task(self.L, task=TASK, git=False)
         (self.L / 'src').mkdir()
         self.t0 = time.time() - 1000
-        self.env = dict(CLAUDE_HOOK_ENV, MA_TASKS_DIR=str(self.root / 'agent-tasks'))
+        self.env = dict(CLAUDE_HOOK_ENV, MA_DATA_DIR=str(self.root / 'agent-tasks'))
 
     def tearDown(self):
         self.tmp.cleanup()

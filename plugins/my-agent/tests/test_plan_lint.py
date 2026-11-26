@@ -144,7 +144,7 @@ class ApprovalWriteTest(unittest.TestCase):
         self.proj = self.root / 'proj'
         self.task = make_task(self.proj, task=TASK)
         (self.root / 'agent-tasks').mkdir()
-        self.env = dict(CLAUDE_HOOK_ENV, MA_TASKS_DIR=str(self.root / 'agent-tasks'))
+        self.env = dict(CLAUDE_HOOK_ENV, MA_DATA_DIR=str(self.root / 'agent-tasks'))
         (self.task / 'intake.md').write_text('Status: active\nProfile: dev\n', encoding='utf-8')
         (self.task / 'scope.md').write_text(SCOPE, encoding='utf-8')
 

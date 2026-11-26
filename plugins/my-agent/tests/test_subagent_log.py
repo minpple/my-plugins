@@ -26,7 +26,7 @@ class SubagentLogTest(unittest.TestCase):
             json.dumps({'name': 'my-agent', 'agents': ['./agents/probe-worker.md']}))
         (self.plugin / 'agents' / 'probe-worker.md').write_text(
             '---\nname: probe-worker\nmodel: haiku\neffort: low\ntools: Bash, Read\n---\nbody\n')
-        self.env = dict(CLAUDE_HOOK_ENV, MA_TASKS_DIR=str(self.root / 'none'), CLAUDE_PLUGIN_ROOT=str(self.plugin),
+        self.env = dict(CLAUDE_HOOK_ENV, MA_DATA_DIR=str(self.root / 'none'), CLAUDE_PLUGIN_ROOT=str(self.plugin),
                         CLAUDE_CODE_EFFORT_LEVEL='')   # the host does not follow the shell the tests run in
 
     def tearDown(self):

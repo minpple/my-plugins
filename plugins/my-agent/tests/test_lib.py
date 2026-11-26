@@ -70,13 +70,13 @@ class FindActiveTest(unittest.TestCase):
                 self.assertEqual(broken, [path])
 
     def test_index_found_via_setting(self):
-        """No tasks_dir argument and no MA_TASKS_DIR: the data folder setting locates active-index.json."""
+        """No tasks_dir argument and no MA_DATA_DIR: the data folder setting locates active-index.json."""
         task_dir = make_task(self.root / 'loc', git=False)
         (self.root / 'run' / '.git').mkdir(parents=True)
         data = self.root / 'data'
         data.mkdir()
         (data / 'active-index.json').write_text(json.dumps({str(self.root / 'run'): str(self.root / 'loc')}))
-        saved = {k: os.environ.pop(k, None) for k in ('MA_TASKS_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR', 'CLAUDE_PLUGIN_OPTION_TASK_DIR')}
+        saved = {k: os.environ.pop(k, None) for k in ('MA_DATA_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR', 'CLAUDE_PLUGIN_OPTION_TASK_DIR')}
         try:
             os.environ['CLAUDE_PLUGIN_OPTION_DATA_DIR'] = str(data)
             self.assertEqual(ma_active.find_active(str(self.root / 'run')).task_dir, task_dir)

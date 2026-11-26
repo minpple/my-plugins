@@ -20,7 +20,7 @@ class PlanApprovedCheckTest(unittest.TestCase):
         self.tasks_dir = self.root / 'agent-tasks'
         self.tasks_dir.mkdir()
         self.reports = self.root / 'my-surrogate' / 'gate-report'
-        self.env = dict(CLAUDE_HOOK_ENV, MA_TASKS_DIR=str(self.tasks_dir), MA_GATE_REPORT_DIR=str(self.reports))
+        self.env = dict(CLAUDE_HOOK_ENV, MA_DATA_DIR=str(self.tasks_dir), MA_GATE_REPORT_DIR=str(self.reports))
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -338,7 +338,7 @@ class PlanApprovedCheckTest(unittest.TestCase):
     def setting_env(self, data):
         """Env with only the plugin setting (what a plugin hook gets): no MA_* overrides."""
         env = {k: '' for k in os.environ if k.startswith('MA_') and k != 'MA_TASK_DIR'}   # run_script merges os.environ; empty = not set
-        env.update({k: '' for k in ('MA_TASKS_DIR', 'MA_PROJECTS_FILE', 'MA_FEEDBACK_FILE', 'MA_GATE_REPORT_DIR')})
+        env.update({k: '' for k in ('MA_DATA_DIR', 'MA_PROJECTS_FILE', 'MA_FEEDBACK_FILE', 'MA_GATE_REPORT_DIR')})
         return dict(env, CLAUDE_PLUGIN_OPTION_DATA_DIR=str(data), **CLAUDE_HOOK_ENV)
 
     def test_other_session_passes(self):
@@ -421,7 +421,7 @@ class PlanApprovedCheckTest(unittest.TestCase):
     def test_claude_ask_without_host_override(self):
         plugin_root = str(L4.parent)
         env = {'MA_HOST': '', 'CLAUDE_PLUGIN_ROOT': plugin_root, 'CLAUDE_PROJECT_DIR': str(self.proj),
-               'MA_TASKS_DIR': str(self.tasks_dir), 'MA_GATE_REPORT_DIR': str(self.reports)}
+               'MA_DATA_DIR': str(self.tasks_dir), 'MA_GATE_REPORT_DIR': str(self.reports)}
         payload = {'hook_event_name': 'PreToolUse', 'tool_name': 'Bash', 'session_id': 's-test',
                    'tool_input': {'command': f'echo x > {self.proj}/src/a.py'}}
         r = run_hook('plan-approved-check.py', None, payload, self.proj, env=env,

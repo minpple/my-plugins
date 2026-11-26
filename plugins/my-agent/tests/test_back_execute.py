@@ -25,7 +25,7 @@ class BackExecuteTest(unittest.TestCase):
         (self.task / 'verify.md').write_text('Verdict: FAIL\nRun: 2\n- 1. FAIL x\n', encoding='utf-8')
         (self.task / 'review.md').write_text('BLOCKER 0\n', encoding='utf-8')
         self.active = self.task.parent / '.active'
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none'), 'CLAUDE_CODE_SESSION_ID': 's-test',
+        self.env = {'MA_DATA_DIR': str(self.root / 'none'), 'CLAUDE_CODE_SESSION_ID': 's-test',
                     'MA_CLAUDE_PROJECTS': str(self.root / 'projects'), 'MA_STATUSLINE_DIR': str(self.root / 'sl')}
 
     def tearDown(self):

@@ -256,7 +256,7 @@
       ],
       "how_tried": "S1 hooks scenario: hook environment values; skills scenario: ${user_config.*} in skill text",
       "result": "no option env names seen in the hook environment; the placeholder stays literal in skill text",
-      "effect": "the data folder is $MA_TASKS_DIR or the default, the task folder $MA_TASK_DIR or .my-agent (hosts.md)",
+      "effect": "the data folder is $MA_DATA_DIR or the default, the task folder $MA_TASK_DIR or .my-agent (hosts.md)",
       "facts": [
         "Hook environment values (CODEX_*, CLAUDE_*)"
       ],

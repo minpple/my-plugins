@@ -39,7 +39,7 @@ class Base(unittest.TestCase):
         subprocess.run(['git', 'init', '-q', str(self.L)], check=True)
         self.T = make_task(self.L, task=TASK, git=False, session='019a0000-0000-7000-8000-000000000001')
         (self.L / 'src').mkdir()
-        self.env = {'MA_TASKS_DIR': str(self.root / 'agent-tasks'), 'MA_GATE_REPORT_DIR': str(self.root / 'gate-report')}
+        self.env = {'MA_DATA_DIR': str(self.root / 'agent-tasks'), 'MA_GATE_REPORT_DIR': str(self.root / 'gate-report')}
 
     def tearDown(self):
         self.tmp.cleanup()

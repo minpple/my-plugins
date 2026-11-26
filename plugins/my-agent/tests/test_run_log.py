@@ -15,7 +15,7 @@ class RunLogTest(unittest.TestCase):
         self.root = Path(self.tmp.name).resolve()
         self.task = make_task(self.root, session='s-active')
         (self.root / 'statusline-empty').mkdir()   # no test reads the real ~/.cache statusline file
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none'), 'CLAUDE_CODE_SESSION_ID': 's-9',
+        self.env = {'MA_DATA_DIR': str(self.root / 'none'), 'CLAUDE_CODE_SESSION_ID': 's-9',
                     'MA_CLAUDE_PROJECTS': str(self.root / 'projects'),
                     'MA_STATUSLINE_DIR': str(self.root / 'statusline-empty')}
 
@@ -379,7 +379,7 @@ class RunLogTest(unittest.TestCase):
             data.mkdir()
             run.mkdir()
             (data / 'active-index.json').write_text(json.dumps({str(run): str(base / 'loc')}), encoding='utf-8')
-            env = dict(self.env, MA_TASKS_DIR='')
+            env = dict(self.env, MA_DATA_DIR='')
             r = run_script(SCRIPT, 'ask', 'gate=G1-A', '--cwd', str(run), '--data-dir', str(data), env=env)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertIn('ask:', log_lines(task)[-1])

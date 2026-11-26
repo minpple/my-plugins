@@ -23,7 +23,7 @@ class GateReportTest(unittest.TestCase):
         self.proj = self.root / 'proj'
         self.reports = self.root / 'reports'
         self.claude = self.root / 'claude-projects'
-        self.env = {'MA_GATE_REPORT_DIR': str(self.reports), 'MA_TASKS_DIR': str(self.root / 'none'),
+        self.env = {'MA_GATE_REPORT_DIR': str(self.reports), 'MA_DATA_DIR': str(self.root / 'none'),
                     'MA_CLAUDE_PROJECTS': str(self.claude), 'MA_STATUSLINE_DIR': str(self.root / 'statusline')}
         # no test may write into the real default data folder
         self.assertTrue(self.env['MA_GATE_REPORT_DIR'].startswith(str(self.root)))
@@ -648,14 +648,14 @@ class GateReportTest(unittest.TestCase):
     def test_copy_with_data_dir(self):
         (self.task / 'gate-report.md').write_text('# Gate report\n', encoding='utf-8')
         data = self.root / 'data'
-        env = dict(self.env, MA_GATE_REPORT_DIR='', MA_TASKS_DIR='')
+        env = dict(self.env, MA_GATE_REPORT_DIR='', MA_DATA_DIR='')
         r = run_script(SCRIPT, 'copy', '--cwd', str(self.proj), '--data-dir', str(data), env=env)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((data / 'gate-report' / f'{TASK}.md').is_file())
 
     def test_report_dir_default_and_env(self):
         import ma_gate_report
-        names = ('MA_GATE_REPORT_DIR', 'MA_TASKS_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR', 'HOME',
+        names = ('MA_GATE_REPORT_DIR', 'MA_DATA_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR', 'HOME',
                  'CLAUDE_PLUGIN_OPTION_TASK_DIR')
         saved = {k: os.environ.get(k) for k in names}
         try:

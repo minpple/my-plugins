@@ -162,7 +162,7 @@ class HostTest(unittest.TestCase):
                 root = Path(tmp).resolve()
                 task = helpers.make_task(root, session='019a0000-0000-7000-8000-000000000001')
                 raw = json.dumps(dict(json.loads(raw), cwd=str(root)))
-                env = {'MA_TASKS_DIR': str(root / 'data'), 'MA_HOST': ''}
+                env = {'MA_DATA_DIR': str(root / 'data'), 'MA_HOST': ''}
                 err = io.StringIO()
                 with mock.patch.dict(os.environ, env), mock.patch.object(sys, 'argv', ['plan-approved-check.py']), \
                         contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()) as out:

@@ -25,7 +25,7 @@ class PreGateTest(unittest.TestCase):
         self.status.mkdir()
         self.data = self.root / 'data'
         self.data.mkdir()
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none'), 'CLAUDE_CODE_SESSION_ID': 's-test',
+        self.env = {'MA_DATA_DIR': str(self.root / 'none'), 'CLAUDE_CODE_SESSION_ID': 's-test',
                     'MA_CLAUDE_PROJECTS': str(self.root / 'projects'), 'MA_STATUSLINE_DIR': str(self.status)}
         self.report = self.root / 'report.md'
         self.report.write_text(REPORT, encoding='utf-8')

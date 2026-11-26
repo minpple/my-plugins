@@ -14,7 +14,7 @@ class SessionNoticeTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none')}
+        self.env = {'MA_DATA_DIR': str(self.root / 'none')}
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -110,7 +110,7 @@ class SessionNoticeTest(unittest.TestCase):
         self.assertEqual(out, self.folders('records/x') + '\n')
 
     def test_codex_unexpanded_option_counts_as_empty(self):
-        e = {'MA_TASKS_DIR': '', 'CLAUDE_PLUGIN_OPTION_DATA_DIR': '${user_config.data_dir}'}
+        e = {'MA_DATA_DIR': '', 'CLAUDE_PLUGIN_OPTION_DATA_DIR': '${user_config.data_dir}'}
         out = self.codex(env=e)
         self.assertIn('data folder ' + str(Path.home() / '.my-agent-data') + ' (', out)
 

@@ -29,7 +29,7 @@ class SweepTest(unittest.TestCase):
         self.claude = self.root / 'claude'
         self.sub = self.claude / '-proj' / 's-main' / 'subagents'
         self.sub.mkdir(parents=True)
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none'), 'MA_CLAUDE_PROJECTS': str(self.claude),
+        self.env = {'MA_DATA_DIR': str(self.root / 'none'), 'MA_CLAUDE_PROJECTS': str(self.claude),
                     'CLAUDE_CODE_SESSION_ID': 's-main'}
         (self.task / 'run-log.md').write_text(
             '2026-10-25 09:00:00 step: n=5 name=Execute rev=0 session=s-main\n'

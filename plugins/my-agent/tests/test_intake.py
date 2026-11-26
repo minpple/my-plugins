@@ -89,7 +89,7 @@ class FactsBase(unittest.TestCase):
         self.data = self.root / 'data'
         self.data.mkdir()
         (self.root / 'statusline-empty').mkdir()
-        self.env = {'MA_TASKS_DIR': str(self.data), 'CLAUDE_CODE_SESSION_ID': 's-1',
+        self.env = {'MA_DATA_DIR': str(self.data), 'CLAUDE_CODE_SESSION_ID': 's-1',
                     'MA_STATUSLINE_DIR': str(self.root / 'statusline-empty'),
                     'MA_CLAUDE_PROJECTS': str(self.root / 'projects'), 'MA_HOST': ''}
         self.drop = KEEP + ('CLAUDE_PLUGIN_ROOT', 'CODEX_THREAD_ID')
@@ -839,7 +839,7 @@ class StopAfterWriteTest(CreateBase):
         # a file in place of the data folder's parent: its mkdir fails, and the stage must not say `.active`
         blocker = self.root / 'blocker'
         blocker.write_text('x', encoding='utf-8')
-        r = self.create(env={'MA_TASKS_DIR': str(blocker / 'data')})
+        r = self.create(env={'MA_DATA_DIR': str(blocker / 'data')})
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn('intake: stopped at data folder:', r.stderr)
         self.assertNotIn('stopped at .active', r.stderr)
@@ -886,7 +886,7 @@ class RoundTripTest(CreateBase):
 
     def test_plan_approved_check(self):
         _, folder = self.make()
-        env = dict(CLAUDE_HOOK_ENV, MA_TASKS_DIR=str(self.data), MA_GATE_REPORT_DIR=str(self.root / 'gr'),
+        env = dict(CLAUDE_HOOK_ENV, MA_DATA_DIR=str(self.data), MA_GATE_REPORT_DIR=str(self.root / 'gr'),
                    CLAUDE_CODE_SESSION_ID='s-1')
 
         def hook(path):

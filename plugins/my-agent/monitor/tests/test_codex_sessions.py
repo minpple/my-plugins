@@ -55,7 +55,7 @@ class CodexSessionsTest(unittest.TestCase):
         self.claude, self.codex = self.root / 'claude', self.root / 'codex'
         write_transcript(self.claude, self.claude_dir, ma_usage)
         patch = mock.patch.dict(os.environ, {'MA_TASK_DIR': 'docs/agent', 'MA_CODEX_SESSIONS': str(self.codex),
-                                             'MA_TASKS_DIR': str(self.root / 'data')})
+                                             'MA_DATA_DIR': str(self.root / 'data')})
         patch.start()
         self.addCleanup(patch.stop)
 

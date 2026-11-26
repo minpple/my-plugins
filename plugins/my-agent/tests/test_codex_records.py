@@ -31,7 +31,7 @@ class CodexRecordsTest(unittest.TestCase):
         (self.plugin / 'agents' / 'coder.md').write_text('---\nname: coder\nmodel: opus\neffort: high\n---\nbody\n')
         self.tmpdir = self.root / 'tmp'
         self.tmpdir.mkdir()
-        self.env = {'MA_TASKS_DIR': str(self.root / 'none'), 'CLAUDE_PLUGIN_ROOT': str(self.plugin),
+        self.env = {'MA_DATA_DIR': str(self.root / 'none'), 'CLAUDE_PLUGIN_ROOT': str(self.plugin),
                     'CLAUDE_CODE_EFFORT_LEVEL': '', 'MA_HOST': 'codex', 'TMPDIR': str(self.tmpdir)}
 
     def tearDown(self):
@@ -153,7 +153,7 @@ class CodexRecordsTest(unittest.TestCase):
     def test_data_dir_same_in_both_hosts(self):
         sys.path.insert(0, str(L4 / 'lib'))
         import ma_data
-        keys = ('MA_TASKS_DIR', 'MA_TASK_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR', 'MA_HOST')
+        keys = ('MA_DATA_DIR', 'MA_TASK_DIR', 'CLAUDE_PLUGIN_OPTION_DATA_DIR', 'MA_HOST')
         old = {k: os.environ.pop(k, None) for k in keys}
         try:
             for host in ('claude', 'codex'):
