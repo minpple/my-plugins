@@ -429,6 +429,48 @@ class GitRuleTest(unittest.TestCase):
                 self.assertEqual(ma_bash.write_targets(cmd, CWD), [])
 
 
+class GitReadOnlyTest(unittest.TestCase):
+    """`write_targets(..., read_git_only=True)`: the git forms an own-copy coder may run (plan u2)."""
+
+    def test_cannot_tell(self):
+        for cmd in ('git mv a b', 'cd src && git mv x y', 'sh -c "cd /p/c && git mv a b"',
+                    'git branch --set-upstream-to=x', 'git branch --unset-upstream', 'git branch --edit-description',
+                    'git config --edit', 'git config -e', 'git config edit', 'git config user.name',
+                    'git --git-dir=/s status', 'git --git-dir /s status', 'git --work-tree=/w status',
+                    'GIT_DIR=/s git status', 'export GIT_INDEX_FILE=/x; git status', 'echo a | xargs git status',
+                    'git diff --output=o.txt', 'git grep -O x', 'git -c core.pager=x log',
+                    'git add -A', 'git -C /p/c add -A', 'git --git-dir /s add -A', 'git commit -m x', 'git stash',
+                    'git branch x', 'git tag v1', 'git config --get', 'git config --get a b', 'git config user.name x',
+                    'git config --get --edit a', 'git remote show origin', 'git remote add o u', 'git submodule status',
+                    'git branch --merged', 'git tag -n', 'git branch --sort=x', 'git worktree add x', 'git worktree remove x',
+                    'git stash pop', 'git -C', 'git', 'env GIT_DIR=/s git status', 'sudo git status',
+                    '. ./env.sh; git status', 'set -a; GIT_DIR=/x; git status'):
+            with self.subTest(cmd=cmd):
+                self.assertIsNone(ma_bash.write_targets(cmd, CWD, read_git_only=True))
+
+    def test_read_forms(self):
+        for cmd in ('git status', 'git status --porcelain', 'git diff', 'git diff HEAD', 'git log --oneline',
+                    'git log -3', 'git branch', 'git tag', 'git show HEAD', 'git show x', 'git stash list',
+                    'git rev-parse HEAD', 'git -C sub rev-parse HEAD', 'git ls-files', 'git blame a',
+                    'git -C /p/c diff', 'git --no-pager log -3', 'git stash show', 'git branch -a', 'git branch -vv',
+                    'git branch --show-current', 'git tag -l', 'git config --get user.name',
+                    'git config --get-all user.name', 'git config --list', 'git config -l', 'git worktree list',
+                    'git worktree list --porcelain', 'git remote', 'git remote -v', 'cd /p/c && git log -3',
+                    'git -C /p/c --no-pager status'):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(ma_bash.write_targets(cmd, CWD, read_git_only=True), [])
+
+    def test_other_commands_are_judged_as_before(self):
+        self.assertEqual(ma_bash.write_targets('touch a && git status', CWD, read_git_only=True), [P('/p/a')])
+        self.assertIsNone(ma_bash.write_targets('touch a && git add .', CWD, read_git_only=True))
+
+    def test_default_is_unchanged(self):
+        self.assertEqual(ma_bash.write_targets('git mv a b', CWD), [P('/p/a'), P('/p/b')])
+        self.assertEqual(ma_bash.write_targets('git branch --set-upstream-to=x', CWD), [])
+        self.assertEqual(ma_bash.write_targets('git remote show origin', CWD), [])
+        self.assertEqual(ma_bash.write_targets('GIT_DIR=/s git status', CWD), [])
+
+
 class GitMvTest(unittest.TestCase):
     def test_targets(self):
         self.assertEqual(ma_bash.write_targets('git mv a b', CWD), [P('/p/a'), P('/p/b')])

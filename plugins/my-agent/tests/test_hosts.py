@@ -56,6 +56,14 @@ class HostsTest(unittest.TestCase):
         for path in SHARED:
             self.assertNotIn('codex', path.read_text(encoding='utf-8').lower(), str(path))
 
+    def test_no_unit_copies_in_codex(self):
+        """Criterion 3: Codex has no unit copies; coder units of one parallel group run one at a time."""
+        row = self.find('.claude/worktrees')
+        self.assertEqual(row[1], 'not used in Codex')
+        for text in ('No coder worktree', '`worktree.py`', 'coder units of one parallel group run one at a time in the main tree'):
+            self.assertIn(text, row[2])
+        self.assertIn('not available', self.find('`isolation`')[1])
+
     def test_no_fallback_wording(self):
         text = HOSTS.read_text(encoding='utf-8').lower()
         for word in ('fallback', 'workaround'):

@@ -2,14 +2,18 @@
 import json
 import os
 import tempfile
+import threading
+import time
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest import mock
 
 from helpers import clean_task_env, make_task, parse, records  # also puts lib/ on sys.path
 
 import ma_active
 import ma_logline
+import ma_subagent
 
 
 class SessionJudgementTest(unittest.TestCase):
@@ -218,6 +222,98 @@ class FindActiveTest(unittest.TestCase):
         (self.root / 'plain').mkdir()
         (self.tasks / 'active-index.json').write_text('{not json')
         self.assertIsNone(ma_active.find_active(str(self.root / 'plain'), self.tasks))
+
+    def store_copy(self, loc, name, common):
+        """A copy `<loc>/.claude/worktrees/<name>` that is a linked worktree of the repository `common`."""
+        (common / 'worktrees' / name).mkdir(parents=True)
+        (common / 'worktrees' / name / 'commondir').write_text('../..\n')
+        W = loc / '.claude' / 'worktrees' / name
+        W.mkdir(parents=True)
+        (W / '.git').write_text(f'gitdir: {common / "worktrees" / name}\n')
+        return W
+
+    def test_find_from_inside_a_store_backed_copy(self):
+        """A non-git location: its copy is a linked worktree of the store under the task folder, so no checkout lies
+        above the copy; the `.active` of the location that holds `.claude/worktrees/` is read."""
+        loc = self.root / 'loc'
+        T = make_task(loc, git=False)
+        W = self.store_copy(loc, 'my-agent-261025-probe-task-u1', T / 'copy-store')
+        (W / 'src').mkdir()
+        for cwd in (W, W / 'src'):
+            a = ma_active.find_active(str(cwd), self.tasks)
+            self.assertIsNotNone(a, cwd)
+            self.assertEqual((a.task, a.location), ('261025-probe-task', loc))
+
+    def test_unrelated_copy_folder_is_not_taken(self):
+        """A `my-agent-*` worktree whose common folder lies outside the location is not this location's copy."""
+        loc = self.root / 'loc'
+        make_task(loc, git=False)
+        W = self.store_copy(loc, 'my-agent-x-u1', self.root / 'elsewhere' / 'store')
+        self.assertIsNone(ma_active.find_active(str(W), self.tasks))
+        other = self.store_copy(loc, 'agent-u1', loc / 'store')   # inside the location, but not named my-agent-*
+        self.assertIsNone(ma_active.find_active(str(other), self.tasks))
+
+
+class FirstPromptTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.projects = Path(self.tmp.name).resolve()
+        self.env = mock.patch.dict(os.environ, {'MA_CLAUDE_PROJECTS': str(self.projects)})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def write(self, rel, entries):
+        p = self.projects / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(''.join((e if isinstance(e, str) else json.dumps(e)) + '\n' for e in entries), encoding='utf-8')
+        return p
+
+    def user(self, text):
+        return {'type': 'user', 'message': {'role': 'user', 'content': text}}
+
+    def test_reads_only_up_to_the_first_user_entry(self):
+        self.write('slug/s1/subagents/agent-a1.jsonl', [
+            {'type': 'system'}, '{not json', self.user('Work unit: u1 x\nWorktree: /w'), 'also not json after the prompt'])
+        self.assertEqual(ma_subagent.first_prompt('a1', 's1'), 'Work unit: u1 x\nWorktree: /w')
+
+    def test_text_blocks_are_joined(self):
+        self.write('slug/s1/subagents/agent-a1.jsonl', [
+            {'type': 'user', 'message': {'content': [{'type': 'text', 'text': 'Work unit: u1'},
+                                                       {'type': 'image'}, {'type': 'text', 'text': 'b'}]}}])
+        self.assertEqual(ma_subagent.first_prompt('a1', 's1'), 'Work unit: u1 b')
+
+    def test_falls_back_to_any_session_folder(self):
+        self.write('slug/parent/subagents/agent-a1.jsonl', [self.user('P')])
+        self.assertEqual(ma_subagent.first_prompt('a1', 'other-session'), 'P')
+        self.assertEqual(ma_subagent.first_prompt('a1', None), 'P')
+        self.write('slug/s1/subagents/agent-a1.jsonl', [self.user('S')])
+        self.assertEqual(ma_subagent.first_prompt('a1', 's1'), 'S')   # the session's own folder first
+
+    def test_none_when_missing_or_no_user_entry(self):
+        self.assertIsNone(ma_subagent.first_prompt('a1', 's1'))
+        self.write('slug/s1/subagents/agent-a2.jsonl', [{'type': 'system'}])
+        self.assertIsNone(ma_subagent.first_prompt('a2', 's1'))
+        for bad in ('', None, '../x', 'a/b', '.', '..'):
+            self.assertIsNone(ma_subagent.first_prompt(bad, 's1'), bad)
+
+    def test_wait_retries_until_the_prompt_appears(self):
+        path = self.projects / 'slug' / 's1' / 'subagents' / 'agent-a1.jsonl'
+        timer = threading.Timer(0.5, lambda: self.write('slug/s1/subagents/agent-a1.jsonl', [self.user('late')]))
+        timer.start()
+        try:
+            self.assertIsNone(ma_subagent.first_prompt('a1', 's1'))   # no wait: gives up at once
+            self.assertEqual(ma_subagent.first_prompt('a1', 's1', wait=True), 'late')
+        finally:
+            timer.join()
+        self.assertTrue(path.exists())
+
+    def test_wait_gives_up_after_about_two_seconds(self):
+        start = time.monotonic()
+        self.assertIsNone(ma_subagent.first_prompt('a1', 's1', wait=True))
+        self.assertTrue(1.5 <= time.monotonic() - start < 4)
 
 
 class LineTest(unittest.TestCase):

@@ -6,14 +6,14 @@ minpple의 Claude Code 플러그인 마켓플레이스입니다.
 
 | 플러그인 | 버전 | 설명 |
 |---|---|---|
-| `my-agent` | 0.35.0 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
+| `my-agent` | 0.36.0 | 사람의 승인(HITL)을 끼운 멀티 에이전트 작업 스킬: 계획 → 실행 → 검증 → 리뷰 |
 | `my-agent-tray` | 0.1.8 | my-agent 모니터용 macOS 메뉴바 앱 (선택; my-agent 0.5.0 이상 필요) |
 
 ## 요구 사항
 
 - 플러그인을 지원하는 Claude Code. Claude Code 2.1.311로 테스트했고, 최소 버전은 확인하지 않았습니다.
 - Python 3.9 이상, `PATH`에서 `python3`로 실행 가능(표준 라이브러리만 씀). Python 3.13.7로 테스트했습니다. hook, 스크립트, 모니터 서버가 이것으로 돕니다.
-- git: `dev` 프로파일(기준 커밋, worktree, 커밋)에 필요. git 2.50.1로 테스트했습니다.
+- git: `dev` 프로파일(기준 커밋, 병렬 coder의 작업 단위 복사본, 커밋)에 필요. git 2.50.1로 테스트했습니다.
 - macOS: 모니터의 창 열기에 필요. macOS 27.0.1에서 테스트했습니다. 다른 플랫폼에서는 모니터가 표준 브라우저 열기 도구로 탭을 열지만 시험하지 않았습니다. Linux와 Windows는 시험하지 않았습니다: hook이 `python3`를 부릅니다.
 - 선택, 메뉴바 앱(`my-agent-tray` 플러그인)에만: macOS 12 이상의 Command Line Tools(`swiftc`). Xcode는 필요 없습니다. Swift 6.3.3으로 테스트했고, 더 낮은 Swift 버전은 시험하지 않았습니다.
 - 선택, Codex에서 my-agent를 쓰려면: 플러그인을 지원하는 Codex CLI. codex-cli 0.166.0으로 테스트했고, 다른 버전은 시험하지 않았습니다.
@@ -50,7 +50,7 @@ codex plugin add my-agent@my-plugins
 - Codex는 에이전트 정의를 플러그인이 아니라 `~/.codex/agents/`에서 불러옵니다. Intake가 my-agent 역할 열 개를 `my-agent-<role>`로 그곳에 설치하므로 Codex가 서브에이전트를 my-agent 역할로 실행합니다. 설치되기 전에는 Codex가 그 이름을 거부하고, 서브에이전트 시작·종료 기록과 역할 기반 점검이 적용되지 않습니다.
 - 작업을 시작할 때 Intake가 `~/.codex/agents/`의 my-agent 에이전트 열 개를 점검하고, 없거나 오래되었으면 설치하기 전에 물어봅니다(`build-codex.py --install-agents`). my-agent 버전 주석이 없는 파일은 덮어쓰지 않습니다. 새 에이전트는 새 Codex 세션에서 보입니다.
 - `/my-agent:monitor`는 Codex에서 스킬 `my-agent:monitor`이며, Codex가 목록에 올립니다.
-- Codex에서 다른 점: coder worktree 없음, 백그라운드 시작 없음, 플러그인 설정이 전달되지 않음. Codex에는 자체 G2 권한 대화상자가 없습니다. 위험한 작업은 호출을 멈추고, my-agent가 자기 팝업으로 묻고, `Allow once` 뒤에 그 호출 하나만 통과시킵니다. 모델 프리셋은 `agent-models.json`의 `codex` 섹션으로 Codex에서도 적용되고, 에이전트의 `tools`와 `maxTurns`는 쓸 수 없습니다. `plugins/my-agent/l1-orchestration/hosts.md`가 이름을 하나씩 대응시키고, `plugins/my-agent/docs/build-guide/my-agent-architecture.md`의 4.14절에 제한이 정리되어 있습니다.
+- Codex에서 다른 점: coder 작업 단위 복사본 없음, 백그라운드 시작 없음, 플러그인 설정이 전달되지 않음. Codex에는 자체 G2 권한 대화상자가 없습니다. 위험한 작업은 호출을 멈추고, my-agent가 자기 팝업으로 묻고, `Allow once` 뒤에 그 호출 하나만 통과시킵니다. 모델 프리셋은 `agent-models.json`의 `codex` 섹션으로 Codex에서도 적용되고, 에이전트의 `tools`와 `maxTurns`는 쓸 수 없습니다. `plugins/my-agent/l1-orchestration/hosts.md`가 이름을 하나씩 대응시키고, `plugins/my-agent/docs/build-guide/my-agent-architecture.md`의 4.14절에 제한이 정리되어 있습니다.
 
 ## Antigravity에서 쓰기
 

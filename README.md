@@ -6,14 +6,14 @@ A Claude Code plugin marketplace by minpple.
 
 | Plugin | Version | Description |
 |---|---|---|
-| `my-agent` | 0.35.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
+| `my-agent` | 0.36.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
 | `my-agent-tray` | 0.1.8 | macOS menu bar app for the my-agent monitor (optional; needs my-agent 0.5.0 or later) |
 
 ## Requirements
 
 - Claude Code with plugin support. Tested with Claude Code 2.1.311; the minimum version was not checked.
 - Python 3.9 or later, available as `python3` in `PATH` (standard library only). Tested with Python 3.13.7. Hooks, scripts and the monitor server run on it.
-- git, for the `dev` profile (base commit, worktrees, commit). Tested with git 2.50.1.
+- git, for the `dev` profile (base commit, unit copies of parallel coders, commit). Tested with git 2.50.1.
 - macOS, for the monitor's window opening. Tested on macOS 27.0.1. On other platforms the monitor opens a tab through the standard browser opener; this was not tried. Linux and Windows were not tried: the hooks call `python3`.
 - Optional, for the menu bar app (the `my-agent-tray` plugin) only: Command Line Tools (`swiftc`) on macOS 12 or later; Xcode is not required. Tested with Swift 6.3.3; older Swift versions were not tried.
 - Optional, to use my-agent in Codex: Codex CLI with plugin support. Tested with codex-cli 0.166.0; other versions were not tried.
@@ -50,7 +50,7 @@ codex plugin add my-agent@my-plugins
 - Codex loads agent definitions from `~/.codex/agents/`, not from the plugin. Intake installs the ten my-agent roles there as `my-agent-<role>`, so Codex runs subagents as my-agent roles. Until they are installed, Codex refuses the names, and the subagent start and stop records and the role-based checks do not apply.
 - At the start of a task Intake checks the ten my-agent agents in `~/.codex/agents/` and, when they are missing or stale, asks before installing them (`build-codex.py --install-agents`). A file without the my-agent version comment is never overwritten. New agents show in a new Codex session.
 - `/my-agent:monitor` is the skill `my-agent:monitor` in Codex, and Codex lists it.
-- Codex differs in some places: no coder worktree, no background start, and the plugin settings are not passed. Codex has no G2 permission dialog of its own: a risky action stops the call, my-agent asks in its own popup, and after `Allow once` it lets that one call through. Model presets apply on Codex through the `codex` section of `agent-models.json`; agent `tools` and `maxTurns` are not available. `plugins/my-agent/l1-orchestration/hosts.md` maps each name, and section 4.14 of `plugins/my-agent/docs/build-guide/my-agent-architecture.md` lists the limits.
+- Codex differs in some places: no coder unit copies, no background start, and the plugin settings are not passed. Codex has no G2 permission dialog of its own: a risky action stops the call, my-agent asks in its own popup, and after `Allow once` it lets that one call through. Model presets apply on Codex through the `codex` section of `agent-models.json`; agent `tools` and `maxTurns` are not available. `plugins/my-agent/l1-orchestration/hosts.md` maps each name, and section 4.14 of `plugins/my-agent/docs/build-guide/my-agent-architecture.md` lists the limits.
 
 ## Use in Antigravity
 

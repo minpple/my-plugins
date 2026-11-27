@@ -81,6 +81,10 @@ class AgentsTest(unittest.TestCase):
         self.assertIn('Stop every process you start', coder)
         self.assertIn('Use no port from 8765 to 8775', coder)
         self.assertIn('Write no shared state outside your worktree', coder)
+        for s in ('`Worktree: <path>`', '`cd <path> && <command>`', 'write nothing in the task location itself',
+                  'names a task-location path at the same path under the copy',
+                  '`Not run in copy: <command> (<missing>)`'):
+            self.assertIn(s, coder)
 
     def test_coder_has_no_result_path(self):
         coder = (REPO / 'l3-workers' / 'agents' / 'coder.md').read_text(encoding='utf-8')
@@ -375,7 +379,7 @@ class AgentsTest(unittest.TestCase):
         self.assertNotIn('tagged with its number, in a unit that carries that criterion', dev)  # the lint's mark check
         self.assertIn('every exception case in the scope has a test to add tagged with it', dev)
         self.assertIn('An existing test that asserts behavior the plan changes', dev)
-        self.assertEqual(dev.split('**Test coverage:**')[1].split('**Worktree:**')[0].count('SHOULD-FIX'), 3)
+        self.assertEqual(dev.split('**Test coverage:**')[1].split('**Group order:**')[0].count('SHOULD-FIX'), 3)
         a = self._agent('architect')
         self.assertIn('`(criterion <n>)` or `(exception: <case>)`', a)
         self.assertIn('plan-reviewer judges this coverage', a)
@@ -394,10 +398,15 @@ class AgentsTest(unittest.TestCase):
         p = general('plan-reviewer')
         self.assertNotIn('## Scope summary', p)
         self.assertIn('A criterion with no command is a BLOCKER', p)
-        self.assertIn('shares its parallel group with no other coder unit', p)
+        self.assertNotIn('shares its parallel group with no other coder unit', p)
         a = general('architect')
         self.assertIn('`Files to change` (paths in the task location, changed in place) and its check commands', a)
-        self.assertIn('no two coder units share a parallel group', a)
+        self.assertIn('Coder units of one parallel group run at the same time, each in its own copy', a)
+        self.assertIn("needs an earlier unit's result, changes a file an earlier unit changes, or the group is full (4 units)",
+                      self.dev_section('architect.md'))
+        self.assertNotIn('first parallel group', a)
+        self.assertNotIn('use no parallel groups', a)
+        self.assertNotIn('no two coder units share a parallel group', a)
         v = general('verifier')
         self.assertIn('or the plan names none, the criterion is FAIL', v)
         self.assertIn("do the research profile's quote check on them", v)
@@ -409,10 +418,14 @@ class AgentsTest(unittest.TestCase):
         profile = (REPO / 'l1-orchestration' / 'profiles' / 'general.md').read_text(encoding='utf-8')
         self.assertIn('asked 3 times: G1-A, G1-B, G3', profile)
         self.assertIn('confirm with G1-A', profile)
-        self.assertIn('call it without `isolation: "worktree"`', profile)
+        self.assertNotIn('call it without `isolation: "worktree"`', profile)
+        self.assertNotIn('Each coder unit has a parallel group of its own', profile)
+        self.assertIn('Coder units of one parallel group run at the same time, each in its own copy', profile)   # criterion 3
         self.assertIn('the files coder units changed in place', profile)
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
-        self.assertIn('In the dev profile, give coder the call argument `isolation: "worktree"`', build)
+        self.assertNotIn('In the dev profile, give coder the call argument `isolation: "worktree"`', build)
+        self.assertNotIn('isolation: "worktree"', build)
+        self.assertIn('`unit-copies.md`', build)
 
     def test_architect_models_section(self):
         """Architect writes `## Models` after `## Estimate`, from the preset lines L1 passes."""

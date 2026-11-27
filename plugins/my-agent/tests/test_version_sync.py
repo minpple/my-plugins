@@ -32,6 +32,16 @@ class VersionSyncTest(unittest.TestCase):
         self.assertEqual(readme_version('my-agent-tray', 'README.md'), tray)
         self.assertEqual(readme_version('my-agent-tray', 'README-ko.md'), tray)
 
+    def test_maintenance_notes_record_0_36_0(self):
+        notes = (REPO / 'maintenance-notes.md').read_text(encoding='utf-8')
+        start = '- 2026-11-27 (ARCH v0.85, plugin 0.36.0'
+        for heading, words in (('L1 orchestration', ('unit-copies.md',)), ('L2 design', ('unit copies',)),
+                               ('L3 workers', ('Worktree:',)),
+                               ('L4 tools · guards', ('worktree.py', 'cd-guard.py', 'fail-closed'))):
+            section = notes.split('\n## %s' % heading, 1)[1].split('\n## ', 1)[0]
+            found = [line for line in section.splitlines() if line.startswith(start)]
+            self.assertTrue(any(all(w in line for w in words) for line in found), (heading, words))
+
     def test_maintenance_notes_record_0_35_0(self):
         notes = (REPO / 'maintenance-notes.md').read_text(encoding='utf-8')
 

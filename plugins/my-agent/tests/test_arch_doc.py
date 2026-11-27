@@ -167,7 +167,7 @@ class ArchDocTest(unittest.TestCase):
     def test_decision_log_has_q39_and_q40_once_after_q38(self):
         rows = re.findall(r'^\| (Q\d+) \|', self.text, re.M)
         self.assertEqual(len(rows), len(set(rows)), rows)
-        self.assertEqual(rows[-5:], ['Q41', 'Q42', 'Q43', 'Q44', 'Q45'])
+        self.assertEqual(rows[-6:], ['Q41', 'Q42', 'Q43', 'Q44', 'Q45', 'Q46'])
         q39 = next(l for l in self.text.splitlines() if l.startswith('| Q39 |'))
         q40 = next(l for l in self.text.splitlines() if l.startswith('| Q40 |'))
         self.assertIn('capped at 3 rounds', q39)
@@ -228,10 +228,11 @@ class ArchDocTest(unittest.TestCase):
             self.assertIn(word, text)
 
     def test_worktree_removal_refused_in_design(self):
-        line = self.line_of('- **Worktree removal after the compare (#83):**')
+        line = self.line_of('- **Worktree removal after the compare for a leftover harness worktree (#83):**')
         for word in ('refused', 'one attempt', 'keeps that worktree and its branch', '"Open risks"',
                      'no popup', 'no `git worktree unlock`'):
             self.assertIn(word, line)
+        self.assertIn('Unit-copy removal after the compare', self.text)
 
     def test_check_command_form_in_design(self):
         line = self.line_of('**Check command form (2026-11-24, plugin 0.29.1)')
@@ -241,7 +242,9 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.84 (2026-11-26, plugin 0.35.0:'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.85 (2026-11-27, plugin 0.36.0:'), line[:110])
+        self.assertIn('v0.84 (2026-11-26, plugin 0.35.0:', line)
+        self.assertNotIn('design draft v0.84', line)
         self.assertIn('v0.83 (2026-11-26, plugin 0.34.0:', line)
         self.assertNotIn('design draft v0.83', line)
         self.assertIn('v0.82 (2026-11-26, plugin 0.33.0:', line)
@@ -564,6 +567,26 @@ class ArchDocTest(unittest.TestCase):
             self.assertIn('`Cd(...)` rule', part, name)
             self.assertIn(mark, part, name)
             self.assertLess(part.index('`Cd(...)` rule'), part.index(mark), name)
+
+    def test_task_ending_steps_name_worktree_cleanup_not_cd_guard_remove(self):
+        # criterion 16: every task-ending path removes the `Cd(...)` rule through `worktree.py cleanup` (4.6), which runs
+        # `cd-guard.py --remove` itself; no step line tells L1 to run `cd-guard.py --remove` directly
+        text = self.text
+        cont = text[text.index('**If `Status: done` (the session was cut off'):]
+        cont = cont[:cont.index('\n')]
+        abort = text[text.index('**Abort**\n\nThe procedure when'):]
+        abort = abort[abort.index('\n3. '):abort.index('\n4. ')]
+        accept = next(l for l in text.splitlines() if l.strip().startswith('3. Last,') and 'active-index.json' in l)
+        q17 = next(l for l in text.splitlines() if l.startswith('| Q17 |'))
+        s44 = next(l for l in text.splitlines() if 'removed on every path that deletes `.active`' in l)
+        for name, part in (('continue', cont), ('abort', abort), ('accept', accept), ('Q17', q17), ('4.4 bullet', s44)):
+            self.assertIn('`worktree.py cleanup`', part, name)
+            self.assertIn('4.6', part, name)
+            self.assertIn('cd-guard.py --remove', part, name)
+            self.assertNotIn('rule with `cd-guard.py --remove`', part, name)
+            self.assertNotIn('rule (`cd-guard.py --remove`', part, name)
+            self.assertNotIn('L1 runs `cd-guard.py --remove', part, name)
+        self.assertNotIn('rule with `cd-guard.py --remove`', text)
 
     def test_gate_section_has_the_ask_texts(self):
         section = self.section('### 4.4 ', '### 4.5 ')
@@ -957,6 +980,78 @@ class ArchDocTest(unittest.TestCase):
                 self.assertNotIn(stale, line, stale)
         self.assert_words(guard, ('cannot write <record>', 'cannot write <file>',
                                   '`added`, `taken over`, `present` or `not added`'))
+
+    def test_unit_copy_removal_in_design(self):
+        """Criterion 16: the refused-removal wording covers unit copies and keeps the harness worktree wording."""
+        copy = self.line_of('- **Unit-copy removal after the compare (plugin 0.36.0):**')
+        self.assert_words(copy, ('`worktree.py merge`', 'one `--force`', 'refused and kept, never unlocked', '"Open risks"',
+                                 'ask no popup', '`kept: <path> (<cause>)`'))
+        old = self.line_of('- **Worktree removal after the compare for a leftover harness worktree (#83):**')
+        self.assert_words(old, ('`git worktree remove --force <worktree>`', 'one attempt per worktree', 'no `git branch -D`',
+                                'no popup', 'no `git worktree unlock`', 'dev.md` 3B Merge'))
+
+    def test_unit_copies_in_4_6_and_q46(self):
+        """Criteria 3, 15: 4.6 names the tool, the store, the state file, exit 3, the session guard rule and cleanup;
+        the decision row records the plan's answers, the inline coder role included."""
+        s46 = self.section('### 4.6 ', '### 4.7 ')
+        self.assert_words(s46, ('`worktree.py`', '`<task folder>/copy-store`', '`unit-copies.json`', 'exit 3',
+                                '`sequential: <reason>`', '`Cd(/<resolved location>/.claude/worktrees/**)`',
+                                '`cleanup`', '`cd-guard.py --remove`', 'Outcome table', '`merge` exit 1', '`keep`',
+                                'Base compare before the apply', 'a coder group run in a workflow',
+                                'Session guard before the first copy, every profile', 'sweep'))
+        self.assertNotIn('only the first parallel group', s46)
+        self.assertNotIn('isolation: "worktree"` in the Agent call only', s46)
+        row = self.line_of('| Q46 | Parallel coders in unit copies')
+        self.assert_words(row, ('(1) **Resume and abort:**', '`(running)` copy gets the `Merge` / `Redo` / `Discard` popup',
+                                '`(kept)` copy gets one chat line', 'approved `## Existing work` rows',
+                                '(2) **Absolute paths in check commands:**', '(3) **A unit\'s change to an ignored file**',
+                                '(4) **Ignored files absent from copies:**', '`Not run in copy:`',
+                                '(5) **Transcript first line and the fail-closed guard:**', '(6) **A session in a linked worktree',
+                                '(7) **No size popup:**', '(8) **A coder group run in a workflow uses copies too:**',
+                                '(9) **An inline coder role (`pass=inline`) gets no copies:**', '"Apply all"',
+                                "criterion 3", 'Not taken'))
+        self.assertIn('Superseded 2026-11-27 (plugin 0.36.0) by Q46', self.line_of('| Q9 | Parallel coders in the dev profile'))
+
+    def test_git_mv_and_read_git_forms_for_a_copy_coder(self):
+        """Criterion 12: a coder in its own copy is refused `git mv` and git commands but the read forms; the main-tree
+        and F19 coders keep the allowance."""
+        mv = self.line_of("- The coder's `git mv <src> <dst>` is allowed when both paths are in its write root")
+        self.assert_words(mv, ('main-tree coder and a F19 `agent-<id>` coder', 'unchanged',
+                               'A coder in its own unit copy is refused `git mv` and every git command except the read forms',
+                               '`write_targets(read_git_only=True)`', '`GIT_READ`', '`stash list`/`show`',
+                               'listing `branch` and `tag`', '`config --get`/`--get-all`/`--list`', '`worktree list`',
+                               'bare `remote` and `remote -v`', 'no `GIT_*` variable',
+                               'read-only git commands stay allowed for it'))
+        limits = self.line_of('- **read and write path limits:**')
+        self.assert_words(limits, ('refused `git mv` and every git command except the read forms', 'F19 `agent-<id>` coder'))
+        copy = self.section('  - **Which copy is the coder\'s own', '  - **Which worktree is the coder\'s own, F19')
+        self.assert_words(copy, ('`git mv`, `git add`', 'read-only git commands stay allowed', '`stash list`/`show`',
+                                 'listing `branch` and `tag`', 'bare `remote` and `remote -v`', 'A bare `git config <name>`',
+                                 'Own copy (row 7)', '| 10 |'))
+        self.assertIn('`git mv`', self.section('### 4.12 ', '## 5. '))
+
+    def test_no_first_group_only_wording_and_active_lookup_names_the_copy_step(self):
+        """Criterion 16: no line outside the version history says coder worktrees are used only in the first group; the
+        `.active` lookup names the store-backed copy step."""
+        for line in self.text.splitlines():
+            if line.startswith('- Status: '):
+                continue
+            if 'first parallel group' in line or 'only for the first group' in line:
+                # the superseded Q9 row and the 0.36.0 text may name the old rule as history
+                self.assertTrue('Superseded' in line or 'replaces' in line or 'earlier rule' in line
+                                or 'no longer' in line or 'not needed' in line or '2026-10-25' in line, line[:160])
+        self.assertNotIn('Subagents (coder uses a worktree only for the first parallel group)', self.text)
+        self.assertNotIn('Parallel coders use worktrees only for the first group', self.text)
+        self.assertNotIn('So L1 passes `isolation: "worktree"` in the Agent call only when delegating the first parallel group', self.text)
+        self.assertNotIn('Put `worktree.baseRef: "head"` in `~/.claude/settings.json` (approved at install)', self.text)
+        order = self.line_of('  1. `<task_dir>/.active` at the root of the git repository the launch folder belongs to.')
+        self.assert_words(order, ('`ma_active.find_active`', '`my-agent-*` directly under `<X>/.claude/worktrees/`',
+                                  'common git folder lies inside `X`', 'store-backed copy step'))
+
+    def test_file_layout_names_unit_copies(self):
+        """Criterion 16: 4.7 "File layout" lists the rule file, the state file, the store and the patch."""
+        layout = self.section('### 4.7 ', '### 4.7.1 ')
+        self.assert_words(layout, ('unit-copies.md', 'unit-copies.json', 'copy-store/', '<unit>.patch', 'worktree (coder unit copies'))
 
     def test_reference_articles_list_both_local_copies(self):
         ref = (REPO / 'docs' / 'reference.md').read_text(encoding='utf-8')

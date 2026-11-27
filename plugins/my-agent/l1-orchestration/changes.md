@@ -70,9 +70,9 @@ When `Abort` was picked in a popup, or Intake decided to abort the previous task
 1. Start no new delegation. Wait until background subagents finish; stop a workflow with TaskStop.
 2. If delegated approval is on, run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" delegate state=off how=end --data-dir "<data folder>" --task-dir "<task_dir>"`. Change `intake.md` to `Status: aborted <YYYY-MM-DD HH:MM> <reason>` and run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" abort why="<reason>" --data-dir "<data folder>" --task-dir "<task_dir>"`.
    Then run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/usage-snapshot.py" --data-dir "<data folder>" --task-dir "<task_dir>"` (saves the main session's tokens per step to `main-usage.json`; on exit 3, state the printed cause in one line and go on).
-3. Run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/cd-guard.py" --remove --location "<task location>" --task "<absolute task folder>"` and show its line. Delete `.active`, and if `<data folder>/active-index.json` has a line for this task location, delete only that line.
-4. Leave the task folder as is. Report the leftover worktrees and the list of uncommitted changes this task left in the main tree.
-5. Popup: `Leave as is (Recommended)` / `Clean up worktrees`. Do not revert changes in the main tree.
+3. Run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/worktree.py" cleanup --location "<task location>" --task "<absolute task folder>"` and show its lines. Delete `.active` and this task location's line in `<data folder>/active-index.json`.
+4. Leave the task folder as is. Report the leftover copies (`worktree.py list`), worktrees and this task's uncommitted changes in the main tree.
+5. Popup: `Leave as is (Recommended)` / `Clean up worktrees`. `Clean up worktrees`: `worktree.py remove` per copy, then `cleanup` again. Do not revert changes in the main tree.
 
 - To do an aborted task again, create a new task and write `Follows:`.
 

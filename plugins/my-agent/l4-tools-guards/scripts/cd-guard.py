@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Keep the session out of the coder worktrees of a task location (architecture 4.6 "Session folder guard").
+"""Keep the session out of the copies folder of a task location (architecture 4.6 "Session folder guard").
 
 usage: cd-guard.py --location TASK_LOCATION --task TASK_FOLDER
        cd-guard.py --remove --location TASK_LOCATION --task TASK_FOLDER
 
-Adds the deny rule `Cd(/<resolved location>/.claude/worktrees/agent-*/**)` to
+Adds the deny rule `Cd(/<resolved location>/.claude/worktrees/**)` to
 `<location>/.claude/settings.local.json` (`permissions.deny`), creating the file when it is missing and keeping
 everything else in it. Claude Code checks `Cd(...)` rules on every move of a session's folder (`/cd` and a host's
-move request), so a move into `agent-<id>` is refused; a coder starts in its worktree and is not affected, and
-`task-<id>` worktrees do not match. In a git repository that does not ignore the file yet, the line
+move request), so a move into any folder under `.claude/worktrees` is refused: unit copies, harness `agent-<id>`
+worktrees, task worktrees and any other folder there. A coder starts in its copy and is not affected. In a git repository that does not ignore the file yet, the line
 `.claude/settings.local.json` is added to the clone's `info/exclude`, so the file stays out of the task's commit.
 
 Prints one line: `cd-guard: added <rule> to <file> (<startup warning note>)` (then ` (new file: …)` when the file was
@@ -47,7 +47,7 @@ RULE_BREAKERS = '()*?[]{}\n'
 
 
 def rule_for(location: Path) -> str:
-    return f'Cd(/{location.as_posix()}/.claude/worktrees/agent-*/**)'
+    return f'Cd(/{location.as_posix()}/.claude/worktrees/**)'
 
 
 RECORD = 'cd-guard.json'

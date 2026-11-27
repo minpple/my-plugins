@@ -1,11 +1,15 @@
 """scope-guard.py: per-agent read/write scope for my-agent:* agents (architecture 4.5 "read and write path limits", 4.12)."""
 import json
 import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from helpers import CLAUDE_HOOK_ENV, clean_task_env, make_task, records, rel, run_hook
+import ma_active
 import ma_logline
 
 TASK = '261025-probe-task'
@@ -745,6 +749,345 @@ class ScopeGuardTest(unittest.TestCase):
         r = run_hook('scope-guard.py', None, payload, self.L, env=self.env)
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual(r.stdout, '')
+
+
+class UnitCopyTest(unittest.TestCase):
+    """The guard state model for per-unit copies (plan "Guard state model", rows 1-10)."""
+    hook, denied = ScopeGuardTest.hook, ScopeGuardTest.denied
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        self.projects = self.root / 'claude-projects'
+        self.env = dict(CLAUDE_HOOK_ENV, MA_DATA_DIR=str(self.root / 'agent-tasks'), MA_CLAUDE_PROJECTS=str(self.projects))
+        self.next_agent = 0
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def world(self, kind):
+        """A location of `kind`: 'git', 'nongit' (the repository of its copies is the store under the task folder) or
+        'linked' (the location is itself a linked worktree). Returns (location, task folder, common git dir)."""
+        if kind == 'git':
+            L = self.root / 'git'
+            T = make_task(L, task=TASK)
+            common = L / '.git'
+        elif kind == 'nongit':
+            L = self.root / 'nongit'
+            T = make_task(L, task=TASK, git=False)
+            common = T / 'copy-store'
+            common.mkdir()
+        else:
+            main = self.root / 'main'
+            common = main / '.git'
+            L = main / '.claude' / 'worktrees' / 'task-x'
+            T = make_task(L, task=TASK, git=False)
+            (common / 'worktrees' / 'task-x').mkdir(parents=True)
+            (common / 'worktrees' / 'task-x' / 'commondir').write_text('../..\n')
+            (L / '.git').write_text(f'gitdir: {common / "worktrees" / "task-x"}\n')
+        (L / 'src').mkdir(exist_ok=True)
+        (L / 'docs' / 'blueprint').mkdir(parents=True, exist_ok=True)
+        self.L, self.T, self.common = L, T, common
+        return L, T, common
+
+    def copy_path(self, unit, L=None):
+        return (L or self.L) / '.claude' / 'worktrees' / f'my-agent-{TASK}-{unit}'
+
+    def add_copy(self, unit, common=None, plain=False):
+        """A linked worktree of `common` at the copy path of `unit` (`plain`: a plain folder)."""
+        W = self.copy_path(unit)
+        (W / 'src').mkdir(parents=True)
+        if not plain:
+            gitdir = (common or self.common) / 'worktrees' / W.name
+            gitdir.mkdir(parents=True)
+            (gitdir / 'commondir').write_text('../..\n')
+            (W / '.git').write_text(f'gitdir: {gitdir}\n')
+        return W
+
+    def running(self, *units):
+        (self.T / 'unit-copies.json').write_text(json.dumps({'running': list(units), 'created': []}))
+
+    def agent(self, prompt):
+        """A coder whose transcript starts with `prompt` (None: no transcript); returns its agent id."""
+        self.next_agent += 1
+        aid = f'c{self.next_agent}'
+        if prompt is not None:
+            p = self.projects / 'slug' / 'sess-1' / 'subagents' / f'agent-{aid}.jsonl'
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps({'type': 'user', 'message': {'role': 'user', 'content': prompt}}) + '\n')
+        return aid
+
+    def coder(self, prompt, tool, ti, cwd=None, aid=None):
+        return self.denied('my-agent:coder', tool, ti, cwd=cwd or self.L, agent_id=aid or self.agent(prompt))
+
+    def refused(self, prompt, cwd=None, why=None):
+        """Every write is denied with the refusal reason, reads are allowed."""
+        aid = self.agent(prompt)
+        kw = dict(cwd=cwd or self.L, agent_id=aid)
+        for ti in ({'file_path': str(self.L / 'src/a.py'), 'content': 'x'},
+                   {'file_path': str(self.copy_path('u1') / 'src/a.py'), 'content': 'x'}):
+            r = self.hook('my-agent:coder', 'Write', ti, **kw)
+            out = json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason']
+            self.assertIn("Cannot tell this coder's work unit (", out)
+            self.assertIn('writes are refused while unit copies run', out)
+            if why:
+                self.assertIn(why, out)
+        self.assertTrue(self.denied('my-agent:coder', 'Bash', {'command': 'touch src/a.py'}, **kw))
+        self.assertTrue(self.denied('my-agent:coder', 'Bash', {'command': f'touch {self.L}/src/a.py'}, **kw))
+        self.assertFalse(self.denied('my-agent:coder', 'Read', {'file_path': str(self.T / 'plan.md')}, **kw))
+        self.assertFalse(self.denied('my-agent:coder', 'Bash', {'command': 'git status'}, **kw))
+        self.assertFalse(self.denied('my-agent:coder', 'Bash', {'command': f'cat {self.L}/src/a.py'}, **kw))
+
+    def prompt(self, unit, W=None, tail='Implement it.'):
+        return f'Work unit: {unit} name\n' + (f'Worktree: {W}\n' if W else '') + tail
+
+    def test_own_copy_writes(self):
+        """Row 7 in a git location, a non-git location and a location that is a linked worktree."""
+        for kind in ('git', 'nongit', 'linked'):
+            with self.subTest(kind=kind):
+                L, T, common = self.world(kind)
+                W1, W2 = self.add_copy('u1'), self.add_copy('u2')
+                self.running('u1', 'u2')
+                p = self.prompt('u1', W1)
+                for cwd in (L, W1):
+                    with self.subTest(cwd=str(cwd)):
+                        for tool, ti in (('Write', {'file_path': str(W1 / 'src/a.py'), 'content': 'x'}),
+                                         ('Edit', {'file_path': str(W1 / 'src/a.py')}),
+                                         ('Bash', {'command': f'touch {W1}/src/b.py'}),
+                                         ('Bash', {'command': f'cd {W1} && touch src/c.py'}),
+                                         ('Read', {'file_path': str(W1 / 'src/a.py')}),
+                                         ('Read', {'file_path': str(T / 'plan.md')})):
+                            self.assertFalse(self.coder(p, tool, ti, cwd=cwd), (tool, ti))
+                        for path in (L / 'src/a.py', W2 / 'src/a.py', W1 / '.git/x', W1 / '.claude/settings.local.json',
+                                     W1 / '.claude/hooks/x', W1 / 'docs/blueprint/decisions.md',
+                                     L / 'docs/blueprint/decisions.md', records(L) / 'x/y', T / 'work/a.md',
+                                     common / 'worktrees' / W1.name / 'index', T / 'copy-store/HEAD'):
+                            self.assertTrue(self.coder(p, 'Write', {'file_path': str(path), 'content': 'x'}, cwd=cwd), path)
+                        self.assertTrue(self.coder(p, 'Bash', {'command': f'touch {L}/src/a.py'}, cwd=cwd))
+                        self.assertTrue(self.coder(p, 'Bash', {'command': f'cd {W1} && touch .claude/x'}, cwd=cwd))
+                        self.assertTrue(self.coder(p, 'Bash', {'command': f'cd {W1} && touch {W1.parent}/y'}, cwd=cwd))
+
+    def test_copy_path_that_is_missing_or_plain_is_refused(self):
+        self.world('git')
+        W1 = self.copy_path('u1')
+        self.running('u1')
+        self.refused(self.prompt('u1', W1))
+        self.add_copy('u1', plain=True)
+        self.refused(self.prompt('u1', W1))
+
+    def test_unrelated_repository_copy_is_refused(self):
+        self.world('git')
+        other = self.root / 'other' / '.git'
+        other.mkdir(parents=True)
+        W1 = self.add_copy('u1', common=other)
+        self.running('u1')
+        self.refused(self.prompt('u1', W1))
+
+    def test_no_worktree_line_while_the_unit_runs_is_refused(self):
+        self.world('git')
+        self.add_copy('u1')
+        self.running('u1')
+        self.refused(self.prompt('u1'))
+        self.refused(self.prompt('u1', tail='\nWorktree: ' + str(self.copy_path('u1'))))   # not the second line
+
+    def test_copy_of_a_unit_that_no_longer_runs_is_refused(self):
+        self.world('git')
+        W1 = self.add_copy('u1')
+        self.running('u2')
+        self.refused(self.prompt('u1', W1))
+        self.running()
+        self.refused(self.prompt('u1', W1))   # row 8 holds with nothing running
+
+    def test_main_tree_rerun_of_a_unit_with_a_kept_copy(self):
+        self.world('git')
+        W1 = self.add_copy('u1')
+        self.running()
+        p = self.prompt('u1')
+        self.assertFalse(self.coder(p, 'Edit', {'file_path': str(self.L / 'src/a.py')}))
+        self.assertFalse(self.coder(p, 'Bash', {'command': 'touch src/x.py'}))
+        self.assertTrue(self.coder(p, 'Write', {'file_path': str(W1 / 'src/a.py'), 'content': 'x'}))
+        self.assertTrue(self.coder(p, 'Bash', {'command': f'touch {W1}/src/b.py'}))
+        self.assertTrue(self.coder(p, 'Write', {'file_path': str(self.L / '.claude/settings.local.json'), 'content': 'x'}))
+
+    def test_other_unit_with_a_kept_copy_keeps_the_main_tree_rules(self):
+        self.world('git')
+        W1, W2, W3 = self.add_copy('u1'), self.add_copy('u2'), self.add_copy('u3')
+        self.running('u1', 'u2')
+        p = self.prompt('u3')
+        self.assertFalse(self.coder(p, 'Write', {'file_path': str(self.L / 'src/a.py'), 'content': 'x'}))
+        for W in (W1, W2, W3):
+            self.assertTrue(self.coder(p, 'Write', {'file_path': str(W / 'src/a.py'), 'content': 'x'}), W)
+        self.refused('Please fix the build.')                # no `Work unit:` and no `Worktree:` line (row 3)
+
+    def test_work_unit_must_be_the_first_line(self):
+        self.world('git')
+        self.running('u1')
+        self.refused('Intro\nWork unit: u9 elsewhere')
+        self.refused('\nWork unit: u9 elsewhere')
+
+    def test_second_line_is_the_only_worktree_line(self):
+        self.world('git')
+        W1 = self.add_copy('u1')
+        self.running('u2')
+        elsewhere = self.root / 'elsewhere'
+        p = self.prompt('u1', tail=f'Pass list:\nWorktree: {elsewhere}\n')   # u1 not running, no line under the first
+        self.assertFalse(self.coder(p, 'Write', {'file_path': str(self.L / 'src/a.py'), 'content': 'x'}))
+        self.running('u1')
+        own = self.prompt('u1', W1, tail=f'Notes\nWorktree: {elsewhere}\n')
+        self.assertFalse(self.coder(own, 'Write', {'file_path': str(W1 / 'src/a.py'), 'content': 'x'}))
+        self.assertTrue(self.coder(own, 'Write', {'file_path': str(self.L / 'src/a.py'), 'content': 'x'}))
+
+    def test_other_worktree_paths_are_refused(self):
+        self.world('git')
+        W1, W2 = self.add_copy('u1'), self.add_copy('u2')
+        for running in (('u1', 'u2'), ()):
+            self.running(*running)
+            self.refused(self.prompt('u1', W2))                 # another unit's copy (row 9)
+            self.refused(self.prompt('u1', self.L / 'src'))     # outside the copies folder
+            self.refused(self.prompt('u1', self.root / 'x'))
+        self.running()
+        self.refused('Fix it.\nWorktree: ' + str(W1))           # a path under no unit (row 10)
+        self.refused('Work unit: x\nWorktree: ' + str(W1))
+
+    def test_no_transcript(self):
+        self.world('git')
+        self.add_copy('u1')
+        self.running('u1')
+        self.refused(None)
+        aid = self.agent(None)
+        r = self.hook('my-agent:coder', 'Read', {'file_path': str(self.L / 'src/a.py')}, agent_id=aid)
+        self.assertEqual(r.stdout, '')
+        self.running()
+        self.assertFalse(self.coder(None, 'Write', {'file_path': str(self.L / 'src/a.py'), 'content': 'x'}))
+        (self.T / 'unit-copies.json').unlink()
+        self.assertFalse(self.coder(None, 'Write', {'file_path': str(self.L / 'src/a.py'), 'content': 'x'}))
+
+    def test_no_agent_id_or_session_counts_as_prompt_not_read(self):
+        self.world('git')
+        W1 = self.add_copy('u1')
+        self.running('u1')
+        aid = self.agent(self.prompt('u1', W1))
+        for kw in (dict(agent_id=aid, session=None), dict(agent_id='')):
+            r = self.hook('my-agent:coder', 'Write', {'file_path': str(W1 / 'src/a.py'), 'content': 'x'}, **kw)
+            self.assertIn('Cannot tell', json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason'])
+
+    def test_rules_without_session_id_or_agent_id(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('scope_guard_under_test', L4 / 'hooks' / 'scope-guard.py')
+        guard = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(guard)
+        L, T, _ = self.world('git')
+        active = ma_active.find_active(str(L))
+        with mock.patch.dict(os.environ, dict(MA_DATA_DIR=str(self.root / 'agent-tasks'))):
+            self.assertEqual(guard.rules('coder', active, L).write, [L])
+            self.running('u1')
+            self.assertEqual(guard.rules('coder', active, L).write, [])
+            (T / 'unit-copies.json').write_text('{not json')
+            self.assertEqual(guard.rules('coder', active, L).write, [])
+            (T / 'unit-copies.json').write_text('[]')   # not the state file's shape: fail closed too
+            self.assertEqual(guard.rules('coder', active, L, None, None).write, [])
+            (T / 'unit-copies.json').unlink()
+            self.assertEqual(guard.rules('coder', active, L, None, None).write, [L])
+
+    def test_hook_call_from_inside_a_copy(self):
+        for kind in ('nongit', 'git'):
+            with self.subTest(kind=kind):
+                L, T, _ = self.world(kind)
+                W1 = self.add_copy('u1')
+                self.running('u1')
+                p = self.prompt('u1', W1)
+                for cwd in (L, W1, W1 / 'src'):
+                    self.assertFalse(self.coder(p, 'Write', {'file_path': str(W1 / 'src/a.py'), 'content': 'x'}, cwd=cwd))
+                    self.assertTrue(self.coder(p, 'Write', {'file_path': str(L / 'src/a.py'), 'content': 'x'}, cwd=cwd))
+
+    ALLOWED = ('git -C {W} status', 'git -C {W} diff', 'cd {W} && git log -3', 'git -C {W} stash list',
+               'cd {W} && git branch', 'git -C {W} tag', 'git -C {W} config --get core.bare', 'git -C {W} worktree list',
+               'git -C {W} remote -v')
+    DENIED = ('cd {W} && git add -A', 'git -C {W} add -A', 'git --git-dir {S} add -A', 'cd {W} && git mv a b',
+              "sh -c 'cd {W} && git mv a b'", 'cd {W} && git branch --set-upstream-to=x', 'cd {W} && git config --edit',
+              'cd {W} && git config -e', 'git --git-dir={S} --work-tree={L} status', 'GIT_DIR={S} git status')
+
+    def test_git_commands_of_a_copy_coder(self):
+        for kind in ('git', 'nongit', 'linked'):
+            with self.subTest(kind=kind):
+                L, T, common = self.world(kind)
+                W1 = self.add_copy('u1')
+                self.running('u1')
+                p = self.prompt('u1', W1)
+                fill = dict(W=W1, S=common, L=L)
+                for cmd in self.ALLOWED:
+                    self.assertFalse(self.coder(p, 'Bash', {'command': cmd.format(**fill)}, cwd=W1), cmd)
+                for cmd in self.DENIED:
+                    self.assertTrue(self.coder(p, 'Bash', {'command': cmd.format(**fill)}, cwd=W1), cmd)
+
+    def test_git_mv_stays_allowed_for_main_tree_and_f19_coders(self):
+        L, T, _ = self.world('git')
+        self.assertFalse(self.denied('my-agent:coder', 'Bash', {'command': 'git mv src/a src/b'}))
+        self.running('u2')
+        self.assertFalse(self.coder('Work unit: u3\n', 'Bash', {'command': 'git mv src/a src/b'}))
+        (L / '.git' / 'worktrees' / 'agent-x').mkdir(parents=True)
+        W = L / '.claude' / 'worktrees' / 'agent-x'
+        (W / 'src').mkdir(parents=True)
+        (W / '.git').write_text(f"gitdir: {L / '.git' / 'worktrees' / 'agent-x'}\n")
+        self.assertFalse(self.denied('my-agent:coder', 'Bash', {'command': 'git mv src/a src/b'}, cwd=W))
+        self.assertFalse(self.denied('my-agent:coder', 'Write', {'file_path': str(W / 'src/a.py')}, cwd=W))
+
+    def real_git(self, args, cwd, **kw):
+        env = dict(os.environ, GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='t',
+                   GIT_AUTHOR_EMAIL='t@t', GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        return subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True, **kw)
+
+    def snapshot(self, gitdir, skip):
+        out = {}
+        for p in sorted(Path(gitdir).rglob('*')):
+            if p.is_file() and p != skip:
+                out[str(p.relative_to(gitdir))] = (p.stat().st_size, p.read_bytes())
+        return out
+
+    def test_read_commands_write_nothing_in_the_git_dir_but_the_copy_index(self):
+        """Settles the To confirm item: what git writes when the allowed read forms run in a copy."""
+        if shutil.which('git') is None:
+            self.skipTest('no git program')
+        forms = ['status', 'diff', 'log -3', 'stash list', 'stash show', 'branch', 'branch -a', 'branch -v',
+                 'branch --show-current', 'tag', 'tag -l', 'config --get core.bare', 'config --get-all core.bare',
+                 'config --list', 'worktree list', 'worktree list --porcelain', 'remote', 'remote -v', 'show HEAD',
+                 'blame f.txt', 'annotate f.txt', 'ls-files', 'ls-tree HEAD', 'rev-parse HEAD', 'grep x',
+                 'cat-file -p HEAD', 'describe --always', 'shortlog -s HEAD', 'rev-list HEAD', 'merge-base HEAD HEAD',
+                 'name-rev HEAD', 'show-ref', 'for-each-ref', 'count-objects', 'check-ignore -q f.txt',
+                 'whatchanged', 'var GIT_AUTHOR_IDENT', 'help', 'version']
+        for kind in ('nongit', 'git'):
+            with self.subTest(kind=kind):
+                L = self.root / f'real-{kind}'
+                T = make_task(L, task=TASK, git=False)
+                (L / 'f.txt').write_text('x\n')
+                if kind == 'git':
+                    gitdir, base = L / '.git', ['git']
+                    self.real_git(['git', 'init', '-q'], L)
+                else:
+                    gitdir = T / 'copy-store'
+                    base = ['git', f'--git-dir={gitdir}', f'--work-tree={L}']
+                    self.real_git(['git', 'init', '-q', '--bare', str(gitdir)], L)
+                self.real_git(base + ['add', 'f.txt'], L)
+                self.real_git(base + ['commit', '-q', '-m', 'base'], L)
+                W = self.copy_path('u1', L)
+                r = self.real_git(base + ['worktree', 'add', '-q', '--detach', str(W)], L)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                (W / 'f.txt').write_text('y\n')
+                self.real_git(['git', 'stash', '-q'], W)
+                (W / 'f.txt').write_text('z\n')
+                (T / 'unit-copies.json').write_text(json.dumps({'running': ['u1'], 'created': []}))
+                self.L, self.T = L, T
+                p = self.prompt('u1', W)
+                index = gitdir / 'worktrees' / W.name / 'index'
+                before = self.snapshot(gitdir, index)
+                for form in forms:
+                    for cmd in (f'cd {W} && git {form}', f'git -C {W} {form}'):
+                        with self.subTest(cmd=cmd):
+                            self.assertFalse(self.coder(p, 'Bash', {'command': cmd}, cwd=W), cmd)
+                            self.real_git(['sh', '-c', cmd], L, timeout=30)
+                            after = self.snapshot(gitdir, index)
+                            changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
+                            self.assertEqual(changed, [], f'{cmd}: git wrote {changed} in {gitdir}')
 
 
 if __name__ == '__main__':

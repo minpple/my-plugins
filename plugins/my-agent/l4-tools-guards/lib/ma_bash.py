@@ -53,6 +53,7 @@ COPY = {'cp', 'mv', 'rsync'}
 GIT_READ = {'status', 'diff', 'log', 'show', 'blame', 'annotate', 'ls-files', 'ls-tree', 'rev-parse', 'grep',
             'cat-file', 'describe', 'shortlog', 'rev-list', 'merge-base', 'name-rev', 'show-ref', 'for-each-ref',
             'count-objects', 'check-ignore', 'whatchanged', 'var', 'help', 'version'}
+GIT_BRANCH_LIST = {'-a', '--all', '-r', '--remotes', '-v', '-vv', '--verbose', '-l', '--list', '--show-current'}
 GIT_BRANCH_WRITE = {'-d', '-D', '-m', '-M', '-c', '-C', '-f', '--delete', '--move', '--copy', '--force'}
 FIND_WRITE = {'-delete', '-exec', '-execdir', '-ok', '-okdir', '-fprint', '-fprintf', '-fls'}
 
@@ -580,12 +581,44 @@ def _sets_git_env(raw: List[str]) -> bool:
         raw[0] in ('export', 'declare', 'typeset') and any(w.startswith('GIT_') for w in raw[1:]))
 
 
-def _writes(c: Simple, before: List[Simple] = ()) -> Optional[List[str]]:
+def _git_read_form(args: List[str]) -> bool:
+    """Whether the git arguments are one of the read forms an own-copy coder may run (`write_targets` with
+    `read_git_only`): a subcommand of `GIT_READ`, `stash list`/`show`, a listing `branch` or `tag`, `config --get`/
+    `--get-all <name>` or `--list`, `worktree list`, `remote` and `remote -v`. Global options: `-C <dir>`, `--no-pager`."""
+    sub, rest, opts = _git_sub(args)
+    if sub is None or any(o not in ('-C', '--no-pager') for o in opts):
+        return False
+    if sub in GIT_READ:
+        return True
+    pos = _positional(rest)
+    if sub == 'stash':
+        return bool(rest) and rest[0] in ('list', 'show')
+    if sub == 'branch':
+        return not pos and all(r in GIT_BRANCH_LIST for r in rest)
+    if sub == 'tag':
+        return not pos and all(r in ('-l', '--list') for r in rest)
+    if sub == 'config':
+        return (len(rest) == 2 and rest[0] in ('--get', '--get-all') and not rest[1].startswith('-')
+                or rest in (['--list'], ['-l']))
+    if sub == 'worktree':
+        return bool(rest) and rest[0] == 'list' and all(r in ('--porcelain', '-v') for r in rest[1:])
+    if sub == 'remote':
+        return rest in ([], ['-v'])
+    return False
+
+
+def _writes(c: Simple, before: List[Simple] = (), read_git_only: bool = False) -> Optional[List[str]]:
     """Raw target words of one simple command, or None when it writes somewhere it cannot name. `before` is the
-    simple commands earlier on the command line (they may set `GIT_*`, which re-bases `git mv`)."""
+    simple commands earlier on the command line (they may set `GIT_*`, which re-bases `git mv`). With `read_git_only`
+    a git command is [] only when it is a read form (`_git_read_form`) that points git nowhere else (no `GIT_*` set on
+    it or before it, no prefix word, no xargs); every other git command is None."""
     if not c.words:
         return []
     name, args = os.path.basename(c.words[0]), c.words[1:]
+    if name == 'git' and read_git_only:
+        ok = (not c.xargs and c.raw and os.path.basename(c.raw[0]) == 'git' and not _git_mutating(args)
+              and not any(_sets_git_env(b.raw) for b in (*before, c)) and _git_read_form(args))
+        return [] if ok else None
     if name == 'git':
         mv = _git_mv(args)
         if mv is not None:
@@ -757,18 +790,20 @@ def _literal_vars(cmd: str, cmds: List[Simple]) -> List[Simple]:
                        inputs=[expand(w) for w in c.inputs]) for c in cmds]
 
 
-def write_targets(cmd: str, cwd: Path) -> Optional[List[Path]]:
+def write_targets(cmd: str, cwd: Path, read_git_only: bool = False) -> Optional[List[Path]]:
     """Absolute paths `cmd` creates, changes or deletes; [] when it writes nothing it knows of;
     None when it writes but a target cannot be named (git that changes the tree, except a plain
     `git mv <src> <dst>`, `$VAR`, xargs, find -delete,
     a symlink made in the same command as another write, anything `_walk` cannot follow). It does not read inline
-    interpreter code (`python3 -c "open('x','w')"`): `interpreter_writes` does, for scope-guard only."""
+    interpreter code (`python3 -c "open('x','w')"`): `interpreter_writes` does, for scope-guard only.
+    `read_git_only` (an own-copy coder, whose git state lies outside its copy): every git command except the read
+    forms of `_git_read_form` is None, `git mv` included."""
     walked = _walk(cmd, cwd)
     if walked is None:
         return None
     out, writers, link = [], 0, False
     for i, (c, cwds) in enumerate(walked):
-        raw = _writes(c, [w[0] for w in walked[:i]])
+        raw = _writes(c, [w[0] for w in walked[:i]], read_git_only)
         if raw is None:
             return None
         if c.redirects or raw:

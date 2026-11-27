@@ -1,4 +1,5 @@
-"""cd-guard.py: the `Cd(...)` deny rule that keeps a session out of the coder worktrees of a task location."""
+"""cd-guard.py: the `Cd(...)` deny rule that keeps a session out of the copies folder (`.claude/worktrees`) of a task location."""
+import fnmatch
 import json
 import subprocess
 import tempfile
@@ -20,7 +21,7 @@ class CdGuardTest(unittest.TestCase):
         self.task = Path(self.tmp.name).resolve() / 'task'
         self.task.mkdir()
         self.record = self.task / 'cd-guard.json'
-        self.rule = f'Cd(/{self.loc}/.claude/worktrees/agent-*/**)'
+        self.rule = f'Cd(/{self.loc}/.claude/worktrees/**)'
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -214,13 +215,47 @@ class CdGuardTest(unittest.TestCase):
                          {'permissions': {'deny': ['x']}, 'env': {'A': '1'}})
 
     def test_rule_written_differently_is_left_alone(self):
-        variant = self.rule.replace('agent-*/**)', 'agent-*/*)')
+        variant = self.rule.replace('worktrees/**)', 'worktrees/*)')
         self.seed([variant, 'x'])
         r = self.run_guard()
         self.assertTrue(r.stdout.startswith(f'cd-guard: added {self.rule} to {self.settings}'), r.stdout)
         self.assertEqual(self.deny(), [variant, 'x', self.rule])
         self.assertEqual(self.remove().returncode, 0)
         self.assertEqual(self.deny(), [variant, 'x'])
+
+    def test_rule_covers_the_whole_copies_folder(self):
+        r = self.run_guard()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.deny(), [f'Cd(/{self.loc}/.claude/worktrees/**)'])
+        pattern = self.deny()[0][len('Cd('):-1]
+        base = f'/{self.loc}/.claude/worktrees'
+        for name in ('my-agent-261126-x-u1/x', 'agent-abc/x', 'task-261126-x/x', 'other/x'):
+            with self.subTest(name=name):
+                self.assertTrue(fnmatch.fnmatchcase(f'{base}/{name}', pattern))
+        for outside in (f'/{self.loc}/.claude/x', f'/{self.loc}/src/x', f'/{self.loc}/.claude/worktreesX/x'):
+            with self.subTest(outside=outside):
+                self.assertFalse(fnmatch.fnmatchcase(outside, pattern))
+
+    def test_older_agent_rule_record_is_removed_as_recorded(self):
+        old = f'Cd(/{self.loc}/.claude/worktrees/agent-*/**)'
+        self.seed([old, self.rule, 'x'])
+        self.record.write_text(json.dumps({'file': str(self.settings), 'rule': old}), encoding='utf-8')
+        r = self.remove()
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, f'cd-guard: removed {old} from {self.settings}'), r.stderr)
+        self.assertEqual(self.deny(), [self.rule, 'x'])
+        self.seed([old, 'x'])   # the older rule is neither taken over nor removed by a run that adds the current one
+        self.assertTrue(self.run_guard().stdout.startswith(f'cd-guard: added {self.rule} '))
+        self.assertEqual(self.deny(), [old, 'x', self.rule])
+        self.assertEqual(self.remove().returncode, 0)
+        self.assertEqual(self.deny(), [old, 'x'])
+
+    def test_non_git_folder_writes_nothing_git_related(self):
+        r = self.run_guard()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(self.settings.is_file())
+        self.assertNotIn('excluded from git', r.stdout)
+        self.assertEqual(sorted(p.name for p in self.loc.iterdir()), ['.claude'])
+        self.assertEqual([p.name for p in self.settings.parent.iterdir()], ['settings.local.json'])
 
     def test_two_tasks_share_the_rule(self):
         other = self.task.parent / 'task-b'

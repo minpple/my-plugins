@@ -69,7 +69,7 @@ Run: <n>
 ### General (general)
 
 - **Check commands:** every `[check: command]` criterion names its command, in the criterion or as a check command of a unit that carries it. A criterion with no command is a BLOCKER.
-- **Coder units:** each has `Files to change` in the task location and check commands, and shares its parallel group with no other coder unit. If not, BLOCKER.
+- **Coder units:** each has `Files to change` in the task location and check commands. If not, BLOCKER.
 - **Researcher units:** each has one note `work/<slug>.md`, and the writer unit that uses it lists the note under its files to read. If not, SHOULD-FIX.
 
 ### Research · docs (research)
@@ -89,7 +89,7 @@ Run: <n>
   - Exception cases: every exception case in the scope has a test to add tagged with it. A missing case is a SHOULD-FIX that names the case.
   - Existing tests: find the tests of the changed functions with Grep. An existing test that asserts behavior the plan changes, in a file no unit lists under `Files to change`, is a SHOULD-FIX.
   - A test to add that does not name its test file and what it checks ("add tests") cannot be judged: SHOULD-FIX.
-- **Worktree:** only the first parallel group has a worktree. If a later group uses a worktree, BLOCKER.
+- **Group order:** a coder unit in a later group needs one of these reasons: it needs an earlier unit's result, it changes a file an earlier unit changes, or the group is full (4 units). Without one, SHOULD-FIX.
 - **Design sketch and mock-up:** the behavior after the change is concrete (command output, sample response). If vague, SHOULD-FIX.
 
 ## When done

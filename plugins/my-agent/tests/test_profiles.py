@@ -55,7 +55,7 @@ class ProfilesTest(unittest.TestCase):
     def test_dev_rules_present(self):
         text = (PROFILES / 'dev.md').read_text(encoding='utf-8')
         for word in ('purpose and users', 'Completion criteria', 'hard constraints', 'exception cases', 'data', 'non-goals', 'UX preferences', 'G1-A',
-                     'small task', '3 files', 'SKIPPED small task', '`isolation: "worktree"`', 'first parallel group', 'base commit=',
+                     'small task', '3 files', 'SKIPPED small task', '`unit-copies.md`', 'base point', 'git apply',
                      'User cleans up first (Recommended)', 'Proceed as is', '`Run:`', 'git diff', 'git status',
                      'Commit (Recommended)', 'Rework', 'completion criterion number', '## Decisions', 'git apply'):
             self.assertIn(word, text, word)
@@ -571,7 +571,8 @@ class SessionFolderCheck(unittest.TestCase):
     def test_build_names_the_check_and_the_popup(self):
         build = (REPO / 'l1-orchestration' / 'phases' / 'build.md').read_text(encoding='utf-8')
         line = next(l for l in build.splitlines() if l.lstrip().startswith('- Session folder check'))
-        for part in ('`git rev-parse --show-toplevel`', 'without `isolation: "worktree"`', 'start of 3B Merge',
+        self.assertNotIn('isolation', line)
+        for part in ('`git rev-parse --show-toplevel`', 'before every hand-out and at the start of 3B Merge',
                      'also under delegated approval', '`I moved the session back (Recommended)` / `Abort`',
                      '`/cd <task location>`', '`/my-agent continue`', 'run the check again'):
             self.assertIn(part, line)
@@ -614,11 +615,74 @@ class SessionFolderCheck(unittest.TestCase):
             'abort': (next(l for l in changes[changes.index('## Abort'):].splitlines() if l.startswith('3. ')), 'Delete `.active`'),
             'continue': (next(l for l in resume[resume.index('## continue'):].splitlines() if l.startswith('1. ')), 'delete `.active`'),
         }
-        remove = 'cd-guard.py" --remove --location "<task location>" --task "<absolute task folder>"'
+        # 2026-11-27: `worktree.py cleanup` runs `cd-guard.py --remove` itself, so it replaces the direct call on every path
+        remove = 'worktree.py" cleanup --location "<task location>" --task "<absolute task folder>"'
         for name, (item, deletion) in items.items():
             self.assertIn(remove, item, name)
+            self.assertNotIn('cd-guard.py" --remove', item, name)
             self.assertIn(deletion, item, name)
             self.assertLess(item.index(remove), item.index(deletion), name)
+
+
+class UnitCopiesProfilesTest(unittest.TestCase):
+    """2026-11-27: coder units of a parallel group run in per-unit copies in every profile (`unit-copies.md`)."""
+
+    def read(self, *parts):
+        return (REPO / 'l1-orchestration').joinpath(*parts).read_text(encoding='utf-8')
+
+    def row(self, profile, name):
+        return next(l for l in self.read('profiles', f'{profile}.md').splitlines() if l.startswith(f'| {name}'))
+
+    def test_dev_3a_and_3b_rows_point_to_build_and_unit_copies(self):
+        """Criterion 3."""
+        a, b = self.row('dev', '3A Execute'), self.row('dev', '3B Merge')
+        for row in (a, b):
+            self.assertIn('`build.md`', row)
+            self.assertIn('`unit-copies.md`', row)
+        self.assertIn('base point', a)
+        self.assertIn('uncommitted changes', a)
+        self.assertIn('"Merge"', b)
+        for profile in ('dev', 'general', 'research'):
+            self.assertNotIn('isolation: "worktree"', self.read('profiles', f'{profile}.md'))
+
+    def test_dev_3b_keeps_the_harness_worktree_steps(self):
+        """Criterion 13: a leftover `agent-<id>` worktree is moved by the old steps, under a lead that names it."""
+        row = self.row('dev', '3B Merge')
+        self.assertIn('leftover harness `agent-<id>` worktree', row)
+        self.assertIn('resume.md', row)
+        for part in ('ls-files --others --exclude-standard', 'diff --binary HEAD --output=', 'git apply', '`cmp`',
+                     '`git worktree remove --force <worktree>`', '`git branch -D <branch>`', 'one attempt only per worktree',
+                     'no `git worktree unlock`', '`cp -p`'):
+            self.assertIn(part, row, part)
+        self.assertLess(row.index('leftover harness'), row.index('ls-files --others'))
+
+    def test_general_3a_allows_copies_and_3b_merges_them_first(self):
+        """Criterion 3."""
+        a, b = self.row('general', '3A Execute'), self.row('general', '3B Merge')
+        self.assertNotIn('parallel group of its own', a)
+        self.assertNotIn('one after another', a)
+        for part in ('run at the same time, each in its own copy', '`build.md` step 3A item 3', '`unit-copies.md`',
+                     'does not commit'):
+            self.assertIn(part, a, part)
+        self.assertIn('Coder copy results are merged first (`unit-copies.md` "Merge"), then the units\' check commands run in the main tree', b)
+
+    def test_cd_guard_bullet_names_every_folder_under_worktrees(self):
+        """Criteria 15 and 16."""
+        build = self.read('phases', 'build.md')
+        line = next(l for l in build.splitlines() if 'l4-tools-guards/scripts/cd-guard.py" --location' in l)
+        self.assertIn('into any folder under `.claude/worktrees/`', line)
+        self.assertNotIn('a coder worktree', line)
+        upstream = self.read('profiles', 'dev.md').split('## Upstream check (3B Merge)')[1].split('\n\n')[1]
+        self.assertNotIn('after the worktree results are moved', upstream)
+        self.assertIn('copy groups in 3A', upstream)
+        self.assertIn('before the check commands', upstream)
+
+    def test_copy_coder_notes_go_to_the_main_tree(self):
+        """Criterion 3."""
+        build = self.read('phases', 'build.md')
+        self.assertIn("A copy coder's notes go to the main tree's task folder", build)
+        self.assertNotIn("A worktree coder's notes", build)
+        self.assertIn('This holds for every coder call of the task', build)   # one rule for every profile, in item 4
 
 
 class AcceptLightPathTest(unittest.TestCase):

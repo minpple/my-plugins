@@ -4,7 +4,8 @@
    when that root is a linked worktree (`.git` file, e.g. an isolation:worktree agent in
    `<loc>/.claude/worktrees/agent-<id>`, probe r2) and has no `.active`, the `.active` of the checkout that
    contains it (the nearest ancestor with a `.git` entry of the same repository, main or linked), then the main
-   worktree's `.active`; a root whose `.git` is a folder never looks at parent folders;
+   worktree's `.active`, then (no checkout above it) the location `X` of a unit copy `<X>/.claude/worktrees/my-agent-*`
+   whose repository lies inside `X` (the store of a non-git location); a root whose `.git` is a folder never looks at parent folders;
    outside any git repo, the nearest of `cwd` and its ancestors with `<task_dir>/.active` (a location such as
    the data folder run from itself, which Intake writes no index line for);
 2. `<tasks_dir>/active-index.json` (`{"<run folder>": "<task location>"}`): inside a git repo, only the entry for
@@ -136,6 +137,18 @@ def containing_checkout(root: Path):
     return None
 
 
+def copy_location(root: Path):
+    """For a linked worktree `root` named `my-agent-*` directly under `<X>/.claude/worktrees/` whose common git folder
+    lies inside `X` (a unit copy of a non-git location: its repository is the store under the task folder), `X`, else
+    None."""
+    if not root.name.startswith('my-agent-') or not (root / '.git').is_file():
+        return None
+    if root.parent.name != 'worktrees' or root.parent.parent.name != '.claude':
+        return None
+    X, common = root.parent.parent.parent, common_dir(root)
+    return X if common is not None and ma_path.under(common, X) else None
+
+
 def find_active(cwd: str, tasks_dir: Path = None, broken: list = None, sub: str = None):
     """The Active task for `cwd`, or None. Never raises. `broken` collects `.active` files it met without a task."""
     try:
@@ -155,8 +168,12 @@ def find_active(cwd: str, tasks_dir: Path = None, broken: list = None, sub: str 
         found = read_active(main, broken, sub) if main is not None else None
         if found:
             return found
+        home = copy_location(root) if container is None and main is None else None   # a store-backed unit copy
+        found = read_active(home, broken, sub) if home is not None else None
+        if found:
+            return found
         candidates = []   # a repo never takes a parent's index entry
-        for d in (root, container, main):
+        for d in (root, container, main, home):
             if d is not None and d not in candidates:
                 candidates.append(d)
     else:

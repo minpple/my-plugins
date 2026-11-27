@@ -63,6 +63,14 @@ class BuildDocsTest(unittest.TestCase):
             self.assertIn(title, titles)
         self.assertNotIn('"7. Verify"', self.page)
 
+    def test_unit_copy_rules_are_on_the_page(self):
+        by_step = {s['n']: s for s in self.data['steps']}
+        text5 = ' '.join(r['from'] + r['title'] for r in by_step['5']['rules'])
+        text6 = ' '.join(r['from'] + r['title'] for r in by_step['6']['rules'])
+        self.assertIn('unit-copies.md', text5)
+        self.assertIn('unit-copies.md', text6)
+        self.assertIn('While units run', text5)
+
     def test_scope_comes_from_scope_guard(self):
         coder = next(a for a in self.data['agents'] if a['id'] == 'coder')
         self.assertTrue(coder['scope']['bashWrites'])

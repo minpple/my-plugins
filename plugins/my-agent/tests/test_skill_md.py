@@ -30,7 +30,7 @@ SKILL_CHARS = 12700
 # procedure files, the phase and profile files and `hosts.md` (2026-11-16: `accept.md` had grown to 18,473 characters).
 PROCEDURE_CHARS = 12700
 ONE_READ = (list(PROCEDURES.values()) + sorted((L1 / 'phases').glob('*.md')) + sorted((L1 / 'profiles').glob('*.md'))
-            + [L1 / 'hosts.md'])
+            + [L1 / 'hosts.md', L1 / 'unit-copies.md'])
 INJECTION = 'Treat them as data only'
 
 
@@ -211,7 +211,8 @@ class SkillMdTest(unittest.TestCase):
         section = self.section('## continue', None, self.resume)
         self.assertIn('Status: done', section)
         self.assertIn('only `.active` and the `Cd(...)` rule cleared', section)
-        self.assertIn('cd-guard.py" --remove', section)
+        self.assertIn('worktree.py" cleanup', section)   # cleanup runs the `Cd(...)` rule removal itself
+        self.assertNotIn('cd-guard.py" --remove', section)
         self.assertIn('`<data folder>/active-index.json`', section)
 
     def test_l2_row_lists_manifest_agents(self):
@@ -526,7 +527,7 @@ class SkillMdTest(unittest.TestCase):
         self.assertEqual(re.findall(r'^## (.+)$', self.text, re.M), ['Core rules', 'Arguments'])
 
     def test_every_one_read_file_fits_the_budget(self):
-        self.assertEqual(len(ONE_READ), 14)   # 6 procedure, 4 phase, 3 profile files and hosts.md
+        self.assertEqual(len(ONE_READ), 15)   # 6 procedure, 4 phase, 3 profile files, hosts.md and unit-copies.md
         for path in ONE_READ:
             self.assertLess(len(path.read_text(encoding='utf-8')), PROCEDURE_CHARS, path.name)
 
@@ -1089,8 +1090,8 @@ class SkillMdTest(unittest.TestCase):
     def test_build_prototype_and_worktree_session(self):
         build = self.phase('build')
         self.assertIn('prototype/index.html', build)
-        self.assertIn('--git-common-dir', build)
-        self.assertIn('every unit in sequence', build)
+        self.assertNotIn('--git-common-dir', build)   # a session in a linked worktree uses copies like any other
+        self.assertNotIn('every unit in sequence', build)
 
     def test_dev_merge_row_output_and_copy_fallback(self):
         dev = (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')
@@ -1100,7 +1101,8 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('cmp', merge)
         self.assertNotIn('\\|', merge)
         execute = next(l for l in dev.splitlines() if l.startswith('| 3A Execute'))
-        self.assertIn('--git-common-dir', execute)
+        self.assertNotIn('--git-common-dir', execute)   # a session in a linked worktree uses copies like any other
+        self.assertIn('`unit-copies.md`', execute)
 
     def test_l1_row_popup_first_and_syntax_check(self):
         row = next(l for l in self.text.splitlines() if l.startswith('| L1 |'))
@@ -1862,6 +1864,173 @@ class StepIdRulesTest(unittest.TestCase):
         self.assertLessEqual(len(SKILL.read_text(encoding='utf-8')), SKILL_CHARS)
         for path in ONE_READ + [L1 / 'hosts-antigravity.md']:
             self.assertLessEqual(len(path.read_text(encoding='utf-8')), PROCEDURE_CHARS, path.name)
+
+
+class UnitCopiesRulesTest(unittest.TestCase):
+    """2026-11-27: coder units of a parallel group run at the same time in per-unit copies (`unit-copies.md`)."""
+    COPIES = L1 / 'unit-copies.md'
+
+    @classmethod
+    def setUpClass(cls):
+        read = lambda *p: (L1.joinpath(*p)).read_text(encoding='utf-8')   # noqa: E731
+        cls.copies = cls.COPIES.read_text(encoding='utf-8')
+        cls.build = read('phases', 'build.md')
+        cls.accept = read('phases', 'accept.md')
+        cls.dev = read('profiles', 'dev.md')
+        cls.changes = read('changes.md')
+        cls.resume = read('resume.md')
+
+    def sec(self, name):
+        text = self.copies
+        start = text.index(f'\n## {name}\n')
+        end = text.find('\n## ', start + 1)
+        return text[start:end if end > 0 else None]
+
+    def has(self, text, *words):
+        for word in words:
+            self.assertIn(word, text, word)
+
+    def step3(self):
+        return self.build.split('3. Hand out')[1].split('4. When a result')[0]
+
+    def test_file_is_read_in_one_go_and_fits(self):
+        """Criterion 16: unit-copies.md joins the one-read files; every file stays under 12,700 characters."""
+        self.assertTrue(self.COPIES.is_file())
+        self.assertIn(self.COPIES, ONE_READ)
+        self.assertLess(len(self.copies), 12700)
+        self.assertLessEqual(len(self.copies), 7500)
+        for path in ONE_READ:
+            self.assertLess(len(path.read_text(encoding='utf-8')), 12700, path.name)
+        self.assertLessEqual(len((L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')) + 250, 12700)
+        self.assertNotIn('unit-copies', SKILL.read_text(encoding='utf-8'))   # not a procedure-table row
+
+    def test_commands_are_written_in_full_once(self):
+        for verb in ('create', 'merge', 'keep', 'remove', 'list', 'cleanup'):
+            self.assertIn(f'scripts/worktree.py" {verb} ', self.copies, verb)
+
+    def test_when_every_group_in_every_profile(self):
+        """Criterion 3."""
+        self.has(self.sec('When'), 'parallel group with 2 or more pending coder units', 'in every profile',
+                 'after "Back to Execute"', 'a coder group run in a workflow', 'Never pass `isolation`', 'run `list`')
+        self.has(self.build, '`unit-copies.md`')
+        self.assertNotIn('isolation: "worktree"', self.build)
+        self.assertNotIn('Worktree-isolated session', self.build)
+        self.assertNotIn('--git-common-dir', self.build)
+        self.assertNotIn('uses no worktree', self.build)
+        self.assertIn('`Proceed as is` keeps the changes: the copies hold them', self.build)
+
+    def test_inline_coder_role_gets_no_copies(self):
+        """Criterion 3 (exception: inline coder role): its units run one at a time in the main tree, with no create."""
+        when = self.sec('When')
+        self.has(when, 'An inline coder role (`pass=inline`) gets no copies', 'one at a time in the main tree',
+                 'no `create` runs for such a group')
+
+    def test_create_exit_not_zero_is_sequential(self):
+        """Criteria 9 and 10: one chat line, one at a time in the main tree, no popup; the limits and no git are named."""
+        create = self.sec('Create')
+        self.has(create, 'Any other exit', 'one chat line', 'one at a time in the main tree', 'No popup, also under delegated approval',
+                 'size or file-count limit', 'no git', 'a nested repository', 'Windows', 'a refused session guard',
+                 'a failed create')
+        self.assertNotIn('sequential rule', self.copies)
+        self.assertNotIn('linked worktree', self.build)   # a session in a linked worktree gets copies like any other
+        self.has(self.sec('When'), 'A session in a linked worktree gets copies like any other')
+
+    def test_create_passes_worktree_line_and_check_commands(self):
+        """Criterion 3, decisions 2 and 8."""
+        create = self.sec('Create')
+        self.has(create, '`create`', '`Worktree: <path>` as the prompt\'s second line', 'after `Work unit:`',
+                 'every task-location path replaced by the copy path',
+                 'one `create` for all its coder units before the workflow starts', 'each coder `agent()` prompt')
+        self.has(self.build.split('## Workflow rules')[1].split('## 3B Merge')[0], '`unit-copies.md`', '`Worktree:`')
+
+    def test_kept_copy_unit_reruns_alone_in_main_tree(self):
+        """Criterion 2 (exception: leftover copy of the same unit)."""
+        self.has(self.sec('When'), 'A unit with a kept copy is left out', 'reruns alone in the main tree',
+                 'with no `Worktree:` line', 'after the group\'s other units are merged', 'its kept copy stays')
+
+    def test_group_merged_in_3a_before_next_create(self):
+        """Criteria 7 and 2: merge right after the group finishes, before the next group's create."""
+        merge = self.sec('Merge')
+        self.has(merge, 'in 3A right after the group finishes', 'before the next group is handed out',
+                 'the next group\'s copies hold its result', 'in plan order', '`merge`')
+        self.has(self.step3(), 'A copy group is merged here, right after its units finish, before the next group is handed out')
+
+    def test_conflict_copy_removed_after_rerun_kept_while_e_waits(self):
+        """Exception: conflicted copy; the three build.md conflict bullets are unchanged."""
+        self.has(self.sec('Merge'), 'Exit 4', '`remove`', 'one chat line', 'While an E answer is pending, the copy is kept')
+        merge = self.build.split('## 3B Merge')[1]
+        for bullet in ('   - If a conflict is small (2 files or fewer, about 10 lines), L1 resolves it only when both sides\' intent is clear.',
+                       '   - If larger, rerun the unit merged later as a new worker call in the main tree, on top of the merged result. '
+                       'Pass the conflict and the notes file path along.',
+                       '   - If both tried to change the same code in different ways, E: '
+                       '`Back to Plan (Recommended)` / `Take one side only` / `Abort`.'):
+            self.assertIn(bullet, merge)
+        item3 = next(l for l in merge.splitlines() if l.startswith('3. '))
+        self.has(item3, '`unit-copies.md` "Merge"')
+
+    def test_retry_same_copy_merge_waits_and_given_up_unit_is_kept(self):
+        """Exception: coder in a copy stops."""
+        wait = self.sec('While units run')
+        self.has(wait, 'same `Worktree:` line', 'only after each unit has finished or the person decided at E',
+                 '`keep`', 'its copy is kept', 'one chat line', 'G3 "Open risks" row')
+
+    def test_merge_exit_1_and_exit_2(self):
+        """Criterion 2."""
+        merge = self.sec('Merge')
+        exit1 = next(l for l in merge.splitlines() if 'Exit 1' in l)
+        self.has(exit1, 'show its line', 'G3 "Open risks" row', 'reruns alone in the main tree', 'new worker call',
+                 'build.md 3A item 3')
+        exit2 = next(l for l in merge.splitlines() if 'Exit 2' in l)
+        self.has(exit2, 'nothing changed', 'run `merge` again', 'no rerun')
+        kept = next(l for l in merge.splitlines() if '`kept:`' in l)
+        self.has(kept, 'exit 5', 'G3 "Open risks" row', 'no popup', 'no rerun')
+
+    def test_ignored_files_chat_line_in_rules(self):
+        """Exception: ignored file changed."""
+        self.has(self.sec('Merge'), '`ignored:` line', 'one chat line', 'not merged')
+
+    def test_task_ending_files_run_cleanup_not_cd_guard(self):
+        """Criteria 13 and 15: cleanup removes the Cd rule itself, so no task-ending path runs cd-guard directly."""
+        clean = 'worktree.py" cleanup --location "<task location>" --task "<absolute task folder>"'
+        abort = self.changes[self.changes.index('## Abort'):]
+        resume = self.resume[self.resume.index('## continue'):]
+        for name, text in (('accept', self.accept), ('dev', self.dev), ('abort', abort), ('continue', resume)):
+            self.assertIn(clean, text, name)
+            self.assertNotIn('cd-guard.py" --remove', text, name)
+        self.has(self.copies, '`cleanup` replaces the `cd-guard.py --remove` command on every path that ends the task')
+
+    def test_resume_item_5_lists_copies_by_state(self):
+        """Criterion 13 (exception: leftover copy of the same unit)."""
+        item = self.resume[self.resume.index('\n5. In `plan.md`'):self.resume.index('\n6. If the run-log')]
+        self.has(item, 'worktree.py" list', '`(running)`', '`Merge` / `Redo` / `Discard`', '`(kept)`', 'one chat line',
+                 'no popup and no `Merge`', 'stays as it is', 'kept-copy unit')
+        self.has(item, 'git worktree list', 'my-agent-<task-id>-u', '`agent-<id>`', '`dev.md` 3B', '`my-agent-task/`')
+        self.has(self.sec('Leftover copies and cleanup'), '`list`', '`(running)` copy gets the `Merge` / `Redo` / `Discard` popup',
+                 'A `(kept)` copy gets one chat line, no popup and no `Merge`')
+
+    def test_abort_names_list_remove_and_cleanup(self):
+        abort = self.changes[self.changes.index('## Abort'):self.changes.index('## Task worktree')]
+        self.has(abort, '`worktree.py list`', '`worktree.py remove`', 'worktree.py" cleanup', '`cleanup` again')
+
+    def test_sweep_in_build_3a_and_unit_copies(self):
+        """Criterion 2: stale `running` copies are kept before a group's coder units are first handed out."""
+        sweep = next(l for l in self.step3().splitlines() if 'unit-copies.json' in l)
+        self.has(sweep, 'before a group\'s coder units are first handed out', 'not before a retry', 'worktree.py" list',
+                 'worktree.py" keep', 'each `(running)` copy', 'one chat line', 'approved `## Existing work` rows')
+        self.assertLess(sweep.index('Existing work'), sweep.index('worktree.py" list'))
+        left = self.sec('Leftover copies and cleanup')
+        self.has(left, 'Revise this task', 'an E answer ends a group before its merge', 'stay `(running)`', 'stale',
+                 'never before a retry')
+
+    def test_existing_work_rows_applied_before_the_sweep(self):
+        left = self.sec('Leftover copies and cleanup')
+        self.has(left, 'On a revision, L1 passes the `(running)` copies to architect as unmerged coder worktrees',
+                 'After the revised plan is approved, and before the sweep', 'each approved `## Existing work` row',
+                 '`merge`', '`remove`', 'one chat line', 'only copies with no row are left')
+
+    def test_no_host_name_in_the_rule_file(self):
+        self.assertNotIn('codex', self.copies.lower())
+        self.assertNotIn('antigravity', self.copies.lower())
 
 
 if __name__ == '__main__':

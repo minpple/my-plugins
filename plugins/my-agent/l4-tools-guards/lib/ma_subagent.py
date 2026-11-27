@@ -8,6 +8,7 @@ line with `end=partial`; run-log.py and subagent-log.py start/stop call it.
 """
 import json
 import os
+import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -78,6 +79,54 @@ def unit_of(path) -> str:
             content = ' '.join(c.get('text', '') for c in content if isinstance(c, dict) and c.get('type') == 'text')
         return ma_schema.unit_of_prompt(content if isinstance(content, str) else '')
     return None
+
+
+PROMPT_WAIT = 2.0   # seconds `first_prompt(wait=True)` retries in total
+
+
+def _first_user_text(path):
+    """The text of the first `type: user` entry of a subagent transcript (only the lines up to it are read), or
+    None when the file is missing or has no such entry yet."""
+    try:
+        with open(path, encoding='utf-8', errors='replace') as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue   # a line still being written
+                msg = e.get('message') if isinstance(e, dict) and e.get('type') == 'user' else None
+                if not isinstance(msg, dict):
+                    continue
+                content = msg.get('content')
+                if isinstance(content, list):
+                    content = ' '.join(c.get('text', '') for c in content if isinstance(c, dict) and c.get('type') == 'text')
+                return content if isinstance(content, str) else ''
+    except OSError:
+        return None
+    return None
+
+
+def first_prompt(agent_id, session, wait=False):
+    """The first prompt (text of the first user entry) of the running subagent `agent_id`, or None. The transcript is
+    `<claude projects>/*/<session>/subagents/agent-<id>.jsonl`, else `*/*/subagents/agent-<id>.jsonl` (PreToolUse input
+    carries no transcript path and no statement that a subagent's `session_id` is the parent's). With `wait` a missing
+    file or a missing user entry is retried for up to PROMPT_WAIT seconds in total."""
+    if not (isinstance(agent_id, str) and agent_id and '/' not in agent_id and agent_id not in ('.', '..')):
+        return None
+    patterns = []
+    if isinstance(session, str) and session and '/' not in session and session not in ('.', '..'):
+        patterns.append(f'*/{session}/subagents/agent-{agent_id}.jsonl')
+    patterns.append(f'*/*/subagents/agent-{agent_id}.jsonl')
+    deadline = time.monotonic() + PROMPT_WAIT
+    while True:
+        for pattern in patterns:
+            for path in sorted(claude_projects().glob(pattern)):
+                text = _first_user_text(path)
+                if text is not None:
+                    return text
+        if not wait or time.monotonic() >= deadline:
+            return None
+        time.sleep(0.1)
 
 
 def handback_message(path, since=None) -> str:

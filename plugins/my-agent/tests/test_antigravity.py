@@ -361,6 +361,13 @@ class AntigravityModelsAndDocsTest(unittest.TestCase):
         for bad in ('fallback', 'workaround'):
             self.assertNotIn(bad, text.lower())
 
+    def test_isolation_row_says_no_unit_copies(self):
+        """Criterion 3: Antigravity does not use unit copies; coder units of one parallel group run one at a time."""
+        row = next(l for l in HOSTS_AGY.read_text(encoding='utf-8').splitlines() if l.startswith('| `isolation: "worktree"`'))
+        for text in ('does not use unit copies', 'coder units of one parallel group one at a time in the main tree',
+                     '"inherit"'):
+            self.assertIn(text, row)
+
     def test_background_research_on_websearch_row(self):
         row = next(l for l in HOSTS_AGY.read_text(encoding='utf-8').splitlines() if l.startswith('| `WebSearch`'))
         self.assertIn('Background research', row)

@@ -78,7 +78,7 @@ If `## Revisions` exists, leave it at the very end as is (rule above).
   - L1 does not make the deliverable, so in 6 Merge it hands off that unit and only checks it.
 - Mock-up: the first rows of a table, or an outline and a sample paragraph.
 - A unit that needs web facts is a `my-agent:researcher` unit with one note `work/<slug>.md` (claim · source URL · quote); the writer unit that uses the note lists it under its files to read.
-- A unit that needs code is a `my-agent:coder` unit: write its `Files to change` (paths in the task location, changed in place) and its check commands. Coder units get no worktree, so no two coder units share a parallel group.
+- A unit that needs code is a `my-agent:coder` unit: write its `Files to change` (paths in the task location, changed in place) and its check commands. Coder units of one parallel group run at the same time, each in its own copy.
 - Every `[check: command]` criterion names the command that shows it, in the criterion or as a check command of a unit that carries it.
 - Use subagents only. Do not plan a workflow.
 
@@ -98,9 +98,8 @@ If `## Revisions` exists, leave it at the very end as is (rule above).
 - A criterion a test cannot show gets the same `(criterion <n>)` mark on its check command (build, lint) instead.
 - When a unit changes behavior that existing tests assert, list those test files in its `Files to change`.
 - plan-reviewer judges this coverage.
-- Use a worktree only for the first parallel group (L1 passes `isolation: "worktree"` when it calls). Later groups run in order on the main tree.
-- If `explore.md` says there are uncommitted changes, use no parallel groups and put everything in order.
-- Here and in the Execute popup, count only real uncommitted work, not `- Derived:` files.
+- A coder unit goes to a later group only when it needs an earlier unit's result, changes a file an earlier unit changes, or the group is full (4 units).
+- In the Execute popup, count only real uncommitted work, not `- Derived:` files.
 - When a work unit adds or renames an agent, skill or hook of a loaded plugin, add a `- Plugin reload: needed (<what>)` line to that unit. L1 reports it at G1-B.
 - A small task (if `plan.md` has the 5-line summary L1 put at the top) is one work unit.
 - Mock-up: the behavior after the change (command output, screen layout, API response).

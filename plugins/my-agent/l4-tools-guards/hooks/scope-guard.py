@@ -16,9 +16,18 @@ researcher may use the web, the researcher writes `background/` before plan appr
 writer writes `work/` (also `prototype/`, the task folder's `report/` and its file `report-ko.json`, and the project blueprint folder, 4.7.5), the coder writes the location or its worktree (also one inside a linked-worktree location)
 but not `<task_dir>/`, `.git/`, `.claude/` (hooks and settings run in L1's context) or the blueprint folder (only the
 writer writes it), and the gate-analyst reads only gate-tally.md and gate-report.md. A worktree is the coder's own
-only when its folder is `agent-<the input's agent_id>` (F19); with a `cwd` in any other worktree of the location (a
+when its folder is `agent-<the input's agent_id>` (F19); with a `cwd` in any other worktree of the location (a
 session moved into another coder's worktree) the coder has the main-tree rules, and relative paths still resolve
-against that `cwd`. The
+against that `cwd`. Unit copies (`worktree.py`, state file `<task folder>/unit-copies.json` with `running`): the coder's
+first prompt is read from its transcript (`ma_subagent.first_prompt`, waiting up to 2 s only while a unit runs); its first
+line is `Work unit: u<n>` and the line directly under it may be `Worktree: <copy path of u<n>>`,
+`<location>/.claude/worktrees/my-agent-<task id>-u<n>`. A coder whose unit is running and whose `Worktree:` line names
+that copy, a linked worktree of the location's repository or of the store, writes only there (not into its task
+folder, `.git`, `.claude`, `docs/blueprint`, the records folder or the main tree) and runs only read forms of git. A
+coder with no `Worktree:` line and no running unit of its own has the main-tree rules (a rerun of a unit whose copy was
+kept). A coder whose unit cannot be told (no readable prompt, no `Work unit:` first line, a running unit with no
+copy line, another path, a copy that is missing, not linked or not running) writes nothing while any copy runs; reads
+stay allowed. The
 architect may not add the `Approved` or
 `Prototype: requested` line L1 writes into plan.md (4.4 G1-B) nor drop a `## Revisions` line (4.8.1).
 On a deny with an active task it appends one `guard:` line to the task's run-log (fields ma_schema.GUARD_FIELDS, `why` is
@@ -31,6 +40,7 @@ Paths compare without case (ma_path). Any error → exit 2, so the call is block
 (`onFailure: block` covers a crash or timeout).
 """
 import fnmatch
+import json
 import os
 import re
 import sys
@@ -66,6 +76,8 @@ class Rules(NamedTuple):
     deny_write: List[Path]
     bash_writes: bool      # False: Bash must not write anything (read-only judges, explorer)
     web: bool
+    refuse: Optional[str] = None   # a coder whose work unit cannot be told: why every write is refused (`write` is [])
+    read_git_only: bool = False    # an own-copy coder: only the read forms of git (`ma_bash.write_targets`)
 
 
 def secret(p: Path) -> bool:
@@ -149,6 +161,82 @@ def worktree(cwd: Path, location: Path, agent_id=None) -> Optional[Path]:
     return None
 
 
+REFUSED = "Cannot tell this coder's work unit ({}); writes are refused while unit copies run"
+WORK_UNIT = re.compile(r'Work unit:\s*(u\d+)\b')
+WORKTREE = re.compile(r'Worktree:[ \t]*(\S.*?)[ \t]*$')
+
+
+def running_units(task: Path) -> List[str]:
+    """The units listed in `running` of `<task folder>/unit-copies.json` (worktree.py's state file). No file: none. A
+    file that cannot be read as `{"running": [...]}` counts as a unit that cannot be named ('?'): fail closed."""
+    try:
+        text = (task / 'unit-copies.json').read_text(encoding='utf-8')
+    except FileNotFoundError:
+        return []
+    except (OSError, UnicodeDecodeError):
+        return ['?']
+    try:
+        running = json.loads(text).get('running')
+    except (ValueError, AttributeError):
+        return ['?']
+    return [str(u) for u in running] if isinstance(running, list) else ['?']
+
+
+def unit_copy(location: Path, task: Path, unit: str) -> Path:
+    """The copy path of `unit`: `<location>/.claude/worktrees/my-agent-<task id>-<unit>` (worktree.py)."""
+    return location / '.claude' / 'worktrees' / f'my-agent-{task.name}-{unit}'
+
+
+def linked_copy(W: Path, location: Path, task: Path) -> bool:
+    """True when `W` is a linked worktree (its `.git` is a `gitdir:` file) of this task's repository: its common git
+    dir is the location's or the store (`<task folder>/copy-store`). No git runs."""
+    if not (W / '.git').is_file():
+        return False
+    common = ma_active.common_dir(W)
+    if common is None:
+        return False
+    mine = ma_active.common_dir(location) if (location / '.git').exists() else None
+    return (mine is not None and same(common, mine)) or same(common, (task / 'copy-store').resolve())
+
+
+def coder_unit_rules(r: Rules, active, agent_id, session_id) -> Rules:
+    """The coder of a task that may have unit copies (the guard state model of the plan; F19 `agent-<id>` worktrees
+    are handled before). The unit and the copy come from the first two lines of the coder's first prompt."""
+    L, T = active.location, active.task_dir
+    blueprint = ma_blueprint.root(L)
+    records = T.parent
+    main = r._replace(write=[L], bash_writes=True,
+                      deny_write=[records, L / '.git', L / '.claude'] + ([L / ma_blueprint.DIR] if blueprint else []))
+    running = running_units(T)
+
+    def refuse(cause: str) -> Rules:
+        return r._replace(write=[], bash_writes=True, refuse=REFUSED.format(cause))
+
+    ready = isinstance(agent_id, str) and agent_id and isinstance(session_id, str) and session_id
+    prompt = ma_subagent.first_prompt(agent_id, session_id, wait=bool(running)) if ready else None
+    if prompt is None:
+        return refuse('its prompt cannot be read') if running else main                                  # rows 1, 2
+    lines = prompt.split('\n', 2)
+    first = WORK_UNIT.match(lines[0])
+    under_first = WORKTREE.match(lines[1].rstrip('\r')) if len(lines) > 1 else None
+    if first is None:
+        if under_first:
+            return refuse('the prompt names a worktree but no work unit on its first line')            # row 10
+        return refuse('its prompt names no work unit') if running else main                              # rows 3, 4
+    unit = first.group(1)
+    if under_first is None:
+        return refuse(f'{unit} is running but its prompt names no copy') if unit in running else main  # rows 5, 6
+    W = unit_copy(L, T, unit)
+    if not same(Path(os.path.expanduser(under_first.group(1))).resolve(), W.resolve()):
+        return refuse(f"the prompt's worktree is not the copy of {unit}")                                # row 9
+    if unit not in running or not linked_copy(W, L, T):
+        return refuse(f'the copy of {unit} is missing, is not a linked worktree of this repository, or {unit} '
+                      'is not running')                                                                  # row 8
+    return r._replace(read=r.read + [W], write=[W], bash_writes=True, read_git_only=True,
+                      deny_write=[W / ma_data.task_dir(), W / '.git', W / '.claude', W / ma_blueprint.DIR, records,
+                                  L / ma_blueprint.DIR])                                                 # row 7
+
+
 def level_rules(level: str, role: str, active) -> Rules:
     L, T = active.location, active.task_dir
     read = [L, data_root(), PLUGIN] + reference_files(T / 'plan.md', L)
@@ -157,7 +245,7 @@ def level_rules(level: str, role: str, active) -> Rules:
     return Rules(read, [], [], False, False)   # L3
 
 
-def rules(role: str, active, cwd: Path, agent_id=None) -> Optional[Rules]:
+def rules(role: str, active, cwd: Path, agent_id=None, session_id=None) -> Optional[Rules]:
     level = ma_schema.AGENTS.get(role)
     if level is None:
         return None
@@ -176,12 +264,10 @@ def rules(role: str, active, cwd: Path, agent_id=None) -> Optional[Rules]:
                           + ([blueprint] if blueprint else []))
     if role == 'coder':
         W = worktree(cwd, L, agent_id)
-        own = W or L
-        records = T.parent   # the records folder, resolved by the reader
-        return r._replace(read=r.read + ([W] if W else []), write=[own], bash_writes=True,
-                          deny_write=([records, L / '.git', L / '.claude'] if W is None
-                                      else [W / ma_data.task_dir(), W / '.git'])
-                          + ([(W or L) / ma_blueprint.DIR] if blueprint else []))
+        if W is None:   # a main-tree coder, or one that works in a unit copy of the task
+            return coder_unit_rules(r, active, agent_id, session_id)
+        return r._replace(read=r.read + [W], write=[W], bash_writes=True,   # F19: its own `agent-<id>` worktree
+                          deny_write=[W / ma_data.task_dir(), W / '.git'] + ([W / ma_blueprint.DIR] if blueprint else []))
     return r
 
 
@@ -194,7 +280,7 @@ def glob_base(pattern: str, base: Path) -> Path:
     return resolve(str(Path(*parts)) if parts else '.', base)
 
 
-def paths_of(tool: str, ti: dict, cwd: Path):
+def paths_of(tool: str, ti: dict, cwd: Path, read_git_only: bool = False):
     """(read paths, write paths) the call touches; write None = Bash writes somewhere it cannot name. The Bash write
     paths are what the command line shows plus what its inline interpreter code writes (`ma_bash.interpreter_writes`:
     only this hook reads that code); either one None makes the result None."""
@@ -209,7 +295,7 @@ def paths_of(tool: str, ti: dict, cwd: Path):
         return [base, glob_base(ti.get('pattern') or '', base)], []
     if tool == 'Bash':
         cmd = ti['command']
-        found, inline = ma_bash.write_targets(cmd, cwd), ma_bash.interpreter_writes(cmd, cwd)
+        found, inline = ma_bash.write_targets(cmd, cwd, read_git_only), ma_bash.interpreter_writes(cmd, cwd)
         return ma_bash.read_paths(cmd, cwd), None if found is None or inline is None else found + inline
     return [], []
 
@@ -220,7 +306,7 @@ def check(inp: dict, role: str, active) -> Optional[str]:
     if not isinstance(ti, dict):
         raise TypeError('tool_input is not an object')
     cwd = Path(inp.get('cwd') or os.getcwd()).resolve()
-    r = rules(role, active, cwd, inp.get('agent_id'))
+    r = rules(role, active, cwd, inp.get('agent_id'), inp.get('session_id'))
     if r is None:
         return f'Not a defined my-agent agent: {role}'
     if tool in ('WebFetch', 'WebSearch'):
@@ -229,7 +315,7 @@ def check(inp: dict, role: str, active) -> Optional[str]:
         dumped = ma_bash.env_reads(ti['command'])
         if dumped:
             return f'my-agent scope-guard: {role} may not read the environment ({dumped[0]})'
-    reads, writes = paths_of(tool, ti, cwd)
+    reads, writes = paths_of(tool, ti, cwd, r.read_git_only)
     if reads is None:
         return 'Cannot tell what this command reads (a path built from a variable, command substitution, cd to a variable, etc.).'
     if tool == 'Grep' and secret_glob(ti.get('glob') or ''):
@@ -244,6 +330,8 @@ def check(inp: dict, role: str, active) -> Optional[str]:
             return f'Outside the read scope of {role}: {p}'
     if tool == 'Bash' and role == 'verifier' and ma_bash.http_sends(ti['command']) is not False:
         return 'The verifier\'s curl and wget only fetch (GET) (this option sends data).'
+    if r.refuse and writes != []:   # reads (and a Bash command that writes nothing) stay allowed
+        return r.refuse
     if tool == 'Bash' and not r.bash_writes and writes != []:
         return f'Bash for {role} only reads and checks (this command changes files or git state).'
     if writes is None:
