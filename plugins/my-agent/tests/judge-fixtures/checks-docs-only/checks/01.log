@@ -1,0 +1,9 @@
+$ python3 -m unittest discover -s tests -p check_guide.py
+cwd: /tmp/judge-project
+time limit: 60 s
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+exit 0 after 1 s

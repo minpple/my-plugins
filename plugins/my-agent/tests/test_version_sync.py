@@ -35,9 +35,9 @@ class VersionSyncTest(unittest.TestCase):
     def test_every_version_place_shows_0_37_0(self):
         for path in (REPO / '.claude-plugin' / 'plugin.json', REPO / '.codex-plugin' / 'plugin.json',
                      REPO / '.antigravity-plugin' / 'plugin.json'):
-            self.assertEqual(manifest_version(path), '0.37.0', path)
-        self.assertEqual(readme_version('my-agent', 'README.md'), '0.37.0')
-        self.assertEqual(readme_version('my-agent', 'README-ko.md'), '0.37.0')
+            self.assertEqual(manifest_version(path), '0.37.1', path)
+        self.assertEqual(readme_version('my-agent', 'README.md'), '0.37.1')
+        self.assertEqual(readme_version('my-agent', 'README-ko.md'), '0.37.1')
 
 
 if __name__ == '__main__':

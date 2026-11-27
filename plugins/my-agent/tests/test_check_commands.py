@@ -3,6 +3,7 @@ import contextlib
 import hashlib
 import importlib.util
 import io
+import re
 import subprocess
 import tempfile
 import unittest
@@ -406,6 +407,353 @@ class CheckCommandsTest(Base):
         now = ma_checks.fingerprint(self.root, self.task)
         self.assertEqual((rec['head'], rec['files'], rec['count']), (now['head'], now['files'], 1))
         self.assertEqual(rec['paths'], now['paths'])
+
+
+# --- docs-only rounds (architecture Q48) ---
+
+UT = 'python3 -m unittest discover -s tests'
+UT_HALF = "python3 -m unittest discover -s tests -p 'test_[a-m]*.py'"
+LINT = 'python3 -c "print(\'lint ok\')"'
+BAD = 'python3 -c "import sys; sys.exit(1)"'
+TEST_GUIDE = '''import unittest
+from pathlib import Path
+
+
+class Guide(unittest.TestCase):
+    def test_guide(self):
+        guide = Path(__file__).resolve().parents[1] / 'docs' / 'guide.md'
+        self.assertTrue(not guide.exists() or 'add' in guide.read_text())
+'''
+TEST_CALC = '''import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import calc
+
+
+class Calc(unittest.TestCase):
+    def test_add(self):
+        self.assertEqual(calc.add(1, 2), 3)
+
+    def test_notes(self):
+        notes = Path(__file__).resolve().parents[1] / 'docs' / 'calc-notes.md'
+        self.assertTrue(notes.read_text())
+'''
+
+
+class DocsRoundBase(Base):
+    def setUp(self):
+        super().setUp()
+        self.put('.gitignore', '__pycache__/\n')
+        self.put('calc.py', 'def add(a, b):\n    return a + b\n')
+        self.put('docs/guide.md', 'add adds\n')
+        self.put('docs/calc-notes.md', 'notes\n')
+        self.put('tests/test_guide.py', TEST_GUIDE)
+        self.put('tests/test_calc.py', TEST_CALC)
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-q', '-m', 'project')
+        self.setup_task([('u1', [UT, LINT])])
+
+    def put(self, rel, body):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding='utf-8')
+
+    def kept(self):
+        folder = self.task / ma_schema.CHECKS_LOGS / ma_schema.CHECKS_KEPT
+        return sorted(p.name for p in folder.iterdir()) if folder.is_dir() else []
+
+    def first(self, res):
+        return res.stdout.splitlines()[0]
+
+    def full_run(self, code=0):
+        res = self.run_cc()
+        self.assertEqual(res.returncode, code, res.stdout + res.stderr)
+        self.assertNotIn('docs-only', res.stdout)
+        return res
+
+    def assert_full(self, res, n=2, failed=0):
+        self.assertEqual(self.first(res), f'check-commands: {n} run, {failed} failed, 0 not run (Environment); '
+                                          f'record: {self.task}/checks.md', res.stdout)
+        self.assertNotIn('docs-only', res.stdout)
+        self.assertEqual(self.kept(), [])
+        self.assertNotIn('carried', self.record()['result'])
+
+
+class DocsRoundTest(DocsRoundBase):
+    def test_first_run_is_full_in_the_old_format(self):
+        res = self.full_run()
+        self.assert_full(res)
+        self.assertEqual(self.record()['result'], '2 run, 0 failed, 0 not run')
+
+    def test_document_change_narrows_the_unittest_command(self):
+        self.full_run()
+        base = self.record()
+        base_id = ma_checks.record_id(base)
+        self.put('docs/guide.md', 'add adds two numbers\n')
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        lines = res.stdout.splitlines()
+        self.assertEqual(lines[0], 'check-commands: docs-only round: 2 run (1 narrowed), 0 carried, 0 failed, '
+                                   f'0 not run (Environment); record: {self.task}/checks.md')
+        self.assertEqual(lines[1], 'docs-only: 1 paths (docs/guide.md); test files: test_guide.py')
+        rec = self.record()
+        self.assertEqual(rec['result'], '2 run, 0 failed, 0 not run, 0 carried')
+        first, second = rec['lines']
+        self.assertEqual((first['kind'], first['files'], first['ref'], first['log'], first['command']),
+                         ('narrowed', ['test_guide.py'], f'{base_id}/01', 'checks/01.log', UT))
+        self.assertEqual((second['kind'], second['command']), ('exit', LINT))
+        self.assertIn(f'`{UT}` (u1) → narrowed to test_guide.py: exit 0 | Ran 1 test in ', self.record_text())
+        self.assertIn(f'; rest carried from {base_id}/01', self.record_text())
+        kept = self.task / 'checks' / 'kept' / base_id
+        self.assertEqual(kept.name, self.kept()[0])
+        self.assertEqual((kept / 'checks.md').read_text(encoding='utf-8').splitlines()[:2],
+                         [f'# Check record: {TASK}', f'Fingerprint: head={base["head"]} files={base["files"]} paths=0'])
+        self.assertTrue((kept / '01.log').is_file() and (kept / '02.log').is_file())
+        log = (self.task / 'checks' / '01.log').read_text(encoding='utf-8').splitlines()
+        self.assertEqual(log[0], '$ python3 -m unittest discover -s tests -p test_guide.py')
+        self.assertRegex(log[-1], r'^exit 0 after \d+ s$')
+
+    def test_document_no_test_reads_is_carried(self):
+        self.full_run()
+        base_id = ma_checks.record_id(self.record())
+        self.put('docs/unread.md', 'nobody reads this\n')
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 0, res.stdout)
+        lines = res.stdout.splitlines()
+        self.assertEqual(lines[0], 'check-commands: docs-only round: 1 run (0 narrowed), 1 carried, 0 failed, '
+                                   f'0 not run (Environment); record: {self.task}/checks.md')
+        self.assertEqual(lines[1], 'docs-only: 1 paths (docs/unread.md); test files: none')
+        rec = self.record()
+        self.assertEqual(rec['result'], '1 run, 0 failed, 0 not run, 1 carried')
+        first, second = rec['lines']
+        self.assertEqual((first['kind'], first['ref'], first['log']),
+                         ('carried', f'{base_id}/01', f'checks/kept/{base_id}/01.log'))
+        self.assertEqual(second['kind'], 'exit')
+        self.assertFalse((self.task / 'checks' / '01.log').exists())
+        self.assertTrue((self.task / 'checks' / 'kept' / base_id / '01.log').is_file())
+        self.assertIn(f'→ carried from {base_id}/01: exit 0 | Ran ', self.record_text())
+
+    def test_failed_or_fingerprintless_base_and_no_record_run_in_full(self):
+        self.setup_task([('u1', [UT, BAD])])
+        res = self.full_run(1)
+        self.put('docs/guide.md', 'add changed\n')
+        self.assert_full(self.full_run(1), failed=1)     # the base failed
+        self.setup_task([('u1', [UT, LINT])])
+        self.assert_full(self.full_run())
+        text = self.record_text()
+        none = text.split('\n## Fingerprint paths')[0].splitlines()
+        none[1] = 'Fingerprint: none (not a git location)'
+        (self.task / 'checks.md').write_text('\n'.join(none) + '\n', encoding='utf-8')
+        self.put('docs/guide.md', 'add changed again\n')
+        self.assert_full(self.full_run())
+
+    def test_a_document_and_another_file_changed_runs_in_full(self):
+        self.full_run()
+        self.put('docs/guide.md', 'add changed\n')
+        self.put('calc.py', 'def add(a, b):\n    return b + a\n')
+        self.assert_full(self.full_run())
+
+    def test_path_under_a_tests_folder_is_not_a_document(self):
+        self.full_run()
+        self.put('tests/docs/x.md', 'x\n')
+        self.assert_full(self.full_run())
+
+    def test_commit_after_the_record_runs_in_full(self):
+        self.full_run()
+        self.put('docs/guide.md', 'add committed\n')
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-q', '-m', 'docs')
+        self.assert_full(self.full_run())
+
+    def test_outside_git_runs_in_full(self):
+        plain = Path(self.tmp.name) / 'plain'
+        plain.mkdir()
+        self.setup_task([('u1', [OK_A])], profile='general', location=plain)
+        for _ in range(2):
+            res = self.full_run()
+            self.assertEqual(self.first(res), f'check-commands: 1 run, 0 failed, 0 not run (Environment); '
+                                              f'record: {self.task}/checks.md')
+        self.assertEqual(self.record_text().splitlines()[1], 'Fingerprint: none (not a git location)')
+
+    def test_command_missing_from_the_base_runs_in_full_and_not_run_stays(self):
+        nr = 'python3 -c "print(\'nr\')"'
+        new = "python3 -m unittest discover -s tests -p 'test_guide.py'"
+        scope = [f'- Environment: `{nr}` — not run here (no docker)']
+        self.setup_task([('u1', [UT, LINT, nr])], scope=scope)
+        self.full_run()
+        self.setup_task([('u1', [UT, LINT, nr, new])], scope=scope)
+        self.put('docs/guide.md', 'add changed\n')
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertEqual(self.first(res), 'check-commands: docs-only round: 3 run (1 narrowed), 0 carried, 0 failed, '
+                                          f'1 not run (Environment); record: {self.task}/checks.md')
+        kinds = [(l['kind'], l['command']) for l in self.record()['lines']]
+        self.assertEqual(kinds, [('narrowed', UT), ('exit', LINT), ('not run', nr), ('exit', new)])
+
+    def test_consecutive_rounds_chain_and_unreached_kept_folders_go(self):
+        self.full_run()
+        id1 = ma_checks.record_id(self.record())
+        self.put('docs/guide.md', 'add round two\n')
+        self.assertEqual(self.run_cc().returncode, 0)
+        rec2 = self.record()
+        self.put('docs/calc-notes.md', 'notes round three\n')
+        stray = self.task / 'checks' / 'kept' / '260101-000000'
+        stray.mkdir(parents=True)
+        (stray / 'checks.md').write_text('old\n', encoding='utf-8')
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertEqual(res.stdout.splitlines()[1], 'docs-only: 1 paths (docs/calc-notes.md); test files: test_calc.py')
+        rec3 = self.record()
+        line = rec3['lines'][0]
+        kept = self.kept()
+        id2 = [k for k in kept if k != id1][0]
+        self.assertEqual((line['kind'], line['files'], line['ref']), ('narrowed', ['test_calc.py'], f'{id2}/01'))
+        self.assertFalse(stray.exists())
+        self.assertEqual(sorted(ma_checks.kept_closure(self.task, rec3)), sorted([id1, id2]))
+        self.assertEqual(kept, sorted([id1, id2]))
+        self.assertTrue(ma_checks.passed(rec3) and ma_checks.passed(rec2))
+        # a carried line takes over the reference of a carried base line
+        self.put('docs/unread.md', 'u\n')
+        self.assertEqual(self.run_cc().returncode, 0)
+        carried = self.record()['lines'][0]
+        self.assertEqual((carried['kind'], carried['ref'].split('/')[0] in self.kept()), ('carried', True))
+        self.put('docs/unread2.md', 'u\n')
+        self.assertEqual(self.run_cc().returncode, 0)
+        again = self.record()['lines'][0]
+        self.assertEqual((again['kind'], again['ref'], again['log']), ('carried', carried['ref'], carried['log']))
+
+    def test_same_test_file_under_two_commands_narrows_both(self):
+        self.setup_task([('u1', [UT_HALF, UT])])
+        self.full_run()
+        self.put('docs/guide.md', 'add changed\n')
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertEqual(self.first(res), 'check-commands: docs-only round: 2 run (2 narrowed), 0 carried, 0 failed, '
+                                          f'0 not run (Environment); record: {self.task}/checks.md')
+        self.assertEqual([l['files'] for l in self.record()['lines']], [['test_guide.py'], ['test_guide.py']])
+
+    def test_deleted_document_finds_its_readers(self):
+        self.full_run()
+        (self.root / 'docs' / 'guide.md').unlink()
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertEqual(res.stdout.splitlines()[1], 'docs-only: 1 paths (docs/guide.md); test files: test_guide.py')
+
+    def test_renamed_document_finds_its_readers(self):
+        self.full_run()
+        git(self.root, 'mv', 'docs/guide.md', 'docs/guide-new.md')
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertEqual(res.stdout.splitlines()[1],
+                         'docs-only: 2 paths (docs/guide-new.md, docs/guide.md); test files: test_guide.py')
+
+    def test_failing_narrowed_command_fails_the_record_and_the_next_run_is_full(self):
+        self.full_run()
+        self.put('docs/guide.md', 'no word here\n')
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 1, res.stdout)
+        lines = res.stdout.splitlines()
+        self.assertTrue(lines[0].startswith('check-commands: docs-only round: 2 run (1 narrowed), 0 carried, 1 failed'))
+        failed = [l for l in lines if l.startswith('failed: ')]
+        self.assertEqual(len(failed), 1)
+        self.assertIn('python3 -m unittest discover -s tests -p test_guide.py (u1) exit 1:', failed[0])
+        self.assertFalse(ma_checks.passed(self.record()))
+        res = self.run_cc()
+        self.assertEqual(res.returncode, 1, res.stdout)
+        self.assertNotIn('docs-only', res.stdout)
+        self.assertEqual(self.kept(), [])
+
+    def test_narrowed_summary_joins_one_part_per_invocation(self):
+        self.put('tests/test_guide_two.py', TEST_GUIDE.replace('Guide', 'GuideTwo'))
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-q', '-m', 'second reader')
+        self.full_run()
+        self.put('docs/guide.md', 'add changed\n')
+        self.assertEqual(self.run_cc().returncode, 0)
+        line = self.record()['lines'][0]
+        self.assertEqual(line['files'], ['test_guide.py', 'test_guide_two.py'])
+        parts = line['summary'].split('; ')
+        self.assertEqual(len(parts), 2, line['summary'])
+        log = (self.task / 'checks' / '01.log').read_text(encoding='utf-8')
+        for part in parts:
+            self.assertRegex(part, r'^Ran 1 test in [\d.]+s, OK$')
+            self.assertIn(part.split(', OK')[0], log)
+        self.assertIn(' && ', log.splitlines()[0])
+
+    def test_summary_of_several_ran_lines(self):
+        mod = load_script()
+        out = 'Ran 2 tests in 0.1s\n\nOK\n.\nRan 1 test in 0.2s\n\nFAILED (failures=1)\n'
+        self.assertEqual(mod.summary_of(out), 'Ran 2 tests in 0.1s, OK; Ran 1 test in 0.2s, FAILED (failures=1)')
+        self.assertEqual(mod.summary_of('Ran 3 tests in 0.001s\n\nOK\n'), 'Ran 3 tests in 0.001s, OK')
+
+    def test_kill_after_the_logs_moved_leaves_no_record_and_the_next_run_is_full(self):
+        self.full_run()
+        self.put('docs/guide.md', 'add changed\n')
+        mod = load_script()
+
+        def boom(*args, **kwargs):
+            raise ValueError('boom')
+
+        mod.run_command = boom
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = mod.main(['--task', str(self.task)])
+        self.assertEqual(code, 3, out.getvalue())
+        self.assertFalse((self.task / ma_schema.CHECKS).exists())
+        self.assert_full(self.full_run())
+
+    def test_docs_round_decision_and_status_strings(self):
+        plan = (self.task / 'plan.md').read_text(encoding='utf-8')
+        self.assertEqual(ma_checks.docs_round(self.task, self.root, 'dev', plan)['kind'], 'full')   # no record
+        self.full_run()
+        self.assertEqual(ma_checks.docs_round(self.task, self.root, 'dev', plan)['status'], 'current')
+        self.put('docs/guide.md', 'add changed\n')
+        decision = ma_checks.docs_round(self.task, self.root, 'dev', plan)
+        self.assertEqual((decision['kind'], decision['docs']), ('run due', ['docs/guide.md']))
+        self.assertEqual(decision['status'], 'docs-only (run due; 1 paths differ: docs/guide.md; test files: test_guide.py)')
+        self.run_cc()
+        kept = self.kept()[0]
+        self.assertEqual(ma_checks.status(self.task, self.root, 'dev', plan),
+                         f'docs-only (checked; 1 document paths since {kept}: docs/guide.md)')
+
+    def test_docs_round_failure_falls_back_to_documented_stale_and_says_why(self):
+        plan = (self.task / 'plan.md').read_text(encoding='utf-8')
+        err = io.StringIO()
+        original = ma_checks._decide
+        ma_checks._decide = lambda *a: (_ for _ in ()).throw(ValueError('reader finder broke'))
+        try:
+            with contextlib.redirect_stderr(err):
+                decision = ma_checks.docs_round(self.task, self.root, 'dev', plan)
+        finally:
+            ma_checks._decide = original
+        self.assertEqual(decision, {'kind': 'full', 'status': 'stale (0 paths differ: none)'})
+        self.assertIn('ValueError: reader finder broke', err.getvalue())
+
+    def test_docs_only_fixture_records_parse(self):
+        docs_only = ma_checks.parse_record((FIXTURES / 'checks-docs-only' / 'checks.md').read_text(encoding='utf-8'))
+        line = docs_only['lines'][0]
+        self.assertEqual((line['kind'], line['outcome'], line['code'], line['files'], line['ref'], line['log']),
+                         ('narrowed', 'exit', 0, ['check_guide.py'], '261120-100000/01', 'checks/01.log'))
+        self.assertEqual(docs_only['result'], '1 run, 0 failed, 0 not run, 0 carried')
+        self.assertEqual(docs_only['paths'], {'docs/guide.md': '17e725ef2188'})
+        kept_dir = FIXTURES / 'checks-docs-only' / 'checks' / 'kept' / '261120-100000'
+        kept = ma_checks.parse_record((kept_dir / 'checks.md').read_text(encoding='utf-8'))
+        self.assertEqual((kept['lines'][0]['kind'], kept['lines'][0]['ref']), ('exit', None))
+        self.assertTrue(ma_checks.passed(kept) and ma_checks.passed(docs_only))
+        self.assertEqual(ma_checks.record_id(kept), '261120-100000')
+        for name in ('checks-docs-and-code', 'checks-readme-only'):
+            rec = ma_checks.parse_record((FIXTURES / name / 'checks.md').read_text(encoding='utf-8'))
+            self.assertEqual((rec['lines'][0]['kind'], rec['lines'][0]['summary']), ('exit', 'Ran 4 tests in 0.001s, OK'))
+        carried = ('# Check record: t\nFingerprint: none (not a git location)\nTaken: 2026-11-27 14:02:11\n'
+                   'Result: 0 run, 0 failed, 0 not run, 1 carried\n\n'
+                   '- 01 `x` (u1) → carried from 261127-140211/02: exit 0 | Ran 1 test in 0.1s, OK | 3 s | '
+                   'checks/kept/261127-140211/02.log\n')
+        item = ma_checks.parse_record(carried)['lines'][0]
+        self.assertEqual((item['kind'], item['ref'], item['log']), ('carried', '261127-140211/02',
+                                                                    'checks/kept/261127-140211/02.log'))
+        self.assertIsNone(ma_checks.parse_record(carried.replace('→ carried from', '→ carried frm')))
 
 
 if __name__ == '__main__':

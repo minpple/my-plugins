@@ -410,6 +410,59 @@ class AgentsTest(unittest.TestCase):
         ):
             self.assertIn(sentence, v)
 
+    def test_verifier_light_judgment_on_docs_only_record(self):
+        """On `docs-only (checked; …)` the verifier runs no check command and judges only the due criteria (criteria 5, 8)."""
+        v = self._agent('verifier')
+        scope = v.split('## Scope of each run')[1].split('## Checks per profile')[0]
+        bullet = next(b for b in scope.split('\n- ') if b.startswith('Docs-only round'))
+        for word in ('`docs-only (checked', 'runs no check command', '`carried from`', '`rest carried from`',
+                     '`checks/kept/<id>/checks.md`', 'each `; `-separated part of its summary is in the log',
+                     'the `Re-judge:` line', 'every criterion that failed in the previous `verify.md`',
+                     'carry the rest without running anything'):
+            self.assertIn(word, bullet)
+        self.assertIn('docs-only (checked; …)', v.split('## Input')[1].split('## `verify.md` format')[0])
+        self.assertIn('`checks/kept/<id>/`', v.split('## Input')[1].split('## `verify.md` format')[0])
+        # the three reused `## Commands run` forms keep the command text before ` (checks.md`
+        for form in ('`- <command> → <summary> (checks.md)`',
+                     '`- <command> → <summary> (checks.md, carried from <id>/<nn>)`',
+                     '`- <command> → narrowed to <files>: <summary> (checks.md)`'):
+            self.assertIn(form, v)
+
+    def test_verifier_docs_only_exceptions(self):
+        """An unmapped changed document judges every criterion; a failed narrowed line fails its criterion (criterion 5)."""
+        v = self._agent('verifier')
+        bullet = next(b for b in v.split('\n- ') if b.startswith('Docs-only round'))
+        self.assertIn('`Re-judge: all`', bullet)
+        self.assertIn('an unmapped changed document', bullet)
+        self.assertIn('judge every criterion, still without running the carried commands', bullet)
+        self.assertIn('a narrowed command that failed fails its criterion as a failing command does', bullet)
+
+    def test_verifier_untrusted_record_list_with_docs_only(self):
+        """The untrusted list gains `docs-only (run due` and a failing kept record or log, and keeps the old values (criterion 5)."""
+        v = self._agent('verifier')
+        line = next(b for b in v.split('\n- ') if b.startswith('Record not trusted'))
+        for word in ('`docs-only (run due', 'a kept record or log that fails a check', '`Checks: stale`', '`missing`',
+                     '`no fingerprint`', 'run every check command'):
+            self.assertIn(word, line)
+        self.assertIn('a trusted docs-only record counts as run, like a current one', v)
+        self.assertIn('The full suites still run once in a rerun when the record is not trusted', v)
+
+    def test_verifier_keeps_model_and_effort(self):
+        """The frontmatter is unchanged: the saving comes from judging fewer criteria (criterion 5)."""
+        fm = split(REPO / 'l2-design-judge/agents/verifier.md')[0]
+        self.assertEqual(fm.get('model'), 'opus')
+        self.assertEqual(fm.get('effort'), 'high')
+
+    def test_reviewer_cites_docs_only_lines(self):
+        """The reviewer cites narrowed and carried lines; both count as lines for the BLOCKER rules (criterion 5)."""
+        r = self._agent('reviewer')
+        self.assertIn('`Checks: docs-only (checked', r)
+        self.assertIn('cite the narrowed and carried lines of `checks.md`', r)
+        self.assertIn('cite the narrowed lines that cover them instead of running their tests', r)
+        self.assertIn('Without such a line, run them as above', r)
+        accept = 'A carried or narrowed line counts as a line'
+        self.assertEqual(r.count(accept), 2)   # general and dev rules
+
     def test_verifier_and_reviewer_name_no_host(self):
         """No host name in either judge (criterion 7)."""
         for name in ('verifier', 'reviewer'):

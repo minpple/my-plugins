@@ -693,6 +693,7 @@ def aborted_reason(intake_text):
 CHANGED_FILES = 'changed-files.md'
 CHECKS = 'checks.md'          # the check record `check-commands.py` writes (architecture Q47)
 CHECKS_LOGS = 'checks'        # its folder of per-command logs, `checks/<nn>.log`
+CHECKS_KEPT = 'kept'          # `checks/kept/<id>/`: earlier records and their logs that a docs-only round still names
 RECORD_DENY = ('Only check-commands.py writes checks.md and checks/ (task {task}); run python3 '
                '"${{CLAUDE_PLUGIN_ROOT}}/l4-tools-guards/scripts/check-commands.py" --task "{folder}"')   # scope-guard and verdict-fresh-check deny reason
 

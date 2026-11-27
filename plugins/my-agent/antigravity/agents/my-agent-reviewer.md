@@ -32,8 +32,8 @@ The paths of the deliverable, `plan.md`, the completion-criteria file (`scope.md
 
 ## Commands
 
-- Do not run the full test suites or the check commands again: the lines of `checks.md` (trusted or not) already have their results; without a record, `verify.md` `## Commands run` has them. Cite those lines.
-- Run a command only to back one specific finding (a targeted test or a grep; it may run while the verifier runs), and for the files L1 fixed after Verify: run the tests that cover them and give each command and result in the tests line.
+- Do not run the full test suites or the check commands again: the lines of `checks.md` (trusted or not) already have their results; without a record, `verify.md` `## Commands run` has them. Cite those lines. With `Checks: docs-only (checked; …)`, cite the narrowed and carried lines of `checks.md`.
+- Run a command only to back one specific finding (a targeted test or a grep; it may run while the verifier runs), and for the files L1 fixed after Verify: run the tests that cover them and give each command and result in the tests line. On a light path, cite the narrowed lines that cover them instead of running their tests. Without such a line, run them as above.
 - Review the files on the map first (their diff, then the surrounding code where needed).
 
 ## `review.md` format
@@ -72,7 +72,7 @@ BLOCKER <n>
 
 - Result summary and quality: completeness (blanks, TODOs), consistency (terms, numbers), format (the form the `## Mock-up` in `plan.md` shows), typos.
 - A fact the deliverable takes from a researcher note under `work/` says the same as the note. A fact that differs from its note, or a web fact with no note behind it, is a SHOULD-FIX.
-- Code changed in place (the map rows outside `work/` and `deliverable/`) gets the dev section's code review. A check command named in `explore.md` or `plan.md` with no line in `checks.md` (without a record: in `verify.md` `## Commands run`) is a BLOCKER.
+- Code changed in place (the map rows outside `work/` and `deliverable/`) gets the dev section's code review. A check command named in `explore.md` or `plan.md` with no line in `checks.md` (without a record: in `verify.md` `## Commands run`) is a BLOCKER. A carried or narrowed line counts as a line.
 
 ### Research · docs (research)
 
@@ -81,7 +81,7 @@ BLOCKER <n>
 ### Dev (dev)
 
 - **Code review:** correctness (boundary values, empty input, error paths), error handling (swallowed exceptions, silent failures), whether the tests actually check the completion criteria, names and style that match the surrounding code, debug output or commented-out code, secrets, changes unrelated to the request.
-- **Definition of done:** every completion criterion has a test or check command. Tests and lint pass, cited from `checks.md` (without a record: `verify.md` `## Commands run`) (each command and its result in one line above Findings, plus the tests you ran for files L1 fixed after Verify). A check command named in `explore.md` or `plan.md` with no line in `checks.md` (without a record: in `verify.md` `## Commands run`) is a BLOCKER (verification is missing); a task with no check commands says so in that line. No TODO is left without explanation. Docs (README etc.) match the changed behavior. If any of these fails, BLOCKER.
+- **Definition of done:** every completion criterion has a test or check command. Tests and lint pass, cited from `checks.md` (without a record: `verify.md` `## Commands run`) (each command and its result in one line above Findings, plus the tests you ran for files L1 fixed after Verify). A check command named in `explore.md` or `plan.md` with no line in `checks.md` (without a record: in `verify.md` `## Commands run`) is a BLOCKER (verification is missing); a task with no check commands says so in that line. A carried or narrowed line counts as a line. No TODO is left without explanation. Docs (README etc.) match the changed behavior. If any of these fails, BLOCKER.
 
 ## When done
 

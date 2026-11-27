@@ -167,7 +167,7 @@ class ArchDocTest(unittest.TestCase):
     def test_decision_log_has_q39_and_q40_once_after_q38(self):
         rows = re.findall(r'^\| (Q\d+) \|', self.text, re.M)
         self.assertEqual(len(rows), len(set(rows)), rows)
-        self.assertEqual(rows[-7:], ['Q41', 'Q42', 'Q43', 'Q44', 'Q45', 'Q46', 'Q47'])
+        self.assertEqual(rows[-8:], ['Q41', 'Q42', 'Q43', 'Q44', 'Q45', 'Q46', 'Q47', 'Q48'])
         q39 = next(l for l in self.text.splitlines() if l.startswith('| Q39 |'))
         q40 = next(l for l in self.text.splitlines() if l.startswith('| Q40 |'))
         self.assertIn('capped at 3 rounds', q39)
@@ -240,11 +240,28 @@ class ArchDocTest(unittest.TestCase):
                      'SHOULD-FIX', '`explore.md`'):
             self.assertIn(word, line)
 
+    def test_q48_docs_only_rounds_row(self):
+        row = self.line_of('| Q48 |')
+        self.assert_words(row, ('Docs-only rounds', '`docs` folder segment', '`tests`', '`check-commands.py`', '`-p`',
+                                '`carried from`', '`rest carried from`', '`checks/kept/`', '`docs-only (run due; ',
+                                '`docs-only (checked; ', '`Re-judge:`', 'Q47 (3)', 'Q47 (4)', 'Q47 (7)',
+                                'effort is not lowered', 'SHOULD-FIX', 'picked by the person at G3',
+                                'checks-docs-only', 'checks-docs-and-code', 'checks-readme-only',
+                                'tests do not pin the wording of record documents', '15,000',
+                                'documents are decided by path', 'only unittest discover commands',
+                                'is not run', 'Not taken', '261127-accept-speedup', '617 s'))
+
+    def test_docs_only_places_in_design(self):
+        self.assert_words(self.line_of('| **④ Accept** |'), ('docs-only round', 'carried'))
+        self.assert_words(self.line_of('- **Verify and Review scope'), ('docs-only', '`Re-judge:`'))
+        tree = self.section('### 4.7 ', '### 4.7.1 ')
+        self.assert_words(tree, ('ma_readers', '`checks/kept/`'))
+
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.86 (2026-11-27, plugin 0.37.0:'), line[:110])
-        self.assertIn('v0.85 (2026-11-27, plugin 0.36.0:', line)
-        self.assertNotIn('design draft v0.85', line)
+        self.assertTrue(line.startswith('- Status: design draft v0.87 (2026-11-28, plugin 0.37.1:'), line[:110])
+        self.assertIn('v0.86 (2026-11-27, plugin 0.37.0:', line)
+        self.assertNotIn('design draft v0.86', line)
         self.assertIn('v0.84 (2026-11-26, plugin 0.35.0:', line)
         self.assertNotIn('design draft v0.84', line)
         self.assertIn('v0.83 (2026-11-26, plugin 0.34.0:', line)
@@ -866,8 +883,12 @@ class ArchDocTest(unittest.TestCase):
         self.assertNotIn('`cmp`', back[:back.index('Small fix with only Review rerun')])
         self.assert_words(change, ('**Light path after G3 Rework', 'every open item is a NITPICK',
                                    'one G3 Rework round', 'only Review runs again'))
-        self.assertIn('If every open item is a NITPICK small fix, L1 fixes them and only Review runs again.',
-                      self.section('### 4.4 ', '### 4.5 '))
+        self.assert_words(change, ('documents-only small fix', '`archive.py --only verify.md review.md changed-files.md`',
+                                   'light verifier judgment', 'Back to Execute with the failing test',
+                                   'a documents-only small fix takes this route in place of the full rerun'))
+        self.assertIn('If every open item is a NITPICK small fix, or every fix is a documents-only small fix, '
+                      'L1 fixes them; only Review runs again, or the light verifier judgment too when a fixed '
+                      'document maps to a criterion.', self.section('### 4.4 ', '### 4.5 '))
         self.assertNotIn('(open)`', self.text)
 
     def test_step_ids_in_design(self):
@@ -1127,7 +1148,10 @@ class ArchDocTest(unittest.TestCase):
         self.assert_words(guard, ('`verdict-fresh-check.py`', '`scope-guard.py`', '`checks.md`', '`checks/`',
                                   'before every other write verdict', 'Only check-commands.py writes'))
         judge = self.line_of('| **judge checks** |')
-        self.assert_words(judge, ('two dev fixtures', '`--out`'))
+        self.assert_words(judge, ('five dev fixtures', '`--out`', 'nine in all', 'docs-only'))
+        tests = self.section('### 4.13 ', '### 4.14 ')
+        self.assert_words(tests, ('tests do not pin the wording of record documents', '`docs/blueprint/`',
+                                  '`docs/handoff/`', 'tests that pin the specification', 'stay'))
         codex = self.line_of('| Subagent start | `Agent` with `subagent_type` `my-agent:<role>` | `spawn_agent`')
         self.assert_words(codex, ('the verifier and the reviewer start together',))
         agy = self.line_of('| Subagent start | `Agent` with `subagent_type` `my-agent:<role>` | `invoke_subagent`')

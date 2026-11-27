@@ -44,6 +44,17 @@ PLAN_CHECKS = PLAN.replace('- Parallel group: group 1\n- Completion criteria: 1,
                            '- Check commands: `python3 -c "print(1)"` (criterion 1)\n- Parallel group: group 1\n- Completion criteria: 1, 2')
 
 
+GUIDE_TEST = '''import unittest
+from pathlib import Path
+
+
+class Guide(unittest.TestCase):
+    def test_guide(self):
+        guide = Path(__file__).resolve().parents[1] / 'docs' / 'guide.md'
+        self.assertIn('add', guide.read_text())
+'''
+
+
 def git(root, *args):
     subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True, text=True)
 
@@ -645,6 +656,80 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual((before.returncode, after.returncode), (0, 0))
         self.assertEqual(first_line(before), first_line(after))
         self.assertEqual(self.table()[1].keys(), {'web/view.html'})
+
+    # --- docs-only rounds: the two `docs-only` status values (architecture Q48) ---
+
+    def docs_project(self):
+        """A committed `docs/guide.md` read by `tests/test_guide.py`, and a plan whose check command discovers `tests`."""
+        self.write('.gitignore', '__pycache__/\n')
+        self.write('docs/guide.md', 'add\n')
+        self.write('tests/test_guide.py', GUIDE_TEST)
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-q', '-m', 'docs project')
+        self.with_checks(PLAN_CHECKS.replace('python3 -c "print(1)"', 'python3 -m unittest discover -s tests'))
+
+    def kept_ids(self):
+        folder = self.task / ma_schema.CHECKS_LOGS / ma_schema.CHECKS_KEPT
+        return sorted(p.name for p in folder.iterdir()) if folder.is_dir() else []
+
+    def test_docs_only_run_due_then_checked_never_current(self):
+        self.docs_project()
+        self.run_checks()
+        self.assertEqual(self.checks_status(), 'current')   # no path differs from the full record
+        self.write('docs/guide.md', 'add two\n')
+        self.assertEqual(self.checks_status(),
+                         'docs-only (run due; 1 paths differ: docs/guide.md; test files: test_guide.py)')
+        self.run_checks()   # the narrowed run, written in the same round
+        status = self.checks_status()
+        self.assertEqual(self.kept_ids() and status,
+                         f'docs-only (checked; 1 document paths since {self.kept_ids()[0]}: docs/guide.md)')
+        self.assertFalse(status.startswith(('current', 'stale')))
+
+    def test_a_document_no_test_reads_gives_run_due_with_no_test_files(self):
+        self.docs_project()
+        self.run_checks()
+        self.write('docs/unread.md', 'u\n')
+        self.assertEqual(self.checks_status(), 'docs-only (run due; 1 paths differ: docs/unread.md; test files: none)')
+
+    def test_docs_only_checked_after_a_failed_narrowed_command_and_the_next_run_is_full(self):
+        self.docs_project()
+        self.run_checks()
+        self.write('docs/guide.md', 'nothing\n')
+        res = run_script(CHECK_SCRIPT, '--task', str(self.task))
+        self.assertEqual(res.returncode, 1, res.stdout)
+        self.assertRegex(self.checks_status(), r'^docs-only \(checked; 1 document paths since \d{6}-\d{6}')
+        res = run_script(CHECK_SCRIPT, '--task', str(self.task))
+        self.assertEqual(res.returncode, 1, res.stdout)
+        self.assertNotIn('docs-only', res.stdout)
+        self.assertEqual(self.checks_status(), 'current')   # a full record equal to the tree
+
+    def test_code_change_after_the_narrowed_run_is_stale_and_a_missing_kept_record_is_named(self):
+        self.docs_project()
+        self.run_checks()
+        self.write('docs/guide.md', 'add two\n')
+        self.run_checks()
+        kept = self.kept_ids()[0]
+        self.write('plugins/demo/lib/parser.py', 'a = 9\n')
+        self.assertEqual(self.checks_status(), 'stale (1 paths differ: plugins/demo/lib/parser.py)')
+        self.write('plugins/demo/lib/parser.py', 'a = 1\n')
+        self.assertTrue(self.checks_status().startswith('docs-only (checked'))
+        shutil.rmtree(self.task / ma_schema.CHECKS_LOGS / ma_schema.CHECKS_KEPT / kept)
+        self.assertEqual(self.checks_status(), f'stale (kept record {kept} missing)')
+
+    def test_docs_only_status_never_changes_the_exit_code(self):
+        self.docs_project()
+        self.run_checks()
+        self.write('docs/guide.md', 'add two\n')
+        self.assertTrue(self.checks_status().startswith('docs-only (run due'))
+        self.run_checks()
+        (self.task / ma_schema.CHECKS).write_text('not a record\n', encoding='utf-8')
+        self.assertEqual(self.checks_status(), 'missing')
+        self.run_checks()   # a full run again (the base is unreadable)
+        plain = Path(self.tmp.name) / 'plain'
+        plain.mkdir()
+        (self.task / 'intake.md').write_text(f'Status: active\nLocation: {plain}\nProfile: general\nTask: {TASK}\n',
+                                             encoding='utf-8')
+        self.assertEqual(self.checks_status(), 'no fingerprint')
 
 
 if __name__ == '__main__':

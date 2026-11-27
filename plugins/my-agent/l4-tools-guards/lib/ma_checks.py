@@ -23,14 +23,37 @@ rename), without the task records folder; each path is hashed with `file_fp`; `f
 over the sorted lines `<path>\\t<fp>\\n`; `head=` is `git rev-parse HEAD` or `none`. Git-ignored files are not in it.
 
 `status` compares the record with the current tree: `current`, `stale (HEAD moved)`, `stale (<n> paths differ: <paths>)`,
-`missing`, `no fingerprint`, or `not needed (no check commands)`.
+`missing`, `no fingerprint`, or `not needed (no check commands)`; and, in a docs-only round (architecture Q48),
+`docs-only (run due; <d> paths differ: <up to 5 paths>; test files: <names | none>)`,
+`docs-only (checked; <d> document paths since <oldest kept id>: <up to 5 paths>)` and `stale (kept record <id> missing)`.
+
+Docs-only round. A round is docs-only when the current record is a base (it parses, has a fingerprint and passed: `0 failed`
+and no line with a nonzero exit or a timeout), its `head` is the current HEAD, at least one path differs between its
+`## Fingerprint paths` and the tree, every differing path is a document (`ma_readers.is_document`), and every kept record the
+base names (below) is readable, has the same head and differs from the tree only in documents. `docs_round` decides this for the
+script and the map. Then `check-commands.py` narrows each unittest discover command to the test files that read a changed
+document (`ma_readers`), carries a command no test file reads, and runs every other command in full. A first run, a failed or
+fingerprint-less base, a moved HEAD or any non-document path gives the full run.
+A narrowed or carried record adds these line forms; the backticked text is always the unnarrowed run text, and `Result:` gets a
+`, <c> carried` suffix:
+
+    - 01 `<command>` (<source>) → narrowed to <file>, <file>: exit 0 | <summary> | <secs> s | checks/01.log; rest carried from <id>/<nn>
+    - 02 `<command>` (<source>) → carried from <id>/<nn>: exit 0 | <summary> | <secs> s | checks/kept/<id>/<nn>.log
+
+`<id>` is `<yymmdd-HHMMSS>` from the `Taken:` line of the kept record (`record_id`; a second record with the same id gets `-2`).
+The script keeps the base under `<task folder>/checks/kept/<id>/` (`checks.md` as written, and its `<nn>.log` files; inside a kept
+record `checks/<nn>.log` means `checks/kept/<id>/<nn>.log`). A reference always names a line where the command ran (full or
+narrowed), never a carried line: a carried base line passes its own reference on. `kept_closure` follows the references through
+the kept records. A narrowed line's summary joins one `Ran <n> tests in <t>s, OK|FAILED …` part per `Ran` line with `; `.
 """
 import hashlib
 import math
 import re
 import subprocess
+import sys
 from pathlib import Path
 
+import ma_readers
 import ma_schema
 
 MIN_LIMIT = 60        # seconds: the floor of a command's time limit
@@ -45,11 +68,15 @@ FAILS_BEFORE = re.compile(r'^fails before the task\s*\((.*)\)$')
 FP_LINE = re.compile(r'^Fingerprint: head=(none|[0-9a-f]{40}) files=([0-9a-f]{12}) paths=(\d+)$')
 FP_NONE = re.compile(r'^Fingerprint: none \((.*)\)$')
 RAN_LINE = re.compile(r'^Ran \d+ tests? in [\d.]+s')
+REF = r'\d{6}-\d{6}(?:-\d+)?/\d{2,}'     # `<record id>/<line nn>`
+LOG_PATH = r'checks/(?:kept/[\w.-]+/)?\d+\.log'
 RECORD_LINE = re.compile(
-    r'^- (\d{2,}) `(.+?)` \((.+?)\) → (?:'
-    r'exit (-?\d+) \| (.*) \| (\d+) s \| (checks/\d+\.log)'
-    r'|timeout after (\d+) s \| (.*) \| (\d+) s \| (checks/\d+\.log)'
-    r'|not run \(scope: Environment: (.*)\))$')
+    r'^- (?P<n>\d{2,}) `(?P<command>.+?)` \((?P<source>.+?)\) → (?:'
+    r'(?:narrowed to (?P<files>.+?): |carried from (?P<cref>' + REF + r'): )?'
+    r'(?:exit (?P<code>-?\d+)|timeout after (?P<limit>\d+) s) \| (?P<summary>.*) \| (?P<secs>\d+) s \| '
+    r'(?P<log>' + LOG_PATH + r')(?:; rest carried from (?P<rest>' + REF + r'))?'
+    r'|not run \(scope: Environment: (?P<reason>.*)\))$')
+TAKEN = re.compile(r'^\d\d(\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)$')
 PATH_LINE = re.compile(r'^- (.+) ([0-9a-f]{12}|deleted)$')
 
 
@@ -257,10 +284,29 @@ def commands_for(task: Path, profile, plan_text, strict=False) -> list:
 
 # --- record ---
 
+def summary_of(output: str) -> str:
+    """One `Ran <n> tests in <t>s, OK|FAILED …` part per unittest `Ran` line (the first OK/FAILED line after it), joined with
+    `; `; else the last non-blank line (200 characters), else `(no output)`."""
+    lines = [l.rstrip() for l in output.splitlines()]
+    ran = [i for i, line in enumerate(lines) if RAN_LINE.match(line)]
+    parts = []
+    for k, i in enumerate(ran):
+        end = ran[k + 1] if k + 1 < len(ran) else len(lines)
+        tail = [l for l in lines[i + 1:end] if l.startswith('OK') or l.startswith('FAILED')]
+        if tail:
+            parts.append(f'{RAN_LINE.match(lines[i]).group(0)}, {tail[-1]}')
+    if parts:
+        return '; '.join(parts)
+    spoken = [l for l in lines if l.strip()]
+    return spoken[-1].strip()[:200] if spoken else '(no output)'
+
+
 def parse_record(text):
     """{task, head, files, count, none_reason, taken, result, lines, paths} of a checks.md, or None when it does not
-    parse. `lines` holds {n, command, source, kind (`exit`, `timeout`, `not run`), code (exit lines), limit (timeout
-    lines), summary, secs, log, reason (not-run lines)}."""
+    parse. `lines` holds {n, command, source, kind (`exit`, `timeout`, `not run`, `narrowed`, `carried`), outcome (`exit` or
+    `timeout`; None for a not-run line), code (exit lines), limit (timeout lines), summary, secs, log, reason (not-run lines),
+    files (narrowed lines: the test file names), ref (`<id>/<nn>`: a carried line's source, a narrowed line's `rest carried
+    from`, else None)}."""
     rows = (text or '').splitlines()
     if len(rows) < 4 or not rows[0].startswith('# Check record: '):
         return None
@@ -293,39 +339,173 @@ def parse_record(text):
         m = RECORD_LINE.match(line)
         if not m:
             return None
-        g = m.groups()
-        item = {'n': g[0], 'command': g[1], 'source': g[2], 'code': None, 'limit': None, 'summary': None, 'secs': None,
-                'log': None, 'reason': None}
-        if g[3] is not None:
-            item.update(kind='exit', code=int(g[3]), summary=g[4], secs=int(g[5]), log=g[6])
-        elif g[7] is not None:
-            item.update(kind='timeout', limit=int(g[7]), summary=g[8], secs=int(g[9]), log=g[10])
+        g = m.groupdict()
+        item = {'n': g['n'], 'command': g['command'], 'source': g['source'], 'code': None, 'limit': None,
+                'summary': None, 'secs': None, 'log': None, 'reason': None, 'outcome': None, 'files': None, 'ref': None}
+        if g['code'] is None and g['limit'] is None:
+            item.update(kind='not run', reason=g['reason'])
         else:
-            item.update(kind='not run', reason=g[11])
+            if g['code'] is not None:
+                item.update(outcome='exit', code=int(g['code']))
+            else:
+                item.update(outcome='timeout', limit=int(g['limit']))
+            item.update(kind=item['outcome'], summary=g['summary'], secs=int(g['secs']), log=g['log'])
+            if g['files'] is not None:
+                item.update(kind='narrowed', files=g['files'].split(', '), ref=g['rest'])
+            elif g['cref'] is not None:
+                item.update(kind='carried', ref=g['cref'])
         rec['lines'].append(item)
     return rec
 
 
-def status(task: Path, location, profile, plan_text) -> str:
-    """The check-record status of a task folder (see the module docstring); `location` is the task location."""
-    if not commands_for(task, profile, plan_text):
-        return 'not needed (no check commands)'
+def passed(rec) -> bool:
+    """A record counts as a base only when it has a fingerprint, says `0 failed` and no line failed (a nonzero exit or a timeout)."""
+    if not rec or rec.get('head') is None:
+        return False
+    m = re.search(r'(\d+) failed', rec['result'])
+    if not m or int(m.group(1)):
+        return False
+    return all(l['kind'] == 'not run' or (l['outcome'] == 'exit' and l['code'] == 0) for l in rec['lines'])
+
+
+def record_id(rec):
+    """`<yymmdd-HHMMSS>` from the record's `Taken:` line, or None."""
+    m = TAKEN.match(rec.get('taken') or '') if rec else None
+    return f'{m.group(1)}{m.group(2)}{m.group(3)}-{m.group(4)}{m.group(5)}{m.group(6)}' if m else None
+
+
+def _kept_record(task: Path, kid: str):
+    try:
+        return parse_record((task / ma_schema.CHECKS_LOGS / ma_schema.CHECKS_KEPT / kid / ma_schema.CHECKS)
+                            .read_text(encoding='utf-8'))
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def kept_closure(task: Path, rec) -> dict:
+    """{kept id: its parsed record, or None when missing or unreadable} for every kept record that `rec` names, followed
+    through the lines the references name, in the order found."""
+    out, todo = {}, [(l['ref'], l) for l in rec['lines'] if l.get('ref')]
+    seen = set()
+    while todo:
+        ref, _line = todo.pop(0)
+        kid, nn = ref.split('/')
+        if (kid, nn) in seen:
+            continue
+        seen.add((kid, nn))
+        if kid not in out:
+            out[kid] = _kept_record(task, kid)
+        for l in (out[kid] or {}).get('lines', []):
+            if l['n'] == nn and l.get('ref'):
+                todo.append((l['ref'], l))
+    return out
+
+
+def _only_documents(kept, now):
+    """The non-document paths in which a kept record differs from the tree, plus `HEAD` when its head differs; [] when the
+    kept record is a usable base (a fingerprint, the same head, only documents differ)."""
+    if kept is None or kept['head'] is None:
+        return ['no fingerprint']
+    bad = ['HEAD'] if kept['head'] != now['head'] else []
+    return bad + [p for p in differing_paths(kept['paths'], now['paths']) if not ma_readers.is_document(p)]
+
+
+def _base_line(base, run):
+    """The passing full or narrowed or carried line of `base` for the command text `run`, or None."""
+    for l in base['lines']:
+        if l['command'] == run and l['kind'] != 'not run' and l['outcome'] == 'exit' and l['code'] == 0:
+            return l
+    return None
+
+
+def _narrowing_plan(entries, base, docs, location):
+    """[{entry, action (`not run`, `full`, `carried`, `narrowed`), base (the base line, or None), files (narrowed: test file
+    names sorted), run (narrowed: the command text of the && chain)}] in the order of `entries`."""
+    plan = []
+    for entry in entries:
+        item = {'entry': entry, 'action': 'full', 'base': None, 'files': [], 'run': entry['run']}
+        plan.append(item)
+        if entry['not_run'] is not None:
+            item['action'] = 'not run'
+            continue
+        line = _base_line(base, entry['run'])
+        covered = ma_readers.covered_files(entry['run'], location) if line else None
+        if line is None or covered is None:
+            continue
+        item['base'] = line
+        readers = ma_readers.reading_tests(covered, docs, location)
+        if not readers:
+            item['action'] = 'carried'
+            continue
+        item['action'] = 'narrowed'
+        item['files'] = sorted({Path(f).name for f in readers})
+        item['run'] = ma_readers.narrowed_command(entry['run'], item['files'])
+    return plan
+
+
+def docs_round(task: Path, location, profile, plan_text, entries=None) -> dict:
+    """The decision of the check record against the tree, for `check-commands.py` and the map: {kind, status, ...}.
+    `kind` is `full` (a full run is due or not needed: `status` is the 0.37.0 value), `run due` (a docs-only round: also
+    `docs` (the differing documents), `plan` (see `_narrowing_plan`), `base` (the parsed base record), `files` (the narrowed
+    test file names)) or `checked` (a narrowed or carried record equal to the tree whose kept records differ from it only in
+    documents). Never raises: a failure falls back to the 0.37.0 `stale (…)` value."""
+    try:
+        return _decide(task, location, profile, plan_text, entries)
+    except Exception as e:   # the map and the script must keep working; a failure means no docs-only round
+        print(f'docs_round failed, a full run is due: {type(e).__name__}: {e}', file=sys.stderr)
+        return {'kind': 'full', 'status': 'stale (0 paths differ: none)'}
+
+
+def _decide(task, location, profile, plan_text, entries):
+    if entries is None:
+        entries = commands_for(task, profile, plan_text)
+    if not entries:
+        return {'kind': 'full', 'status': 'not needed (no check commands)'}
     try:
         rec = parse_record((task / ma_schema.CHECKS).read_text(encoding='utf-8'))
     except (OSError, UnicodeDecodeError):
         rec = None
     if rec is None:
-        return 'missing'
+        return {'kind': 'full', 'status': 'missing'}
     if rec['head'] is None:
-        return 'no fingerprint'
+        return {'kind': 'full', 'status': 'no fingerprint'}
     now = fingerprint(location, task)
     if now is None:
-        return 'no fingerprint'
+        return {'kind': 'full', 'status': 'no fingerprint'}
     if now['head'] != rec['head']:
-        return 'stale (HEAD moved)'
+        return {'kind': 'full', 'status': 'stale (HEAD moved)'}
+    closure = kept_closure(task, rec)
+    for kid, kept in closure.items():
+        if kept is None:
+            return {'kind': 'full', 'status': f'stale (kept record {kid} missing)'}
+    narrowed_record = any(l['kind'] in ('narrowed', 'carried') for l in rec['lines'])
     if now['files'] == rec['files']:
-        return 'current'
+        if not narrowed_record:
+            return {'kind': 'full', 'status': 'current'}
+        for kid in sorted(closure):
+            bad = _only_documents(closure[kid], now)
+            if bad:
+                return {'kind': 'full', 'status': f'stale (kept record {kid} differs: {", ".join(bad[:5])})'}
+        oldest = min(closure) if closure else None
+        diff = differing_paths(closure[oldest]['paths'], now['paths']) if oldest else []
+        return {'kind': 'checked', 'status': f'docs-only (checked; {len(diff)} document paths since {oldest}: '
+                                             f'{", ".join(diff[:5]) or "none"})'}
     diff = differing_paths(rec['paths'], now['paths'])
     if not diff:
-        return 'stale (0 paths differ: none)'   # the hash differs but the record lists no differing path
-    return f'stale ({len(diff)} paths differ: {", ".join(diff[:5])})'
+        return {'kind': 'full', 'status': 'stale (0 paths differ: none)'}   # the hash differs but no path is listed
+    stale = {'kind': 'full', 'status': f'stale ({len(diff)} paths differ: {", ".join(diff[:5])})'}
+    root = git_root(location)
+    if (not passed(rec) or not all(ma_readers.is_document(p) for p in diff) or root is None
+            or root.resolve() != Path(location).resolve()
+            or any(_only_documents(kept, now) for kept in closure.values())):
+        return stale
+    plan = _narrowing_plan(entries, rec, diff, location)
+    files = sorted({f for item in plan for f in item['files']})
+    return {'kind': 'run due', 'docs': diff, 'plan': plan, 'base': rec, 'files': files,
+            'status': f'docs-only (run due; {len(diff)} paths differ: {", ".join(diff[:5])}; '
+                      f'test files: {", ".join(files) or "none"})'}
+
+
+def status(task: Path, location, profile, plan_text) -> str:
+    """The check-record status of a task folder (see the module docstring); `location` is the task location."""
+    return docs_round(task, location, profile, plan_text)['status']

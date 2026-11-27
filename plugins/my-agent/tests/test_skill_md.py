@@ -1092,7 +1092,7 @@ class SkillMdTest(unittest.TestCase):
         accept = self.phase('accept')
         self.assertIn('structural argument', accept)
         self.assertIn('Change scope', accept)
-        self.assertIn('one `Scope change:` round', accept)
+        self.assertIn('one `Scope change:` round', self.changes)   # moved from accept.md item 7 to changes.md (Q48)
         for part in (accept, self.dev_g3()):
             self.assertIn('git status --porcelain', part)
             self.assertIn('Open risks', part)
@@ -1746,8 +1746,8 @@ class PlanFindingRouteTest(unittest.TestCase):
         """Criterion 11: shortening for the size limits keeps what a sentence says and why."""
         self.has(self.gates, 'At G3 show it too (see delegated approval).',
                  "The Report tab's 한국어 mode shows the copy (English where not current).")
-        self.has(self.accept, '`Run:` is not that count: it also goes up after a PASS.',
-                 'items 1 and 2 (the step line is written; base point, uncommitted-changes popup)')
+        self.has(self.gates, '`Run:` is not that count: it also goes up after a PASS.')   # moved from accept.md item 6 (Q48)
+        self.has(self.accept, 'items 1 and 2 (the step line is written; base point, uncommitted-changes popup)')
 
     def test_plan_findings_mixed_round(self):
         """Exception: marked and unmarked findings in one round."""
@@ -1802,7 +1802,7 @@ class PlanFindingRouteTest(unittest.TestCase):
         """Criterion 11."""
         for text in (self.accept, (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8'), self.changes, self.plan):
             self.assertLess(len(text), 15000)
-        self.assertLessEqual(len(self.gates), 12550)
+        self.assertLessEqual(len(self.gates), 13000)   # 12,550 before the Q48 moves into gates.md
         self.assertLessEqual(len(SKILL.read_text(encoding='utf-8')), SKILL_CHARS)
 
 
@@ -2158,9 +2158,97 @@ class CheckScriptAndTogetherRulesTest(unittest.TestCase):
         """Criterion 7."""
         item3 = self.v4b[self.v4b.index('\n3. With 1 BLOCKER'):self.v4b.index('\n4. **G3 report')]
         item7 = self.v4b[self.v4b.index('7. **Rework:**'):self.v4b.index('8. **Abort:**')]
-        self.has(item3, 'A new judgment with both judges starts at 4A item 1', 'the check script runs again first',
+        self.has(item3, 'a new judgment with both judges starts at 4A item 1', 'the check script runs again first',
                  'the check script does not run again', 'cites `checks.md` for the rest')
         self.has(item7, 'the check script does not run again')
+
+    def test_4a_docs_only_status_rerun_and_no_rerun(self):
+        """Q48 criterion 4: `docs-only (run due` is rerun like `stale`; `docs-only (checked` and `current` are not."""
+        item = self.v4a[self.v4a.index('1. Before the judges'):self.v4a.index('\n2. Record both step lines')]
+        self.has(item, 'on `docs-only (run due; …)`', 'it narrows itself on `docs-only (run due`', 'once more with all its commands',
+                 'then run `changed-files.py` again with the same arguments', '`docs-only (checked; …)` and `current` get no rerun',
+                 'the test files the status line names')
+        self.assertLess(item.index('`docs-only (run due; …)`'), item.index('once more with all its commands'))
+        self.assertLess(item.index('once more with all its commands'), item.index('get no rerun'))
+
+    def test_3b_names_the_docs_only_round(self):
+        """Q48 criteria 2 and 4: the check run narrows itself; its first line and `docs-only:` line; the rerun after a failure is full."""
+        item = self.merge[self.merge.index('\n5. Check run'):self.merge.index('\n6. Change `phase:`')]
+        self.has(item, 'In a docs-only round (only documents changed since a passing record)', 'only the unittest files that read them',
+                 'carries the rest', '`docs-only round`', 'its `docs-only:` line is shown as one chat line',
+                 'the rerun after a failure is a full run')
+
+    def test_4b_item_3_documents_only_small_fix_route(self):
+        """Q48 criterion 6 (exceptions: narrowed check fails on a light path; unmapped changed document)."""
+        item3 = self.v4b[self.v4b.index('\n3. With 1 BLOCKER'):self.v4b.index('\n4. **G3 report')]
+        self.has(item3, '**Documents-only small fix**', 'every file L1 changed is a document', 'a `docs` folder segment, no `tests` one',
+                 'runs the check script', '`changed-files.py` with `--previous` and `--review`', 'its Rework arguments',
+                 'A fixed file with criterion numbers in the map', 'record the 4A and 4B step lines', 'start the verifier (light judgment)',
+                 'the reviewer together', 'otherwise only Review (pass it the list of files L1 fixed), with `## Applied after review`',
+                 'A failing narrowed command takes "Back to Execute" with the failing test',
+                 'Any other small fix', 'the check script does not run again', 'cites `checks.md` for the rest')
+        self.assertLess(item3.index('**Documents-only small fix**'), item3.index('Any other small fix'))
+
+    def test_item_7_widened_light_path(self):
+        """Q48 criterion 6: SHOULD-FIX in the documents-only case, the NITPICK case keeps its words, other files go to Back to Execute."""
+        item7 = self.v4b[self.v4b.index('7. **Rework:**'):self.v4b.index('8. **Abort:**')]
+        self.has(item7, 'Take the light path in two cases', 'every picked item is a NITPICK and the fix is a small fix',
+                 'Back to Execute and Verify are skipped', 'the check script does not run again',
+                 'every picked item (SHOULD-FIX or NITPICK) is fixed by a documents-only small fix: item 3\'s route',
+                 'it wins whenever every changed file is a document',
+                 'a small fix that touches code: L1 fixes them',
+                 'counts as one G3 Rework round',
+                 'A picked SHOULD-FIX whose fix touches any other file, or a larger fix, takes "Back to Execute"',
+                 'a new BLOCKER in the Review rerun takes item 3')
+        self.assertNotIn('An open SHOULD-FIX or a larger fix', item7)
+
+    def test_nothing_is_fixed_before_the_person_picks_it(self):
+        """Q48 criterion 6: item 3 (the BLOCKER route) never fixes SHOULD-FIX or NITPICK items; item 7 acts on picked items only."""
+        item3 = self.v4b[self.v4b.index('\n3. With 1 BLOCKER'):self.v4b.index('\n4. **G3 report')]
+        route = item3[item3.index('**Documents-only small fix**'):item3.index('Any other small fix')]
+        for word in ('SHOULD-FIX', 'NITPICK'):
+            self.assertNotIn(word, route, word)
+        item7 = self.v4b[self.v4b.index('7. **Rework:**'):self.v4b.index('8. **Abort:**')]
+        self.assertNotIn('every open item is a NITPICK', item7)   # the cases name picked items only
+        self.assertIn('picked item', item7)
+
+    def test_gates_light_path_sentence_is_the_contract_text(self):
+        """Q48 criterion 6: the literal sentence (the test does not read the architecture document)."""
+        sentence = ('If every open item is a NITPICK small fix, or every fix is a documents-only small fix, L1 fixes them; '
+                    'only Review runs again, or the light verifier judgment too when a fixed document maps to a criterion.')
+        self.has(self.gates, sentence)
+        # the two cases overlap on a documents-only NITPICK fix: the example block and the G3 question rule say which wins
+        self.has(self.gates, 'maps to a criterion. Documents only: that route.',
+                 'documents-only wins when every changed file is a document')
+
+    def test_moves_by_purpose_keep_their_rules(self):
+        """Q48 criterion 9: the counting sentences are in gates.md, the scope-adjustment sentence in changes.md, item 4 lost only what gates.md holds."""
+        esc = self.gates[self.gates.index('## E escalation'):]
+        self.has(esc, 'Verify FAIL 3 times in a row', 'the number of `Verdict: FAIL` since the last `Verdict: ALL PASS` (or Revise this task)',
+                 'Count the `result=` of verifier `stop:` lines in the run-log from the end', '`Run:` is not that count')
+        self.has(self.v4a, 'On 3 FAILs in a row, go to E (gates.md "E escalation").')
+        self.assertNotIn('Count the `result=`', self.accept)
+        adjust = self.changes[self.changes.index('- **Adjust within approved scope:**'):self.changes.index('- **Revise this task:**')]
+        self.has(adjust, 'collected into one `Scope change:` round', 'In-flight revision')
+        self.assertNotIn('collected into one', self.accept)
+        self.assertNotIn('In-flight revision', self.accept)
+        self.has(self.gates, 'open risks, failures or unhandled items')
+        item4 = self.v4b[self.v4b.index('\n4. **G3 report'):self.v4b.index('\n5. **G3 popup')]
+        self.assertNotIn('written by `my-agent:writer`', item4)
+        self.assertNotIn('No Details section', item4)
+        self.assertNotIn('failures and unhandled items go in the risks row', item4)
+
+    def test_recorder_cost_line_light_path_wording(self):
+        """Q48: a light path without Verify writes no 4A step line."""
+        recorder = (L1 / 'recorder.md').read_text(encoding='utf-8')
+        self.has(recorder, '(a light path without Verify writes none)')
+        self.assertNotIn('the G3 light path writes none', recorder)
+
+    def test_accept_stays_at_14950_and_limited_files_under_15000(self):
+        """Q48 criterion 9 (decision 5)."""
+        self.assertLessEqual(len(self.accept), 14950)
+        for name in ('phases/build.md', 'phases/accept.md', 'profiles/dev.md', 'profiles/general.md', 'gates.md', 'changes.md', 'recorder.md'):
+            self.assertLess(len((L1 / name).read_text(encoding='utf-8')), PROCEDURE_CHARS, name)
 
     def test_unit_copies_names_the_check_script(self):
         """Criterion 2."""

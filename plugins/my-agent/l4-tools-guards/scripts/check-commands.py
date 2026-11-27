@@ -19,6 +19,16 @@ says `Fingerprint: none (tree changed by the run: <n> paths)` and the script pri
 when the second one cannot be taken the record says `Fingerprint: none (git status failed after the run)`.
 Prints `check-commands: <n> run, <f> failed, <k> not run (Environment); record: <task folder>/checks.md`, then one
 `failed: <command> (<source>) <exit N | timeout after N s>: <summary>; log: <path>` line per failed command.
+Docs-only round (architecture Q48; the script decides, it takes no argument): when `ma_checks.docs_round` says the current record
+passed and only documents differ from it, the run narrows. Each unittest discover command runs only the test files that read a
+changed document (`-p <file>`, one invocation per file, joined with ` && `), or is carried from the base when no test file reads
+one; every other command, and a command the base has no passing line for, runs in full. Run order: keep the base under
+`<task folder>/checks/kept/<id>/` (`checks.md` and its logs; `checks.md` is deleted first, so a killed run leaves no record), run
+the commands one at a time, write the record last, then delete the kept folders no reference reaches. A full run removes
+`checks.md` and all of `checks/`, `kept/` included. The record forms and the first-run, failed-base and HEAD-moved rules are in
+`ma_checks.py`. A narrowed run prints `check-commands: docs-only round: <n> run (<m> narrowed), <c> carried, <f> failed, <k> not
+run (Environment); record: <task folder>/checks.md`, then `docs-only: <d> paths (<up to 5 paths>); test files: <names | none>`,
+then the `failed:` lines (the narrowed command, its source) and the `tree changed by the run:` line. Exit codes are unchanged.
 When nothing applies or the list is empty it prints `check-commands: no check commands; no record` and removes any old record.
 exit: 0 every command that ran passed (or nothing to run), 1 the record is written and a command failed or timed out,
 2 bad arguments, 3 the script could not do its job, also on an unexpected error (prints `check-commands: not run: <cause>; no
@@ -53,17 +63,7 @@ def field(text: str, name: str):
     return m.group(1) if m else None
 
 
-def summary_of(output: str) -> str:
-    """`Ran <n> tests in <t>s, OK|FAILED …` for unittest output, else the last non-blank line (200 characters), else `(no output)`."""
-    lines = [l.rstrip() for l in output.splitlines()]
-    for i, line in enumerate(lines):
-        if ma_checks.RAN_LINE.match(line):
-            ran = ma_checks.RAN_LINE.match(line).group(0)
-            tail = [l for l in lines[i + 1:] if l.startswith('OK') or l.startswith('FAILED')]
-            if tail:
-                return f'{ran}, {tail[-1]}'
-    spoken = [l for l in lines if l.strip()]
-    return spoken[-1].strip()[:200] if spoken else '(no output)'
+summary_of = ma_checks.summary_of   # `Ran <n> tests in <t>s, OK|FAILED …` per `Ran` line, joined with `; `; else the last line
 
 
 def run_command(command: str, cwd: Path, limit: int, log: Path):
@@ -123,41 +123,112 @@ def fail(task: Path, cause: str) -> int:
     return say(f'not run: {cause}; no record', 3)
 
 
+def keep_base(task: Path, base: dict, text: str) -> str:
+    """Docs-only run order, steps 2 and 3: delete `checks.md` first (a run killed from here on leaves no record), then move the
+    base's top-level logs into `checks/kept/<id>/` and write the base text there as its `checks.md`. An existing folder of the
+    base's id is reused when its `checks.md` is the same text; otherwise the id gets `-2`, `-3`, …. Returns the folder name."""
+    logs = task / ma_schema.CHECKS_LOGS
+    kept_root, base_id = logs / ma_schema.CHECKS_KEPT, ma_checks.record_id(base)
+    kid, n = base_id, 1
+    while True:
+        try:
+            same = (kept_root / kid / ma_schema.CHECKS).read_text(encoding='utf-8') == text
+        except OSError:
+            same = not (kept_root / kid).exists()
+        if same:
+            break
+        n += 1
+        kid = f'{base_id}-{n}'
+    (task / ma_schema.CHECKS).unlink()
+    folder = kept_root / kid
+    folder.mkdir(parents=True, exist_ok=True)
+    for log in sorted(logs.glob('*.log')):
+        shutil.move(str(log), str(folder / log.name))
+    (folder / ma_schema.CHECKS).write_text(text, encoding='utf-8')
+    return kid
+
+
+def base_ref(line: dict, base_id) -> str:
+    """The reference a new line makes to the base line: a carried base line passes its own reference on."""
+    return line['ref'] if line['kind'] == 'carried' else f'{base_id}/{line["n"]}'
+
+
+def carried_result(line: dict, base_id) -> str:
+    """The result part of the base line, its log path pointing into `checks/kept/<id>/` when the log was moved there."""
+    log = line['log'] if line['kind'] == 'carried' else re.sub(r'^checks/', f'checks/{ma_schema.CHECKS_KEPT}/{base_id}/', line['log'])
+    return f'exit {line["code"]} | {line["summary"]} | {line["secs"]} s | {log}'
+
+
+def drop_unreached(task: Path, record: Path):
+    """Docs-only run order, step 6: delete every kept folder the new record's references no longer reach."""
+    rec = ma_checks.parse_record(record.read_text(encoding='utf-8'))
+    reached = set(ma_checks.kept_closure(task, rec)) if rec else set()
+    kept_root = task / ma_schema.CHECKS_LOGS / ma_schema.CHECKS_KEPT
+    for entry in sorted(kept_root.iterdir()) if kept_root.is_dir() else []:
+        if entry.name not in reached:
+            shutil.rmtree(entry, ignore_errors=True) if entry.is_dir() else entry.unlink(missing_ok=True)
+
+
 def check(task: Path) -> int:
     record, logs = task / ma_schema.CHECKS, task / ma_schema.CHECKS_LOGS
+    base_text = None
     try:
-        clean(task)
         itext = (task / 'intake.md').read_text(encoding='utf-8')
         ptext = (task / 'plan.md').read_text(encoding='utf-8')
         profile = field(itext, 'Profile')
         location = Path(field(itext, 'Location') or task.parent.parent)
         entries = ma_checks.commands_for(task, profile, ptext, strict=True)
+        decision = ma_checks.docs_round(task, location, profile, ptext, entries) if entries else {'kind': 'full'}
+        if decision['kind'] == 'run due':
+            base_text = record.read_text(encoding='utf-8')
+            if ma_checks.record_id(decision['base']) is None:
+                decision = {'kind': 'full'}
     except (OSError, UnicodeDecodeError) as exc:
         return fail(task, f'cannot read {getattr(exc, "filename", None) or task}: {getattr(exc, "strerror", None) or exc}')
+    narrowed = decision['kind'] == 'run due'
+    base_id = None
+    try:
+        if narrowed:
+            base_id = keep_base(task, decision['base'], base_text)   # step 2 and 3 of the run order
+        else:
+            clean(task)
+    except OSError as exc:
+        return fail(task, f'cannot keep the earlier record in {logs}: {exc.strerror or exc}')
     if not entries:
         return say('no check commands; no record', 0)
 
     try:
-        logs.mkdir(parents=True)
+        logs.mkdir(parents=True, exist_ok=narrowed)
     except OSError as exc:
         return fail(task, f'cannot write {logs}: {exc.strerror or exc}')
+    plan = decision['plan'] if narrowed else [
+        {'entry': e, 'action': 'not run' if e['not_run'] is not None else 'full', 'base': None, 'files': [], 'run': e['run']}
+        for e in entries]
     before = ma_checks.fingerprint(location, task)
-    results, ran, failed, skipped = [], 0, 0, 0
+    results, ran, failed, skipped, carried = [], 0, 0, 0, 0
     try:
-        for i, entry in enumerate(entries, 1):
-            nn = f'{i:02d}'
-            if entry['not_run'] is not None:
+        for i, item in enumerate(plan, 1):
+            entry, nn, action = item['entry'], f'{i:02d}', item['action']
+            if action == 'not run':
                 skipped += 1
                 results.append(f'- {nn} `{entry["command"]}` ({entry["source"]}) → not run (scope: Environment: {entry["not_run"]})')
                 continue
+            if action == 'carried':
+                carried += 1
+                results.append(f'- {nn} `{entry["run"]}` ({entry["source"]}) → carried from {base_ref(item["base"], base_id)}: '
+                               f'{carried_result(item["base"], base_id)}')
+                continue
             ran += 1
-            timed_out, code, secs, summary = run_command(entry['run'], location, entry['limit'], logs / f'{nn}.log')
+            timed_out, code, secs, summary = run_command(item['run'], location, entry['limit'], logs / f'{nn}.log')
             bad = timed_out or code != 0
             failed += bad
             result = f'timeout after {entry["limit"]} s' if timed_out else f'exit {code}'
             entry['result'], entry['summary'], entry['log'], entry['bad'] = result, summary, logs / f'{nn}.log', bad
-            results.append(f'- {nn} `{entry["run"]}` ({entry["source"]}) → {result} | {summary} | {secs} s | '
-                           f'{ma_schema.CHECKS_LOGS}/{nn}.log')
+            entry['shown'] = item['run']
+            prefix = f'narrowed to {", ".join(item["files"])}: ' if action == 'narrowed' else ''
+            rest = f'; rest carried from {base_ref(item["base"], base_id)}' if action == 'narrowed' else ''
+            results.append(f'- {nn} `{entry["run"]}` ({entry["source"]}) → {prefix}{result} | {summary} | {secs} s | '
+                           f'{ma_schema.CHECKS_LOGS}/{nn}.log{rest}')
     except OSError as exc:
         return fail(task, f'cannot run or log a command: {exc.strerror or exc}')
 
@@ -173,21 +244,30 @@ def check(task: Path) -> int:
     else:
         fp_line = f'Fingerprint: head={after["head"]} files={after["files"]} paths={len(after["paths"])}'
         paths = after['paths']
-    lines = [f'# Check record: {task.name}', fp_line, f'Taken: {datetime.now():%Y-%m-%d %H:%M:%S}',
-             f'Result: {ran} run, {failed} failed, {skipped} not run', ''] + results
+    result_line = f'Result: {ran} run, {failed} failed, {skipped} not run' + (f', {carried} carried' if narrowed else '')
+    lines = [f'# Check record: {task.name}', fp_line, f'Taken: {datetime.now():%Y-%m-%d %H:%M:%S}', result_line, ''] + results
     if paths is not None:
         lines += ['', '## Fingerprint paths'] + [f'- {p} {paths[p]}' for p in sorted(paths)]
     tmp = task / TMP_RECORD
     try:
         tmp.write_text('\n'.join(lines) + '\n', encoding='utf-8')
         os.replace(tmp, record)
+        if narrowed:
+            drop_unreached(task, record)
     except OSError as exc:
         return fail(task, f'cannot write {record}: {exc.strerror or exc}')
 
-    print(f'check-commands: {ran} run, {failed} failed, {skipped} not run (Environment); record: {record}')
+    if narrowed:
+        docs, files = decision['docs'], decision['files']
+        count = sum(1 for item in plan if item['action'] == 'narrowed')
+        print(f'check-commands: docs-only round: {ran} run ({count} narrowed), {carried} carried, {failed} failed, '
+              f'{skipped} not run (Environment); record: {record}')
+        print(f'docs-only: {len(docs)} paths ({", ".join(docs[:5])}); test files: {", ".join(files) or "none"}')
+    else:
+        print(f'check-commands: {ran} run, {failed} failed, {skipped} not run (Environment); record: {record}')
     for entry in entries:
         if entry.get('bad'):
-            print(f'failed: {entry["run"]} ({entry["source"]}) {entry["result"]}: {entry["summary"]}; log: {entry["log"]}')
+            print(f'failed: {entry["shown"]} ({entry["source"]}) {entry["result"]}: {entry["summary"]}; log: {entry["log"]}')
     if changed:
         print(f'tree changed by the run: {len(changed)} paths ({", ".join(changed[:5])})')
     return 1 if failed else 0

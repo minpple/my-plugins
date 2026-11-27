@@ -701,9 +701,16 @@ class AcceptLightPathTest(unittest.TestCase):
             self.assertIn(word, item, word)
         self.assertIn('Back to Execute and Verify are skipped', item)
 
-    def test_other_cases_keep_back_to_execute(self):
-        item = self.item7()   # exception: light path with an open SHOULD-FIX or a larger NITPICK fix
-        self.assertIn('open SHOULD-FIX or a larger fix takes "Back to Execute"', item)
+    def test_documents_only_case_and_other_cases(self):
+        item = self.item7()   # exception: a picked SHOULD-FIX that touches another file, or a larger fix
+        self.assertIn('Take the light path in two cases', item)
+        self.assertIn('every picked item (SHOULD-FIX or NITPICK) is fixed by a documents-only small fix', item)
+        self.assertIn('A picked SHOULD-FIX whose fix touches any other file, or a larger fix, takes "Back to Execute"', item)
+        self.assertNotIn('An open SHOULD-FIX or a larger fix', item)
+        # the two cases overlap on a documents-only NITPICK fix: the documents-only route wins
+        self.assertIn('it wins whenever every changed file is a document', item)
+        self.assertIn('a small fix that touches code', item)
+        self.assertLess(item.index('documents-only small fix'), item.index('touches code'))
 
     def test_new_blocker_in_the_rerun_takes_blocker_handling(self):
         item = self.item7()   # exception: a new BLOCKER in the Review rerun
@@ -753,6 +760,18 @@ class CheckScriptRowsTest(unittest.TestCase):
         self.assertIn('otherwise runs the command itself', self.row('general', '4A Verify'))
         research = (REPO / 'l1-orchestration' / 'profiles' / 'research.md').read_text(encoding='utf-8')
         self.assertNotIn('checks.md', research)
+
+    def test_rows_name_the_docs_only_round_and_the_light_judgment(self):
+        """Q48 criteria 4 and 6: 3B names the narrowing, 4A the light judgment, 4B the narrowed lines."""
+        self.assertIn('in a docs-only round only the unittest files that read the changed documents', self.row('dev', '3B Merge'))
+        for profile in ('dev', 'general'):
+            a, b = self.row(profile, '4A Verify'), self.row(profile, '4B Review')
+            self.assertIn('docs-only round', a, profile)
+            self.assertIn('the unittest files that read the changed documents', a, profile)
+            self.assertIn('Q48', a, profile)
+            self.assertIn('narrowed', b, profile)
+        self.assertIn('judges the touched and failed criteria without running anything for the carried ones', self.row('dev', '4A Verify'))
+        self.assertIn('runs nothing for the carried criteria', self.row('general', '4A Verify'))
 
 
 if __name__ == '__main__':

@@ -10,7 +10,11 @@ and a second line `checks: <status>`, which is also the `Checks:` header line of
 The status compares <task folder>/checks.md (written by check-commands.py, see ma_checks.py) with the current working tree:
 `current` (head and files fingerprint equal), `stale (HEAD moved)`, `stale (<n> paths differ: <up to 5 paths>)`, `missing`
 (no or unreadable record while check commands exist), `no fingerprint` (the record says `Fingerprint: none`: not a git location,
-or the run changed the tree), `not needed (no check commands)`. A checks problem never changes the exit code.
+or the run changed the tree), `not needed (no check commands)`. In a docs-only round (architecture Q48; `ma_checks.docs_round`)
+it is also `docs-only (run due; <d> paths differ: <up to 5 paths>; test files: <names | none>)` (the record passed and only
+documents differ: the check script will narrow its run) or `docs-only (checked; <d> document paths since <oldest kept id>: <up to
+5 paths>)` (a record with narrowed or carried lines equals the tree and every kept record it names differs from the tree only in
+documents; never `current`), or `stale (kept record <id> missing)`. A checks problem never changes the exit code.
 Files: in the dev profile with a git task location, `git diff --name-only HEAD` plus the untracked files, without the
 task records folder; otherwise the files under <task folder>/work/ and deliverable/, plus each file a unit lists under
 `Files to change` that exists in the task location (code a coder changed in place where git cannot list it).

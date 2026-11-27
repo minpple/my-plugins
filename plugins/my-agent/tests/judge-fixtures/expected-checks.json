@@ -1,4 +1,7 @@
 {
   "checks-stale": {"verdict": "FAIL", "criterion": 1, "ran": "python3 -m unittest discover -s tests -p"},
-  "checks-log-mismatch": {"verdict": "FAIL", "criterion": 1, "ran": "python3 -m unittest discover -s tests -p"}
+  "checks-log-mismatch": {"verdict": "FAIL", "criterion": 1, "ran": "python3 -m unittest discover -s tests -p"},
+  "checks-docs-only": {"project": "checks-docs-project", "verdict": "PASS", "criterion": 2, "line": "PASS", "reused": "python3 -m unittest discover -s tests -p 'check_*.py'", "previous": "verify-previous.md"},
+  "checks-docs-and-code": {"project": "checks-docs-project", "verdict": "FAIL", "criterion": 1, "ran": "python3 -m unittest discover -s tests -p"},
+  "checks-readme-only": {"project": "checks-docs-project", "verdict": "FAIL", "criterion": 3, "ran": "python3 -m unittest discover -s tests -p"}
 }
