@@ -841,6 +841,90 @@ class CreateTest(CreateBase):
         self.assertEqual(self.kinds(self.repo / 'docs' / 'agent' / f'{self.today}-probe-task'), ['step'])
 
 
+class WorkBranchTest(CreateBase):
+    """`work-branch`: `git switch -c my-agent-task/<id>` with the ID `create` would make (criterion 13)."""
+
+    def branch_call(self, repo, slug='probe-task'):
+        return run_script(SCRIPT, 'work-branch', '--loc', str(repo), '--slug', slug, '--data-dir', str(self.data),
+                          '--task-dir', TASK_DIR, env=self.env, cwd=self.root, drop=self.drop)
+
+    def head(self, repo):
+        return git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+
+    def sha(self, repo):
+        return git(repo, 'rev-parse', '--short', 'HEAD').stdout.strip()
+
+    def switched(self, repo, name='main'):
+        before = self.sha(repo)
+        r = self.branch_call(repo)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        branch = f'my-agent-task/{self.today}-probe-task'
+        self.assertEqual(r.stdout.strip(), f'work-branch: switched to {branch} (from {before})')
+        self.assertEqual(self.head(repo), branch)
+        self.assertEqual(self.sha(repo), before)
+        self.assertEqual(git(repo, 'branch', '--list', name).stdout.strip().lstrip('* '), name)   # the old branch stays
+        return branch
+
+    def test_main_switches_and_keeps_uncommitted_change(self):
+        repo = init_repo(self.root / 'm', branch='main')
+        (repo / 'f.txt').write_text('changed')
+        self.switched(repo, 'main')
+        self.assertEqual((repo / 'f.txt').read_text(), 'changed')
+        self.assertIn('f.txt', git(repo, 'status', '--porcelain').stdout)
+
+    def test_master_switches(self):
+        self.switched(init_repo(self.root / 'ms', branch='master'), 'master')
+
+    def test_detached_head_switches(self):
+        repo = init_repo(self.root / 'd', branch='main')
+        git(repo, 'checkout', '-q', '--detach')
+        self.switched(repo, 'main')
+
+    def test_id_gets_suffix_when_folder_exists(self):
+        repo = init_repo(self.root / 's', branch='main')
+        (repo / TASK_DIR / f'{self.today}-probe-task').mkdir(parents=True)
+        r = self.branch_call(repo)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn(f'switched to my-agent-task/{self.today}-probe-task-b (from ', r.stdout)
+
+    def test_existing_branch_is_not_switched_over(self):
+        repo = init_repo(self.root / 'e', branch='main')
+        branch = f'my-agent-task/{self.today}-probe-task'
+        git(repo, 'branch', branch)
+        sha = git(repo, 'rev-parse', branch).stdout
+        r = self.branch_call(repo)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.strip(), f'work-branch: not switched: branch {branch} exists')
+        self.assertEqual(self.head(repo), 'main')
+        self.assertEqual(git(repo, 'rev-parse', branch).stdout, sha)
+
+    def test_git_refusal_prints_first_stderr_line(self):
+        repo = init_repo(self.root / 'r', branch='main')
+        git(repo, 'branch', 'my-agent-task')
+        sha = self.sha(repo)
+        r = self.branch_call(repo)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        line = r.stdout.strip()
+        self.assertTrue(line.startswith('work-branch: not switched: '), line)
+        self.assertEqual(len(line.splitlines()), 1)
+        self.assertIn('my-agent-task', line)
+        self.assertEqual((self.head(repo), self.sha(repo)), ('main', sha))
+
+    def test_create_with_the_printed_id(self):
+        repo = init_repo(self.root / 'c', branch='main')
+        r = self.branch_call(repo)
+        task = r.stdout.split('my-agent-task/')[1].split(' ')[0]
+        self.ok('--task-id', task, slug=None, loc=repo, cwd=repo)
+        self.assertTrue((repo / TASK_DIR / task).is_dir())
+
+    def test_bad_arguments_are_exit_2(self):
+        repo = init_repo(self.root / 'b', branch='main')
+        for bad in ('Bad Slug', 'x' * 31):
+            self.assertEqual(self.branch_call(repo, bad).returncode, 2)
+        self.assertEqual(self.branch_call(self.root / 'missing').returncode, 2)
+        self.assertEqual(self.head(repo), 'main')
+
+
 class RequestTextTest(CreateBase):
     def check(self, text):
         r = self.ok(f'--request={text}')

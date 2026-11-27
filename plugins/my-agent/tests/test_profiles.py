@@ -469,7 +469,8 @@ class ProfilesTest(unittest.TestCase):
         self.assertIn('archive.py" --task "<absolute task folder>" --name run<Run: value of verify.md> '
                       '--only verify.md review.md changed-files.md', accept[accept.index('## 4B Review'):])   # small fix
         review = accept[accept.index('## 4B Review'):]
-        self.assertIn('the `verify.md` and `changed-files.md` paths', review)
+        self.assertIn('the `changed-files.md` path', review)
+        self.assertIn('Pass `verify.md` only in the sequential case', review)
         self.assertIn('instead of running the suites again', review)
         self.assertIn('the list of files L1 fixed', review)
         profiles = REPO / 'l1-orchestration' / 'profiles'
@@ -558,8 +559,8 @@ class EnvironmentAndUpstreamRulesTest(unittest.TestCase):
                        '`Bring them in now (Recommended)` / `Go on without them`', '`git merge --abort`',
                        'merge unit=upstream'):
             self.assertIn(phrase, dev)
-        self.assertIn('do "Upstream check" below, then run the check commands', dev)
-        self.assertIn('"Upstream check" comes before the check commands',
+        self.assertIn('do "Upstream check" below, then run the check script', dev)
+        self.assertIn('"Upstream check" comes before the check script',
                       self.read('l1-orchestration', 'phases', 'build.md'))
         for name in ('general.md', 'research.md'):
             self.assertNotIn('Upstream check', self.read('l1-orchestration', 'profiles', name))
@@ -664,7 +665,8 @@ class UnitCopiesProfilesTest(unittest.TestCase):
         for part in ('run at the same time, each in its own copy', '`build.md` step 3A item 3', '`unit-copies.md`',
                      'does not commit'):
             self.assertIn(part, a, part)
-        self.assertIn('Coder copy results are merged first (`unit-copies.md` "Merge"), then the units\' check commands run in the main tree', b)
+        self.assertIn('Coder copy results are merged first (`unit-copies.md` "Merge"), then the check script runs in the main tree', b)
+        self.assertNotIn("units' check commands run in the main tree", b)
 
     def test_cd_guard_bullet_names_every_folder_under_worktrees(self):
         """Criteria 15 and 16."""
@@ -675,7 +677,7 @@ class UnitCopiesProfilesTest(unittest.TestCase):
         upstream = self.read('profiles', 'dev.md').split('## Upstream check (3B Merge)')[1].split('\n\n')[1]
         self.assertNotIn('after the worktree results are moved', upstream)
         self.assertIn('copy groups in 3A', upstream)
-        self.assertIn('before the check commands', upstream)
+        self.assertIn('before the check script', upstream)
 
     def test_copy_coder_notes_go_to_the_main_tree(self):
         """Criterion 3."""
@@ -721,7 +723,36 @@ class AcceptReviewReworkInputTest(unittest.TestCase):
             self.assertIn(token, verify, token)
         self.assertIn('the picked SHOULD-FIX locations', accept)
         self.assertIn('When only Review is redone, without Verify, do both:', accept)
-        self.assertLess(len(accept), 12700)
+        self.assertLess(len(accept), 15000)
+
+
+class CheckScriptRowsTest(unittest.TestCase):
+    """2026-11-27 (plugin 0.37.0, Q47): the 3B rows run the check script; 4A reuses its record and 4B starts with 4A."""
+
+    def row(self, profile, name):
+        text = (REPO / 'l1-orchestration' / 'profiles' / f'{profile}.md').read_text(encoding='utf-8')
+        return next(l for l in text.splitlines() if l.startswith(f'| {name}'))
+
+    def test_3b_rows_run_the_check_script(self):
+        """Criterion 2."""
+        dev, general = self.row('dev', '3B Merge'), self.row('general', '3B Merge')
+        self.assertIn('check script (`build.md` 3B item 5)', dev)
+        self.assertNotIn('run the check commands (tests, lint) from `explore.md`', dev)
+        self.assertIn('check script runs in the main tree when the plan has a coder unit (`build.md` 3B item 5)', general)
+        self.assertNotIn("units' check commands run", general)
+
+    def test_4a_and_4b_rows_name_the_record_and_the_parallel_start(self):
+        """Criteria 2 and 7."""
+        for profile in ('dev', 'general'):
+            a, b = self.row(profile, '4A Verify'), self.row(profile, '4B Review')
+            self.assertIn('`checks.md`', a, profile)
+            self.assertIn('reuses the current check record', a, profile)
+            self.assertNotIn('alone runs the tests', a, profile)
+            self.assertIn('`checks.md`', b, profile)
+            self.assertIn('together with the verifier (`accept.md`)', b, profile)
+        self.assertIn('otherwise runs the command itself', self.row('general', '4A Verify'))
+        research = (REPO / 'l1-orchestration' / 'profiles' / 'research.md').read_text(encoding='utf-8')
+        self.assertNotIn('checks.md', research)
 
 
 if __name__ == '__main__':

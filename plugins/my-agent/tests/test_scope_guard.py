@@ -729,12 +729,12 @@ class ScopeGuardTest(unittest.TestCase):
         cmd = 'python3 -c "open(\'../../../src/a.py\',\'w\')"'
         self.assertTrue(self.denied('my-agent:coder', 'Bash', {'command': cmd}, cwd=W))
 
-    def test_only_scope_guard_reads_interpreter_code(self):
+    def test_only_scope_guard_and_the_record_deny_read_interpreter_code(self):
         hooks = L4 / 'hooks'
         self.assertIn('interpreter_writes', (hooks / 'scope-guard.py').read_text(encoding='utf-8'))
-        for name in ('plan-approved-check.py', 'verdict-fresh-check.py'):
-            with self.subTest(hook=name):
-                self.assertNotIn('interpreter_writes', (hooks / name).read_text(encoding='utf-8'))
+        # verdict-fresh-check.py reads it only for the check-record deny (`writes_record`)
+        self.assertIn('interpreter_writes', (hooks / 'verdict-fresh-check.py').read_text(encoding='utf-8'))
+        self.assertNotIn('interpreter_writes', (hooks / 'plan-approved-check.py').read_text(encoding='utf-8'))
 
     def test_docstring_names_the_script_file_limit(self):
         import ast
@@ -1088,6 +1088,66 @@ class UnitCopyTest(unittest.TestCase):
                             after = self.snapshot(gitdir, index)
                             changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
                             self.assertEqual(changed, [], f'{cmd}: git wrote {changed} in {gitdir}')
+
+
+class RecordDenyTest(unittest.TestCase):
+    """No role writes the check record `T/checks.md` or `T/checks/` (architecture 4.4 "Record deny")."""
+    setUp, tearDown = ScopeGuardTest.setUp, ScopeGuardTest.tearDown
+    hook, denied, guard_lines = ScopeGuardTest.hook, ScopeGuardTest.denied, ScopeGuardTest.guard_lines
+
+    def reason_for(self):
+        return 'scope-guard: ' + ('Only check-commands.py writes checks.md and checks/ (task %s); run python3 '
+                                  '"${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/check-commands.py" --task "%s"'
+                                  % (TASK, self.T))
+
+    def assertRecordDeny(self, r):
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason'], self.reason_for())
+
+    def test_deny_text_is_the_shared_one(self):
+        import ma_schema
+        self.assertEqual(ma_schema.RECORD_DENY.format(task=TASK, folder=self.T), self.reason_for()[len('scope-guard: '):])
+        self.assertNotIn('RECORD_DENY =', (L4 / 'hooks' / 'scope-guard.py').read_text(encoding='utf-8'))
+        self.assertIn('ma_schema.RECORD_DENY', (L4 / 'hooks' / 'scope-guard.py').read_text(encoding='utf-8'))
+
+    def test_every_role_is_denied_a_write_of_the_record(self):
+        for role in ('coder', 'writer', 'researcher', 'verifier', 'reviewer'):
+            with self.subTest(role=role):
+                self.assertRecordDeny(self.hook(f'my-agent:{role}', 'Write',
+                                                {'file_path': str(self.T / 'checks.md'), 'content': 'x'}))
+
+    def test_writer_bash_and_researcher_write_into_logs_are_denied(self):
+        self.assertRecordDeny(self.hook('my-agent:writer', 'Bash', {'command': f'cp x {self.T}/checks/02.log'}))
+        self.assertRecordDeny(self.hook('my-agent:researcher', 'Write',
+                                        {'file_path': str(self.T / 'checks' / '01.log'), 'content': 'x'}))
+        self.assertRecordDeny(self.hook('my-agent:coder', 'Bash',
+                                        {'command': f'python3 -c "open(\'{self.T}/checks.md\',\'w\')"'}))
+        self.assertEqual(len(self.guard_lines()), 3)
+
+    def test_writer_work_folder_is_still_allowed(self):
+        self.assertFalse(self.denied('my-agent:writer', 'Write', {'file_path': str(self.T / 'work' / 'a.md'),
+                                                                 'content': 'x'}))
+        self.assertFalse(self.denied('my-agent:writer', 'Write', {'file_path': str(self.T / 'work' / 'checks.md'),
+                                                                 'content': 'x'}))
+
+    def test_codex_patch_for_a_subagent_is_denied(self):
+        make_task(self.L, task=TASK, session='019a0000-0000-7000-8000-000000000001')
+        d = json.loads((Path(__file__).resolve().parent / 'fixtures' / 'codex' /
+                        'hook-pre-tool-use-worker-file-change.json').read_text(encoding='utf-8'))
+        d['tool_input'] = {'command': f'*** Begin Patch\n*** Add File: {self.T}/checks.md\n+x\n*** End Patch'}
+        r = run_hook('scope-guard.py', None, d, self.L, env={'MA_DATA_DIR': str(self.root / 'agent-tasks')})
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn(self.reason_for(), r.stderr)
+
+    def test_antigravity_write_for_a_subagent_is_denied(self):
+        make_task(self.L, task=TASK, session='conv-1')
+        p = {'hookEventName': 'PreToolUse', 'conversationId': 'conv-1', 'cwd': str(self.L),
+             'agentType': 'my-agent-coder', 'agentId': 'sub-1',
+             'toolCall': {'id': 't1', 'name': 'write_file', 'args': {'Path': str(self.T / 'checks.md'), 'Content': 'x'}}}
+        r = run_hook('scope-guard.py', None, p, self.L, env={'MA_DATA_DIR': str(self.root / 'agent-tasks')})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout)
+        self.assertEqual((out['decision'], out['reason']), ('deny', self.reason_for()))
 
 
 if __name__ == '__main__':

@@ -18,17 +18,19 @@ L1_FILES = ([L1 / 'phases' / f'{p}.md' for p in ('define', 'plan', 'build', 'acc
 PATH = re.compile(r'\$\{(CLAUDE_PLUGIN_ROOT)\}/([A-Za-z0-9_./-]+)')
 RUN_LOG = re.compile(r'run-log\.py["\s]+([a-z][a-z-]*)')
 TEMPLATE = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/l4-tools-guards/scripts/run-log\.py" ([^`\n]*)')
-# The whole skill. Measured on Opus 5.5 (2026-11-10): 2.6 characters per token, so 12,700 characters are about 4,900
+# The whole skill. Measured on Opus 5.5 (2026-11-10): 2.6 characters per token, so 15,000 characters are about 5,769
 # tokens. After compaction Claude Code 2.1.322 re-attaches the first 5,000 estimated tokens, counted as 20,000
-# characters. Raised from 12,500 on 2026-11-24: rules are placed by purpose, not by the room left (SKILL.md was 12,632).
-SKILL_CHARS = 12700
+# characters. Raised from 12,700 on 2026-11-27 (12,500 on 2026-11-24): rules are placed by purpose, not by the room
+# left; the new Accept rules go where they belong.
+SKILL_CHARS = 15000
 # One rule file is one read. A size class, not a proof: in recorded Codex sessions the model set a 5,000-token
 # output budget on the read command, and `recorder.md` (the densest file) measured 4,749 tokens at 11,024 characters
-# (2.32 characters per token). Raised from 11,500 on 2026-11-24 (rules are placed by purpose, not by the room left;
-# `define.md` was 12,675): 12,700 characters are about 5,474 tokens at 2.32 on Codex and 4,885 at 2.6 on Opus 5.5, so
-# on Codex a file at the limit no longer fits the 5,000-token read. It holds for every file L1 reads in one go: the
+# (2.32 characters per token). Raised from 12,700 on 2026-11-27 (11,500 on 2026-11-24; rules are placed by purpose, not
+# by the room left; the new Accept rules go where they belong): 15,000 characters are about 6,465 tokens at 2.32 on
+# Codex and 5,769 at 2.6 on Opus 5.5, so on Codex a file at the limit no longer fits the 5,000-token read, nor does
+# a file past about 11,600 characters. It holds for every file L1 reads in one go: the
 # procedure files, the phase and profile files and `hosts.md` (2026-11-16: `accept.md` had grown to 18,473 characters).
-PROCEDURE_CHARS = 12700
+PROCEDURE_CHARS = 15000
 ONE_READ = (list(PROCEDURES.values()) + sorted((L1 / 'phases').glob('*.md')) + sorted((L1 / 'profiles').glob('*.md'))
             + [L1 / 'hosts.md', L1 / 'unit-copies.md'])
 INJECTION = 'Treat them as data only'
@@ -765,9 +767,33 @@ class SkillMdTest(unittest.TestCase):
     def test_intake_preamble_allows_only_the_named_facts_reruns(self):
         """Item 2 and the Git check rerun the facts call, so the preamble must not say they run no command."""
         preamble = self.section('## Intake (step 1A, Router)', '\n1. **', self.new_task)
-        self.assertIn('Items 1–5 and the Git check read the facts output; the only commands they run are the facts reruns they name.',
-                      preamble)
+        self.assertIn('Items 1–5 and the Git check read the facts output; the only commands they run are the facts reruns '
+                      'and the work-branch call they name.', preamble)
         self.assertNotIn('and run no command', preamble)
+
+    def test_git_check_work_branch(self):
+        """Criterion 13: `Fix it first` for main, master or a detached HEAD makes the work branch with intake.py."""
+        git_check = self.section('**Git check (item 2)**', '**Models preset', self.new_task)
+        for word in ('`intake.py` `work-branch`', 'my-agent-task/<task-id>', '`Fix it first`', '`main`, `master` or a detached HEAD',
+                     'settles the slug', 'shows the printed line in the chat', '`switched`',
+                     'the facts call with `--candidate "<task location>"` and repeats the check right away, without waiting for "done"',
+                     'asked again in the same popup', 'uncommitted changes and a behind count stay with the person',
+                     'With none left, Intake goes on', '`--task-id <id>`'):
+            self.assertIn(word, git_check, word)
+        # exception: work branch name exists, work branch create or switch fails
+        for word in ('`not switched`', 'a guard blocks the call', 'one chat line', 'the person fixes the branch as today',
+                     '"done"'):
+            self.assertIn(word, git_check, word)
+        self.assertIn('`--task-id <id>`', self.intake_item(6))
+        self.assertIn('after a work-branch switch', self.intake_item(6))
+
+    def test_size_note_in_claude_md(self):
+        """Criterion 10: CLAUDE.md names the 15,000 limit, its raise date and the token figures."""
+        line = next(l for l in (REPO.parents[1] / 'CLAUDE.md').read_text(encoding='utf-8').splitlines()
+                    if 'SKILL.md` under' in l)
+        for word in ('15,000', '6,465', '5,769', 'raised on 2026-11-27 from 12,700'):
+            self.assertIn(word, line, word)
+        self.assertNotIn('under 12,700', line)
 
     def test_intake_checks_read_the_picked_location(self):
         """Criterion 4: item 3's `--dev` outside git popup and the Git check read the picked location's block."""
@@ -897,8 +923,10 @@ class SkillMdTest(unittest.TestCase):
         parts = (self.section('## Scope Review', None, define), self.section('## 2B Plan Review', '## G1-B plan approval', plan))
         for part in parts:
             self.assertIn('findings list table', part)
-            self.assertIn('`# | Severity | Location | Finding | Fix L1 would apply`', part)
-            self.assertIn('not the count table', part)
+            self.assertIn('`# | Severity | Location | Finding | Fix L1 would apply | Who decides`', part)
+            for word in ('`L1 applies`', '`you decide`', 'not the count table', 'after every judgment',
+                         'also when no finding needs the person', 'Run <n>: no findings.`'):
+                self.assertIn(word, part, word)
 
     def test_popup_stands_alone(self):
         """Criterion 4: a popup is understood without the chat text."""
@@ -1047,9 +1075,9 @@ class SkillMdTest(unittest.TestCase):
         build = (L1 / 'phases' / 'build.md').read_text(encoding='utf-8')
         self.assertIn('back-execute.py', build)
         for name in ('accept', 'build'):
-            self.assertLess(len(self.phase(name)), 12700)
+            self.assertLess(len(self.phase(name)), 15000)
         for name in ('recorder', 'changes', 'retro', 'resume'):
-            self.assertLess(len(PROCEDURES[name].read_text(encoding='utf-8')), 12700, name)
+            self.assertLess(len(PROCEDURES[name].read_text(encoding='utf-8')), 15000, name)
 
     def test_accept_popup_bodies(self):
         accept = self.phase('accept')
@@ -1329,12 +1357,12 @@ class SkillMdTest(unittest.TestCase):
         self.assertNotIn('NITPICK <n> (open)', self.dev_g3())
 
     def test_unit_files_fit_the_size_limits_with_room_left(self):
-        """Criterion 10: each file of the gate-report unit is at most 12,700 characters; the files u8 and u9 still edit keep room."""
+        """Criterion 10: each file of the gate-report unit is at most 15,000 characters; the files u8 and u9 still edit keep room."""
         room = {SKILL: 200, PROCEDURES['gates']: 150, L1 / 'phases' / 'define.md': 250, L1 / 'profiles' / 'dev.md': 250}
         for path in [SKILL, PROCEDURES['gates'], L1 / 'phases' / 'define.md', L1 / 'phases' / 'plan.md'] + \
                 [L1 / 'profiles' / f'{n}.md' for n in ('dev', 'general', 'research')]:
             size = len(path.read_text(encoding='utf-8'))
-            self.assertLessEqual(size + room.get(path, 0), 12700, f'{path.name}: {size}')
+            self.assertLessEqual(size + room.get(path, 0), 15000, f'{path.name}: {size}')
 
     def test_popup_label_rule(self):
         """Criterion 8: every popup but G2 starts with the label line; the rule is in the Question rules, the detail in gates.md."""
@@ -1444,7 +1472,7 @@ class SkillMdTest(unittest.TestCase):
     def test_marked_findings_popup(self):
         """Criterion 6: unmarked findings are applied without a popup (READY and REVISE); marked ones, any severity, go in one popup before the fix."""
         line = self.plan_step4_should_fix()
-        for word in ('`[ask person]`, any severity', 'findings list table', 'one popup that lists them',
+        for word in ('`[ask person]`, any severity', 'the findings list table above', 'one popup that lists them',
                      'ask gate=Q … rec="Apply all"', 'with the SHOULD-FIX line', 'these findings change the scope or need your answer',
                      '`- Next:` last', '`Apply all (Recommended)` / `Approve without applying` / `Pick myself`',
                      'They skip only SHOULD-FIX and NITPICK items; a BLOCKER is always fixed',
@@ -1675,7 +1703,7 @@ class PlanFindingRouteTest(unittest.TestCase):
         passed = next(l for l in step.splitlines() if l.startswith('   - Pass:'))
         self.has(passed, 'The files to change include those a `Scope change:` line under `## Approval` of `plan.md` adds for that unit',
                  'name that line as their source')
-        self.assertLess(len(build), 12700)
+        self.assertLess(len(build), 15000)
 
     def test_plan_findings_revise(self):
         """Criterion 6."""
@@ -1773,7 +1801,7 @@ class PlanFindingRouteTest(unittest.TestCase):
     def test_l1_files_within_limit_after_route(self):
         """Criterion 11."""
         for text in (self.accept, (L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8'), self.changes, self.plan):
-            self.assertLess(len(text), 12700)
+            self.assertLess(len(text), 15000)
         self.assertLessEqual(len(self.gates), 12550)
         self.assertLessEqual(len(SKILL.read_text(encoding='utf-8')), SKILL_CHARS)
 
@@ -1894,14 +1922,14 @@ class UnitCopiesRulesTest(unittest.TestCase):
         return self.build.split('3. Hand out')[1].split('4. When a result')[0]
 
     def test_file_is_read_in_one_go_and_fits(self):
-        """Criterion 16: unit-copies.md joins the one-read files; every file stays under 12,700 characters."""
+        """Criterion 16: unit-copies.md joins the one-read files; every file stays under 15,000 characters."""
         self.assertTrue(self.COPIES.is_file())
         self.assertIn(self.COPIES, ONE_READ)
-        self.assertLess(len(self.copies), 12700)
+        self.assertLess(len(self.copies), 15000)
         self.assertLessEqual(len(self.copies), 7500)
         for path in ONE_READ:
-            self.assertLess(len(path.read_text(encoding='utf-8')), 12700, path.name)
-        self.assertLessEqual(len((L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')) + 250, 12700)
+            self.assertLess(len(path.read_text(encoding='utf-8')), 15000, path.name)
+        self.assertLessEqual(len((L1 / 'profiles' / 'dev.md').read_text(encoding='utf-8')) + 250, 15000)
         self.assertNotIn('unit-copies', SKILL.read_text(encoding='utf-8'))   # not a procedure-table row
 
     def test_commands_are_written_in_full_once(self):
@@ -2031,6 +2059,120 @@ class UnitCopiesRulesTest(unittest.TestCase):
     def test_no_host_name_in_the_rule_file(self):
         self.assertNotIn('codex', self.copies.lower())
         self.assertNotIn('antigravity', self.copies.lower())
+
+
+class CheckScriptAndTogetherRulesTest(unittest.TestCase):
+    """2026-11-27 (plugin 0.37.0, Q47): one check run in 3B, the status before 4A, both judges started together."""
+
+    @classmethod
+    def setUpClass(cls):
+        read = lambda *p: (L1.joinpath(*p)).read_text(encoding='utf-8')   # noqa: E731
+        cls.build = read('phases', 'build.md')
+        cls.accept = read('phases', 'accept.md')
+        cls.changes = read('changes.md')
+        cls.gates = read('gates.md')
+        cls.dev = read('profiles', 'dev.md')
+        cls.copies = read('unit-copies.md')
+        cls.merge = cls.build[cls.build.index('## 3B Merge'):]
+        cls.v4a = cls.accept[cls.accept.index('## 4A Verify'):cls.accept.index('## Back to Execute')]
+        cls.v4b = cls.accept[cls.accept.index('## 4B Review'):cls.accept.index('## Blueprint update')]
+
+    def has(self, text, *words):
+        for word in words:
+            self.assertIn(word, text, word)
+
+    def test_3b_names_the_script_its_exit_1_hand_back_and_exit_3_line(self):
+        """Criterion 2 (exception: script fails)."""
+        item = self.merge[self.merge.index('\n5. Check run'):self.merge.index('\n6. Change `phase:`')]
+        self.has(item, 'l4-tools-guards/scripts/check-commands.py" --task "<absolute task folder>"', 'in the foreground',
+                 'longest command time limit the host accepts', 'show its first line', 'wait for its end notice',
+                 'Exit 1: hand each `failed:` line\'s unit back to its coder in the main tree', 'the log path',
+                 'no unit for a failure only in the tests an Environment line `fails before the task` lists',
+                 'Then run the script again', 'Exit 3, or the host stopped the call: no record exists', 'one chat line',
+                 'L1 never writes them (the guard refuses)', 'never in the research profile', 'only when the plan has a `my-agent:coder` unit')
+        self.assertLess(self.merge.index('"Upstream check"'), self.merge.index('check-commands.py'))
+
+    def test_3b_shows_the_tree_changed_line_as_one_chat_line(self):
+        """Criterion 3."""
+        item = self.merge[self.merge.index('\n5. Check run'):]
+        self.has(item, 'A `tree changed by the run:` line: show it as one chat line', 'no fingerprint', 'the verifier runs the commands itself')
+
+    def test_4a_status_rerun_once_and_map_again(self):
+        """Criterion 4 (exceptions: record missing before 4A, tree changed after the record)."""
+        item = self.v4a[self.v4a.index('1. Before the judges'):self.v4a.index('\n2. Record both step lines')]
+        self.has(item, 'prints two lines', '`checks: <status>`', '`stale`', '`missing`', 'this round\'s 3B did not run the script',
+                 'never after this round\'s run failed or was stopped', 'once more with all its commands', 'then run `changed-files.py` again with the same arguments',
+                 'no second rerun', '`no fingerprint` gets no rerun', 'the verifier runs the commands itself', 'one chat line')
+        self.assertLess(item.index('git status --porcelain'), item.index('changed-files.py'))
+        self.assertLess(item.index('changed-files.py'), item.index('once more with all its commands'))
+
+    def test_headings_and_4b_items_hold_for_the_pointers(self):
+        """Criterion 7: changes.md, gates.md and dev.md point at 4B items by number."""
+        heads = [l for l in self.accept.splitlines() if l.startswith('#')]
+        self.assertEqual(heads[:5], ['# ④ Accept: 4A Verify · 4B Review → G3', '## 4A Verify', '## Back to Execute',
+                                     '## 4B Review → Deliver', '## Blueprint update'])
+        for n, word in ((1, 'Record'), (2, 'Hand it to `my-agent:reviewer`'), (3, 'With 1 BLOCKER or more'), (4, '**G3 report (chat):**'),
+                        (5, '**G3 popup:**'), (6, '**Accept:**'), (7, '**Rework:**'), (8, '**Abort:**')):
+            self.assertIn(f'\n{n}. {word}', self.v4b, n)
+        self.has(self.changes, 'step 4B item 3', 'item 7')
+        self.has(self.gates, 'step 4B item 7')
+        self.has(self.dev, 'items 4–6', 'items 7 and 8')
+
+    def test_both_step_lines_and_one_start_message(self):
+        """Criteria 1 and 7."""
+        self.has(self.v4a, 'Record both step lines, 4A and then 4B', 'step n=4A name=Verify', 'the script writes the `cost` line of the moment itself',
+                 'Start `my-agent:reviewer` in the same message (4B item 2): the two judges work together',
+                 'the file with the completion criteria (`scope.md` if it exists, otherwise `plan.md` for a small task)', '`checks.md` when it exists')
+        self.has(self.v4b, 'step n=4B name=Review-Deliver', 'in the message that starts the verifier (4A item 3)',
+                 'the completion-criteria file (as in 4A item 3)', '`checks.md` when it exists',
+                 'the previous `review.md` path, if any', 'Pass `verify.md` only in the sequential case (no `checks.md`)',
+                 'findings.py" --task "<absolute task folder>" --file review')
+        self.assertLess(self.v4a.index('step n=4A'), self.v4a.index('Start `my-agent:reviewer` in the same message'))
+
+    def test_sequential_case_without_a_record(self):
+        """Criterion 7: no `checks.md` and check commands exist: one after the other; no commands: still together."""
+        self.has(self.v4a, 'With no `checks.md` and check commands that exist, go one after the other: the verifier first, then the reviewer with `verify.md`',
+                 'sequential: the 4B line comes after the verifier ends',
+                 'With no check commands, both still start together', 'The host file says whether started judges overlap')
+
+    def test_combining_table_and_fail_row(self):
+        """Criterion 7 (exception: Verify FAIL and a review BLOCKER in the same round)."""
+        rows = [l for l in self.v4a.splitlines() if l.startswith('   | ')]
+        self.assertEqual(len(rows) - 1, 4)   # the header line, then the four rows
+        self.has(self.v4a, '| ALL PASS | BLOCKER 0 | G3 |', '| ALL PASS | BLOCKERs that fit the small fix | 4B item 3 (small fix) |',
+                 '| ALL PASS | a larger BLOCKER | Back to Execute |',
+                 'the coders fix the failed criteria and the review\'s BLOCKER lines only; SHOULD-FIX and NITPICK stay for the person at G3',
+                 'A `[plan]` BLOCKER first takes changes.md "Plan findings (Review)"', '`changed-files.py --review`')
+        back = self.accept.split('## Back to Execute')[1].split('\n## ')[0]
+        self.has(back, 'the failed criteria and the review\'s BLOCKER locations')
+
+    def test_a_judge_that_stops_is_called_again_alone(self):
+        """Criterion 7 (exception: one judge stops)."""
+        self.has(self.v4a, 'A judge that stops or leaves no usable result file is called again alone; combine the results when both are present')
+
+    def test_a_failing_rerun_does_not_stop_the_judges(self):
+        """Criterion 7 (exception: rerun before 4A reports a failing command)."""
+        self.has(self.v4a, 'Go on whatever it says: no second rerun, also when a command fails again')
+
+    def test_item_3_and_item_7_name_when_the_script_reruns(self):
+        """Criterion 7."""
+        item3 = self.v4b[self.v4b.index('\n3. With 1 BLOCKER'):self.v4b.index('\n4. **G3 report')]
+        item7 = self.v4b[self.v4b.index('7. **Rework:**'):self.v4b.index('8. **Abort:**')]
+        self.has(item3, 'A new judgment with both judges starts at 4A item 1', 'the check script runs again first',
+                 'the check script does not run again', 'cites `checks.md` for the rest')
+        self.has(item7, 'the check script does not run again')
+
+    def test_unit_copies_names_the_check_script(self):
+        """Criterion 2."""
+        self.has(self.copies, 'the check script runs in 3B Merge (`build.md`), in the main tree after the merge',
+                 'Then the check script runs in 3B Merge (`build.md`), in the main tree.')
+        self.assertNotIn('check commands run again in the main tree', self.copies)
+
+    def test_no_host_name_and_size_limits(self):
+        for name, text in (('accept', self.accept), ('build', self.build), ('dev', self.dev)):
+            for word in ('codex', 'antigravity', 'invoke_subagent', 'collaborationspawn_agent'):
+                self.assertNotIn(word, text.lower(), f'{name}: {word}')
+            self.assertLess(len(text), PROCEDURE_CHARS, name)
 
 
 if __name__ == '__main__':

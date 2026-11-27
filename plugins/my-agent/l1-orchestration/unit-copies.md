@@ -23,7 +23,7 @@ Exit codes: 0 done, 1 not done (a git or file error), 2 bad arguments, 3 sequent
 
 One `create` call for the group (`--unit` once per coder unit). It prints the cd-guard line, `worktree: <unit> <path>` per unit and `base: <sha>`.
 
-- Exit 0: show the cd-guard line. Pass each coder `Worktree: <path>` as the prompt's second line, after `Work unit:`. Pass each check command with every task-location path replaced by the copy path; the check commands run again in the main tree after the merge.
+- Exit 0: show the cd-guard line. Pass each coder `Worktree: <path>` as the prompt's second line, after `Work unit:`. Pass each check command with every task-location path replaced by the copy path; the check script runs in 3B Merge (`build.md`), in the main tree after the merge.
 - Workflow: one `create` for all its coder units before the workflow starts, and each coder `agent()` prompt carries its `Worktree:` line the same way.
 - Any other exit: show its line as one chat line and run that group's coder units one at a time in the main tree. This covers the size or file-count limit, no git, a nested repository, Windows, a refused session guard and a failed create. No popup, also under delegated approval.
 
@@ -41,7 +41,7 @@ Run it in 3A right after the group finishes (for a workflow, after it returns an
 - Exit 1: show its line. The copy is kept and named in one chat line and the G3 "Open risks" row. The unit reruns alone in the main tree after the group's other merges, as a new worker call with the cause passed (build.md 3A item 3 rerun route). No popup, no E.
 - Exit 2: nothing changed. Correct the command and run `merge` again; no rerun.
 
-Then the reruns, one at a time, each without a `Worktree:` line and with the notes file path. Then the check commands run in the main tree.
+Then the reruns, one at a time, each without a `Worktree:` line and with the notes file path. Then the check script runs in 3B Merge (`build.md`), in the main tree.
 
 ## Leftover copies and cleanup
 

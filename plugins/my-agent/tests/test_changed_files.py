@@ -1,7 +1,9 @@
 """changed-files.py: the changed-file map L1 hands to the verifier and the reviewer (accept.md step 7)."""
+import os
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -36,8 +38,19 @@ Lead.
 """
 
 
+CHECK_SCRIPT = L4 / 'scripts' / 'check-commands.py'
+ARCHIVE_SCRIPT = L4 / 'scripts' / 'archive.py'
+PLAN_CHECKS = PLAN.replace('- Parallel group: group 1\n- Completion criteria: 1, 2',
+                           '- Check commands: `python3 -c "print(1)"` (criterion 1)\n- Parallel group: group 1\n- Completion criteria: 1, 2')
+
+
 def git(root, *args):
     subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True, text=True)
+
+
+def first_line(res):
+    """The map line of the two-line output (the second line is `checks: <status>`)."""
+    return res.stdout.splitlines()[0]
 
 
 class ChangedFilesTest(unittest.TestCase):
@@ -85,7 +98,7 @@ class ChangedFilesTest(unittest.TestCase):
         (self.task / 'notes.md').write_text('task record\n', encoding='utf-8')
         res = self.run_cf()
         self.assertEqual(res.returncode, 0, res.stderr)
-        self.assertEqual(res.stdout.strip(), 'changed-files: 4 files, 1 unmapped')
+        self.assertEqual(first_line(res), 'changed-files: 4 files, 1 unmapped')
         text, rows, rejudge = self.table()
         self.assertEqual(rejudge, 'all')
         self.assertIn('Previous: none', text)
@@ -115,7 +128,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.write('web/view.html', '<p>z</p>\n')
         res = self.run_cf('--previous', str(arch / ma_schema.CHANGED_FILES))
         self.assertEqual(res.returncode, 0, res.stderr)
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
         text, rows, rejudge = self.table()
         self.assertEqual(rejudge, '3')
         self.assertEqual(rows['web/view.html']['since'], 'changed')
@@ -174,7 +187,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertNotIn('web/view.html', rows)
         self.assertEqual(rows['plugins/demo/lib/parser.py']['since'], 'same')
         self.assertEqual(rejudge, 'none')
-        self.assertEqual(res.stdout.strip(), 'changed-files: 1 files, 0 unmapped, 0 changed since Run 2')
+        self.assertEqual(first_line(res), 'changed-files: 1 files, 0 unmapped, 0 changed since Run 2')
 
     def test_non_ascii_path_is_not_quoted(self):
         """git quotes non-ASCII paths by default (core.quotepath); the map keeps the real name and maps it."""
@@ -247,7 +260,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         _text, rows, _r = self.table()
         self.assertEqual((rows['README.md']['units'], rows['README-ko.md']['units']), ('u2', 'u2'))
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped')
 
     def test_two_paths_in_one_nested_bullet_map(self):
         """#84: a nested bullet of `Files to change` that holds two paths maps both, not only the first."""
@@ -259,7 +272,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         _text, rows, _r = self.table()
         self.assertEqual((rows['README.md']['units'], rows['README-ko.md']['units']), ('u2', 'u2'))
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped')
 
     def test_absolute_files_to_change_paths_map(self):
         """#75 candidate: a plan that writes absolute paths maps files that git lists relative to its root."""
@@ -272,7 +285,7 @@ class ChangedFilesTest(unittest.TestCase):
         _text, rows, _r = self.table()
         self.assertEqual(rows['web/view.html']['units'], 'u2')
         self.assertEqual(rows['plugins/demo/lib/parser.py']['units'], 'u1, u2')   # u1 names it too, relative
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped')
 
     def test_location_below_git_root_maps(self):
         """#75 candidate: the task location is a folder below the git root and the plan writes paths relative to it."""
@@ -290,7 +303,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         _text, rows, _r = self.table()
         self.assertEqual((rows['app/src/main.js']['units'], rows['app/src/new.js']['units']), ('u2', 'u2'))
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped')
 
     def test_dot_slash_paths_map(self):
         """#75 candidate: `./web/view.html` in the plan is the same file as `web/view.html` in git's list."""
@@ -302,7 +315,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         _text, rows, _r = self.table()
         self.assertEqual((rows['web/view.html']['units'], rows['web/new.js']['units']), ('u2', 'u2'))
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped')
 
     def test_parser_tolerates_missing_text(self):
         self.assertEqual(ma_schema.changed_files_rows(None), ([], None))
@@ -314,8 +327,10 @@ class ChangedFilesTest(unittest.TestCase):
     S5 = '- SHOULD-FIX src/cli.py:30 exit code → return 2 [criterion 5]'
     SN = '- SHOULD-FIX src/util.py:8 two helpers → keep one [criterion none]'
 
-    def rerun(self, lines, *extra, first='BLOCKER 1', verify='Verdict: PASS\nRun: 1\n', review=True, changed='web/view.html'):
-        """First run, archive it with a review.md of `lines` (and verify.md), change `changed`, run with --previous."""
+    def rerun(self, lines, *extra, first='BLOCKER 1', verify='Verdict: PASS\nRun: 1\n', review=True, changed='web/view.html',
+              leftover=False):
+        """First run, archive it with a review.md of `lines` (and verify.md), change `changed`, run with --previous.
+        `leftover`: the review is older than the archived changed-files.md (a copy from an earlier round)."""
         shutil.rmtree(self.task / 'archive', ignore_errors=True)   # a test may rerun several cases
         git(self.root, 'checkout', '--', '.')
         arch = self.first_then_archive()
@@ -325,6 +340,9 @@ class ChangedFilesTest(unittest.TestCase):
         args = ['--previous', str(arch / ma_schema.CHANGED_FILES)]
         if review:
             (arch / 'review.md').write_text(f'{first}\n\n## Findings\n' + '\n'.join(lines) + '\n', encoding='utf-8')
+            if leftover:
+                old = (arch / ma_schema.CHANGED_FILES).stat().st_mtime - 100
+                os.utime(arch / 'review.md', (old, old))
             args += ['--review', str(arch / 'review.md')]
         self.arch = arch
         return self.run_cf(*args, *extra)
@@ -336,7 +354,7 @@ class ChangedFilesTest(unittest.TestCase):
     def test_review_blocker_rerun_adds_its_criterion(self):
         res = self.rerun([self.B4, self.S5])
         self.assertEqual(res.returncode, 0, res.stderr)
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1, 1 criterion from findings')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1, 1 criterion from findings')
         text, found = self.findings()
         self.assertEqual(self.table()[2], '3, 4')
         self.assertEqual(found, [self.B4])   # the SHOULD-FIX is not picked: nothing added, not copied
@@ -357,7 +375,7 @@ class ChangedFilesTest(unittest.TestCase):
         res = self.rerun([], first='BLOCKER 0')   # nothing to add
         self.assertEqual(self.table()[2], '3')
         self.assertIsNone(self.findings()[1])
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
         self.rerun(['- BLOCKER web/view.html:4 stray → fix [criterion 3]'], '--rework-criterion', '2: x', first='BLOCKER 0')
         self.assertEqual(self.table()[2], '2, 3')
 
@@ -367,7 +385,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(self.table()[2], '2, 3, 5')
         self.assertEqual(self.findings()[1], [self.S5, '- Criterion 2 (G3 Rework): the message names no path'])
-        self.assertTrue(res.stdout.strip().endswith(', 2 criteria from findings'))
+        self.assertTrue(first_line(res).endswith(', 2 criteria from findings'))
 
     def test_rework_inputs_alone(self):
         self.rerun([self.S5], '--rework-finding', 'src/cli.py:30', first='BLOCKER 0')
@@ -380,7 +398,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(self.table()[2], '3')
         self.assertIsNone(self.findings()[1])
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
 
     def test_marked_blocker_keeps_rejudge_scope(self):
         marked = '- BLOCKER web/view.html:4 broken → new unit [plan] [criterion 2]'
@@ -388,14 +406,14 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(self.table()[2], '2, 3')   # 3 from the changed file, 2 from the finding; the mark does not give all
         self.assertEqual(self.findings()[1], [marked])
-        self.assertTrue(res.stdout.strip().endswith(', 1 criterion from findings'), res.stdout)
+        self.assertTrue(first_line(res).endswith(', 1 criterion from findings'), res.stdout)
 
     def test_marked_none_adds_nothing(self):
         res = self.rerun(['- BLOCKER a.py:1 reuse parse() [plan] [criterion none]'])
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(self.table()[2], '3')
         self.assertIsNone(self.findings()[1])
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped, 1 changed since Run 1')
 
     def test_marked_picked_should_fix(self):
         marked = '- SHOULD-FIX src/cli.py:30 exit code → other approach [plan] [criterion 3]'
@@ -403,7 +421,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(self.table()[2], '3')   # nothing changed: the 3 comes from the finding alone
         self.assertEqual(self.findings()[1], [marked])
-        self.assertTrue(res.stdout.strip().endswith(', 1 criterion from findings'), res.stdout)
+        self.assertTrue(first_line(res).endswith(', 1 criterion from findings'), res.stdout)
 
     def test_missing_or_invalid_tag_gives_all_and_is_copied(self):
         for tagged in ('- BLOCKER web/view.html:4 off by one → use <=',
@@ -412,7 +430,7 @@ class ChangedFilesTest(unittest.TestCase):
             res = self.rerun([tagged])
             self.assertEqual(self.table()[2], 'all', tagged)
             self.assertEqual(self.findings()[1], [tagged])
-            self.assertTrue(res.stdout.strip().endswith(', 1 finding without a valid criterion tag (Re-judge: all)'), res.stdout)
+            self.assertTrue(first_line(res).endswith(', 1 finding without a valid criterion tag (Re-judge: all)'), res.stdout)
         res = self.rerun(['- SHOULD-FIX src/cli.py:30 x → y'], '--rework-finding', 'src/cli.py:30')
         self.assertEqual(self.table()[2], 'all')
         self.assertEqual(self.findings()[1], ['- SHOULD-FIX src/cli.py:30 x → y'])
@@ -421,22 +439,66 @@ class ChangedFilesTest(unittest.TestCase):
         res = self.rerun(['- BLOCKER a.py:1 x [criterion 2, 5]', '- BLOCKER b.py:2 y [criterion 5, 5]'])
         self.assertEqual(self.table()[2], '2, 3, 5')
         self.assertEqual(len(self.findings()[1]), 2)
-        self.assertTrue(res.stdout.strip().endswith(', 2 criteria from findings'))
+        self.assertTrue(first_line(res).endswith(', 2 criteria from findings'))
 
     def test_already_all_and_changed_none(self):
         res = self.rerun([self.B4], changed='README.md')
         self.assertEqual(self.table()[2], 'all')
         self.assertEqual(self.findings()[1], [self.B4])
-        self.assertTrue(res.stdout.strip().endswith(', 1 criterion from findings'))
+        self.assertTrue(first_line(res).endswith(', 1 criterion from findings'))
         self.rerun(['- BLOCKER a.py:1 x [criterion 3]'], changed=None)
         self.assertEqual(self.table()[2], '3')
 
-    def test_a_review_next_to_a_failed_verify_is_not_read(self):
-        res = self.rerun([self.B4], verify='Verdict: FAIL\nRun: 1\n- 3. FAIL x\n')
+    def test_a_leftover_review_next_to_a_failed_verify_is_not_read(self):
+        """The sequential FAIL round: no reviewer ran, so review.md is older than the round's changed-files.md."""
+        res = self.rerun([self.B4], verify='Verdict: FAIL\nRun: 1\n- 3. FAIL x\n', leftover=True)
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(self.table()[2], '3')
         self.assertIsNone(self.findings()[1])
-        self.assertTrue(res.stdout.strip().endswith(', review not read (Verify FAIL in that run)'), res.stdout)
+        self.assertTrue(first_line(res).endswith(', review not read (Verify FAIL in that run)'), res.stdout)
+
+    def test_the_sequential_fail_round_archive_skips_its_review(self):
+        """The same flow as below with review.md written before changed-files.md (a leftover of an earlier round),
+        archived by archive.py."""
+        (self.task / 'review.md').write_text(f'BLOCKER 1\n\n## Findings\n{self.B4}\n', encoding='utf-8')
+        time.sleep(0.05)
+        self.write('web/view.html', '<p>y</p>\n')
+        self.assertEqual(self.run_cf().returncode, 0)
+        time.sleep(0.05)
+        (self.task / 'verify.md').write_text('Verdict: FAIL\nRun: 1\n- 3. FAIL x\n', encoding='utf-8')
+        res = run_script(ARCHIVE_SCRIPT, '--task', str(self.task), '--name', 'run1', '--only', 'verify.md', 'review.md',
+                         ma_schema.CHANGED_FILES)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        arch = self.task / res.stdout.strip()
+        self.write('web/view.html', '<p>again</p>\n')
+        res = self.run_cf('--previous', str(arch / ma_schema.CHANGED_FILES), '--review', str(arch / 'review.md'))
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '3')
+        self.assertIsNone(self.findings()[1])
+        self.assertTrue(first_line(res).endswith(', review not read (Verify FAIL in that run)'), res.stdout)
+
+    def test_a_review_of_a_failed_verify_round_is_read_when_newer_than_the_map(self):
+        """Both judges ran in a round with a record: changed-files.md, then verify.md (FAIL), then review.md (BLOCKER).
+        The archive is made by archive.py, as back-execute.py does (it keeps the file times)."""
+        self.write('web/view.html', '<p>y</p>\n')
+        self.assertEqual(self.run_cf().returncode, 0)
+        time.sleep(0.05)
+        (self.task / 'verify.md').write_text('Verdict: FAIL\nRun: 1\n- 3. FAIL x\n', encoding='utf-8')
+        time.sleep(0.05)
+        (self.task / 'review.md').write_text(f'BLOCKER 1\n\n## Findings\n{self.B4}\n', encoding='utf-8')
+        res = run_script(ARCHIVE_SCRIPT, '--task', str(self.task), '--name', 'run1', '--only', 'verify.md', 'review.md',
+                         ma_schema.CHANGED_FILES)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        arch = self.task / res.stdout.strip()
+        self.assertGreater((arch / 'review.md').stat().st_mtime, (arch / ma_schema.CHANGED_FILES).stat().st_mtime)
+        for name in ('verify.md', 'review.md'):
+            (self.task / name).unlink()
+        self.write('web/view.html', '<p>again</p>\n')
+        res = self.run_cf('--previous', str(arch / ma_schema.CHANGED_FILES), '--review', str(arch / 'review.md'))
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(self.table()[2], '3, 4')   # 3 from the changed file, 4 from the BLOCKER
+        self.assertEqual(self.findings()[1], [self.B4])
+        self.assertNotIn('review not read', res.stdout)
 
     def test_unreadable_sibling_verify_exits_2(self):
         arch = self.first_then_archive()
@@ -458,7 +520,7 @@ class ChangedFilesTest(unittest.TestCase):
         self.write('web/view.html', '<p>q</p>\n')
         res = self.run_cf()   # first run
         self.assertEqual((self.table()[2], self.findings()[1]), ('all', None))
-        self.assertEqual(res.stdout.strip(), 'changed-files: 2 files, 0 unmapped')
+        self.assertEqual(first_line(res), 'changed-files: 2 files, 0 unmapped')
 
     def test_review_without_findings_section(self):
         arch = self.first_then_archive()
@@ -495,6 +557,94 @@ class ChangedFilesTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(self.table()[2], '3')
         self.assertIsNone(self.findings()[1])
+
+    # --- the check record status (second output line and `Checks:` header) ---
+
+    def checks_status(self, res=None):
+        res = res or self.run_cf()
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        lines = res.stdout.splitlines()
+        self.assertEqual(len(lines), 2, res.stdout)
+        self.assertTrue(lines[1].startswith('checks: '), res.stdout)
+        text, _rows, _rejudge = self.table()
+        header = text.splitlines()[4]   # right after `Re-judge:`
+        self.assertEqual(header, 'Checks: ' + lines[1][len('checks: '):])
+        self.assertTrue(text.splitlines()[3].startswith('Re-judge:'))
+        return lines[1][len('checks: '):]
+
+    def run_checks(self):
+        res = run_script(CHECK_SCRIPT, '--task', str(self.task))
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        return res
+
+    def with_checks(self, plan=PLAN_CHECKS):
+        (self.task / 'plan.md').write_text(plan, encoding='utf-8')
+
+    def test_checks_status_current_stale_head_moved_and_missing(self):
+        self.with_checks()
+        self.assertEqual(self.checks_status(), 'missing')   # check commands exist, no record
+        self.write('web/view.html', '<p>y</p>\n')
+        self.run_checks()
+        self.assertEqual(self.checks_status(), 'current')
+        self.write('web/view.html', '<p>z</p>\n')
+        self.assertEqual(self.checks_status(), 'stale (1 paths differ: web/view.html)')
+        self.write('web/view.html', '<p>y</p>\n')
+        self.write('web/other.html', '<p>o</p>\n')
+        self.assertEqual(self.checks_status(), 'stale (1 paths differ: web/other.html)')
+        (self.root / 'web' / 'other.html').unlink()
+        self.assertEqual(self.checks_status(), 'current')
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-q', '-m', 'work')
+        self.assertEqual(self.checks_status(), 'stale (HEAD moved)')
+        (self.task / ma_schema.CHECKS).write_text('not a record\n', encoding='utf-8')
+        self.assertEqual(self.checks_status(), 'missing')   # an unreadable record
+
+    def test_checks_status_lists_at_most_five_paths(self):
+        self.with_checks()
+        self.run_checks()
+        for n in range(7):
+            self.write(f'many/f{n}.txt', f'{n}\n')
+        status = self.checks_status()
+        self.assertTrue(status.startswith('stale (7 paths differ: many/f0.txt, many/f1.txt'), status)
+        self.assertEqual(status.count('many/'), 5)
+
+    def test_checks_status_without_a_fingerprint(self):
+        self.with_checks(PLAN_CHECKS.replace('print(1)', "open('made.txt', 'w').write('x')"))
+        self.run_checks()   # the command creates an untracked file: the record has no fingerprint
+        self.assertEqual(self.checks_status(), 'no fingerprint')
+        plain = Path(self.tmp.name) / 'plain'
+        plain.mkdir()
+        (self.task / 'intake.md').write_text(f'Status: active\nLocation: {plain}\nProfile: general\nTask: {TASK}\n',
+                                             encoding='utf-8')
+        self.with_checks()
+        self.run_checks()   # not a git location
+        self.assertEqual(self.checks_status(), 'no fingerprint')
+
+    def test_checks_status_not_needed_without_check_commands(self):
+        self.assertEqual(self.checks_status(), 'not needed (no check commands)')
+        (self.task / 'intake.md').write_text(f'Status: active\nLocation: {self.root}\nProfile: research\nTask: {TASK}\n',
+                                             encoding='utf-8')
+        self.with_checks()
+        self.assertEqual(self.checks_status(), 'not needed (no check commands)')
+
+    def test_checks_status_in_a_general_task_with_a_coder_unit(self):
+        (self.task / 'intake.md').write_text(f'Status: active\nLocation: {self.root}\nProfile: general\nTask: {TASK}\n',
+                                             encoding='utf-8')
+        self.with_checks()
+        self.assertEqual(self.checks_status(), 'missing')   # computed, not `not needed`
+        self.run_checks()
+        self.assertEqual(self.checks_status(), 'current')
+        self.with_checks(PLAN_CHECKS.replace('my-agent:coder', 'my-agent:writer'))
+        self.assertEqual(self.checks_status(), 'not needed (no check commands)')
+
+    def test_checks_problem_does_not_change_the_map(self):
+        self.write('web/view.html', '<p>y</p>\n')
+        before = self.run_cf()
+        self.with_checks()
+        after = self.run_cf()
+        self.assertEqual((before.returncode, after.returncode), (0, 0))
+        self.assertEqual(first_line(before), first_line(after))
+        self.assertEqual(self.table()[1].keys(), {'web/view.html'})
 
 
 if __name__ == '__main__':

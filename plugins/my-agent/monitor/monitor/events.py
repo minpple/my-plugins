@@ -61,6 +61,8 @@ def build_events(lines) -> Events:
     verdicts = []     # True per FAIL; None marks a revision, which starts the count again (D5)
     stops = {}        # (rev, unit) -> worker stops; a stop without unit= (not a plan unit) counts on its own id
     costs = {}        # session -> [first, last]
+    together = False  # 4B line right after the 4A line, with no verifier stop yet: the verifier of this round runs under 4A
+    verifier_stopped = False   # a verifier stopped since the last step line
 
     def item(l, k, a, tx, **kw):
         it = {'t': l.ts.strftime('%H:%M'), 'ts': l.ts.strftime('%Y-%m-%d %H:%M:%S'), 's': step,
@@ -75,6 +77,8 @@ def build_events(lines) -> Events:
             n = ma_schema.step_index(f.get('n'))
             if n is None:
                 continue
+            together = n == 8 and step == 7 and not verifier_stopped
+            verifier_stopped = False
             step = n
             if 'rev' in f and _int(f['rev']) is not None:
                 rev = _int(f['rev'])
@@ -102,12 +106,16 @@ def build_events(lines) -> Events:
             it = item(l, 'agent', a, f.get('agent', ''), sub=f'isolation: {iso}' if iso not in (None, '-') else None,
                       model=None, actual=None, effort=None, dur=None, c=None, res=None, end=None,
                       live=True, mm=False, id=None)
+            if together and a == 'verifier':
+                it['s'] = 7
             calls.setdefault(a, []).append(it)
         elif l.kind == 'start':
             a = f.get('agent', '').removeprefix('my-agent:')
             pending = calls.get(a)
             it = pending.pop() if pending else item(l, 'agent', a, f.get('agent', ''), sub=None, actual=None,
                                                     dur=None, c=None, res=None, end=None, live=True, mm=False)
+            if not pending and together and a == 'verifier':
+                it['s'] = 7
             it.update(id=f.get('id'), model=alias(f.get('configured')), effort=f.get('effort'))
             if it['id']:
                 by_id[it['id']] = it
@@ -123,6 +131,9 @@ def build_events(lines) -> Events:
                              'cache_read_input_tokens': _int(f.get('cr')) or 0} if 'in' in f else None,
                       actual_id=f.get('actual'))
             it['mm'] = bool(it['model'] and it['actual'] and it['model'] != it['actual'])
+            it['et'] = l.ts.strftime('%H:%M')   # when the run ended: the page ends step 7 at it in an overlapping round
+            if it['a'] == 'verifier':
+                verifier_stopped = True
             if it['a'] == 'verifier' and it['res']:
                 verdicts.append(ma_schema.verify_failed(it['res']))
             if it['a'] in WORKERS and it['end'] in ma_schema.INTERRUPTED and it['r'] == rev:

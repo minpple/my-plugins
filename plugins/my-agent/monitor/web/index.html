@@ -814,7 +814,9 @@ function stats(t, R) {
     if (e.k === 'agent' && !e.live) { s.cost += num(e.c); s.agents++; } else if (e.k === 'agent') s.agents++; });
   if (R !== 'all') Object.entries(mainOf(t, R)).forEach(([n, c]) => { steps[n].cost += num(c); });
   const started = Object.keys(steps).map(Number).filter(n => steps[n].start);
-  started.forEach((n, i) => { const nx = started[i + 1]; const end = nx ? steps[nx].start : revEnd(t, R);
+  started.forEach((n, i) => { const nx = started[i + 1]; let end = nx ? steps[nx].start : revEnd(t, R);
+    /* 4A runs on while 4B has started (the two judges together): step 7 ends at its last agent item when that is later */
+    if (n === 7) evs.forEach(e => { if (e.s === 7 && e.k === 'agent' && e.et && dm(steps[n].start, e.et) > dm(steps[n].start, end)) end = e.et; });
     steps[n].end = end; steps[n].min = dm(steps[n].start, end); });
   const models = {};
   const addM = (m, min, cost, call, priced) => { const r = models[m] = models[m] || { calls: 0, min: 0, cost: 0, live: 0, done: 0, priced: 0 };

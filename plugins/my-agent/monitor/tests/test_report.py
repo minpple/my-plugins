@@ -726,6 +726,33 @@ class TimelineRowsTest(unittest.TestCase):
             self.assertEqual(t['chart_end'], t['steps'][-1]['end'])
             self.assertAlmostEqual(t['steps'][-1]['left'] + t['steps'][-1]['width'], 100, places=6)
 
+    def round_rows(self, verifier_stop, reviewer_stop):
+        return [('09:00:00', 'step: n=4A name=Verify'), ('09:00:05', 'step: n=4B name=Review-Deliver'),
+                ('09:00:10', 'call: agent=my-agent:verifier'), ('09:00:10', 'call: agent=my-agent:reviewer'),
+                ('09:00:11', 'start: agent=my-agent:verifier id=v1 configured=sonnet'),
+                ('09:00:11', 'start: agent=my-agent:reviewer id=r1 configured=sonnet'),
+                *sorted([(verifier_stop, 'stop: id=v1 secs=60'), (reviewer_stop, 'stop: id=r1 secs=60')])]
+
+    def test_overlapping_round_4a_ends_at_the_verifier_stop(self):
+        for v, r in (('09:12:00', '09:10:00'), ('09:10:00', '09:12:00')):
+            t = self.tl(*self.round_rows(v, r))
+            a, b = t['steps']
+            self.assertEqual((a['n'], b['n']), (7, 8))
+            self.assertEqual(a['end'], f'2026-11-22T{v}')
+            self.assertEqual(a['secs'], 60 * int(v[3:5]))
+            self.assertEqual(b['start'], '2026-11-22T09:00:05')
+            self.assertLess(b['start'], a['end'])   # the two rows overlap
+            self.assertEqual(b['end'], '2026-11-22T09:12:00')   # the 4B row ends as today: the last run-log line
+            self.check_widths(t)
+
+    def test_sequential_round_rows_unchanged(self):
+        t = self.tl(('09:00:00', 'step: n=4A name=Verify'), ('09:00:10', 'start: agent=my-agent:verifier id=v1 configured=sonnet'),
+                    ('09:05:00', 'stop: id=v1 secs=60'), ('09:05:05', 'step: n=4B name=Review-Deliver'),
+                    ('09:05:10', 'start: agent=my-agent:reviewer id=r1 configured=sonnet'), ('09:08:00', 'stop: id=r1 secs=60'))
+        a, b = t['steps']
+        self.assertEqual((a['end'], b['start'], b['end']), ('2026-11-22T09:05:05', '2026-11-22T09:05:05', '2026-11-22T09:08:00'))
+        self.check_widths(t)
+
     def test_running_task_durations(self):
         t = self.tl(('09:00:00', 'step: n=5 name=Execute'), ('09:10:00', 'step: n=7 name=Verify'), ('09:15:00', 'cost: usd=1.00 session=s'))
         self.assertEqual(t['steps'][-1]['end'], '2026-11-22T09:15:00')

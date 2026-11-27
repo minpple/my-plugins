@@ -40,11 +40,15 @@ If `## Approval` in `plan.md` has no `Approved` line, do not start this phase; g
 ## 3B Merge
 
 1. Record: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" step n=3B name=Merge --model <main session model ID> --data-dir "<data folder>" --task-dir "<task_dir>"`
-2. Combine the results and run the basic checks. For profile-specific content, follow the profile file (dev: its "Upstream check" comes before the check commands).
+2. Combine the results and run the basic checks. For profile-specific content, follow the profile file (dev: its "Upstream check" comes before the check script of item 5).
 3. Merge what is left of the coder copies (`unit-copies.md` "Merge"; a copy group is normally merged in 3A), one at a time, in the plan's work unit order.
    - If a conflict is small (2 files or fewer, about 10 lines), L1 resolves it only when both sides' intent is clear.
    - If larger, rerun the unit merged later as a new worker call in the main tree, on top of the merged result. Pass the conflict and the notes file path along.
    - If both tried to change the same code in different ways, E: `Back to Plan (Recommended)` / `Take one side only` / `Abort`.
    - Record each time: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" merge unit=<work unit> files="<files>" how="<how it was resolved>" by=<L1 or coder> --data-dir "<data folder>" --task-dir "<task_dir>"`
 4. If L1 made a small fix: `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" fix what="<what was fixed>" files="<files>" --data-dir "<data folder>" --task-dir "<task_dir>"`
-5. Change `phase:` in `.active` to `4` and read `accept.md`.
+5. Check run, once for all check commands (dev profile: after the profile's "Upstream check"; general profile: only when the plan has a `my-agent:coder` unit; never in the research profile). Run `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/check-commands.py" --task "<absolute task folder>"` in the foreground with the longest command time limit the host accepts, and show its first line. When the host moves the call to the background, wait for its end notice before going on. It runs the check commands of the plan units and of `explore.md` once each and writes `checks.md` and `checks/<nn>.log`; L1 never writes them (the guard refuses).
+   - A `tree changed by the run:` line: show it as one chat line. The record then has no fingerprint, so the verifier runs the commands itself.
+   - Exit 1: hand each `failed:` line's unit back to its coder in the main tree, as a new worker call with the log path passed (for an explore command, the units whose files the failing tests cover; no unit for a failure only in the tests an Environment line `fails before the task` lists). Then run the script again.
+   - Exit 3, or the host stopped the call: no record exists. Show one chat line and go on; the judges then run one after the other and the verifier runs the commands itself (`accept.md` step 4A).
+6. Change `phase:` in `.active` to `4` and read `accept.md`.

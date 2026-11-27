@@ -10,6 +10,8 @@ import re
 import shlex
 from pathlib import Path
 
+from ma_path import under
+
 # --- agents (plugin.json lists the same ten; frontmatter `level:` and the folder say the same level) ---
 
 AGENTS = {
@@ -689,6 +691,15 @@ def aborted_reason(intake_text):
 # --- changed-file map (`changed-files.py` writes it; the verifier and the reviewer read it, accept.md step 4A) ---
 
 CHANGED_FILES = 'changed-files.md'
+CHECKS = 'checks.md'          # the check record `check-commands.py` writes (architecture Q47)
+CHECKS_LOGS = 'checks'        # its folder of per-command logs, `checks/<nn>.log`
+RECORD_DENY = ('Only check-commands.py writes checks.md and checks/ (task {task}); run python3 '
+               '"${{CLAUDE_PLUGIN_ROOT}}/l4-tools-guards/scripts/check-commands.py" --task "{folder}"')   # scope-guard and verdict-fresh-check deny reason
+
+
+def is_record_path(p: Path, task_dir: Path) -> bool:
+    """`p` is the task folder's check record `checks.md` or inside its `checks/` folder."""
+    return under(p, task_dir / CHECKS) or under(p, task_dir / CHECKS_LOGS)
 CHANGED_COLUMNS = ('file', 'units', 'criteria', 'fingerprint', 'since')
 REJUDGE_LINE = re.compile(r'(?m)^Re-judge:\s*(.*?)\s*$')
 ALL_CRITERIA = 'all'

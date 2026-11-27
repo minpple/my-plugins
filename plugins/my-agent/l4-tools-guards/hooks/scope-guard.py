@@ -36,6 +36,10 @@ It judges inline interpreter code on the command line (`python3 -c`, `node -e`, 
 fed to one of them) like any other write: a visible write with a literal path by that path, one with a path that is
 not a literal as "cannot tell". The contents of a script file (`python3 tool.py`, `-m mod`) stay outside the
 check (the accepted risk of 4.4 "remaining risk").
+Every role, the verifier and reviewer included, is denied a write to the check record `<task folder>/checks.md` or to
+`<task folder>/checks/` (architecture 4.4 "Record deny"): only `check-commands.py` writes them. This check follows the
+secret-path check and comes before every role rule; a Bash command whose write targets cannot be told is left to the
+checks after it.
 Paths compare without case (ma_path). Any error → exit 2, so the call is blocked
 (`onFailure: block` covers a crash or timeout).
 """
@@ -283,7 +287,7 @@ def glob_base(pattern: str, base: Path) -> Path:
 def paths_of(tool: str, ti: dict, cwd: Path, read_git_only: bool = False):
     """(read paths, write paths) the call touches; write None = Bash writes somewhere it cannot name. The Bash write
     paths are what the command line shows plus what its inline interpreter code writes (`ma_bash.interpreter_writes`:
-    only this hook reads that code); either one None makes the result None."""
+    only this hook and verdict-fresh-check's check-record deny read that code); either one None makes the result None."""
     if tool == 'Read':
         return [resolve(ti['file_path'], cwd)], []
     if tool in WRITE_TOOLS:
@@ -323,6 +327,9 @@ def check(inp: dict, role: str, active) -> Optional[str]:
     for p in reads + (writes or []):
         if secret(p):
             return f'Secret paths are not read or written: {p}'
+    for p in writes or []:
+        if ma_schema.is_record_path(p, active.task_dir):
+            return ma_schema.RECORD_DENY.format(task=active.task, folder=active.task_dir)
     for p in reads:
         if not (any(under(p, root) for root in r.read)
                 or (role != 'gate-analyst' and (in_scratchpad(p, inp.get('session_id'), inp)

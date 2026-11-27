@@ -71,6 +71,12 @@ class BuildDocsTest(unittest.TestCase):
         self.assertIn('unit-copies.md', text6)
         self.assertIn('While units run', text5)
 
+    def test_check_script_and_lib_are_on_the_page(self):
+        self.assertIn('check-commands.py', self.page)
+        self.assertIn('ma_checks.py', self.page)
+        self.assertIn('check-commands.py', [s['name'] for s in self.data['l4']['scripts']])
+        self.assertIn('ma_checks.py', [s['name'] for s in self.data['l4']['lib']])
+
     def test_scope_comes_from_scope_guard(self):
         coder = next(a for a in self.data['agents'] if a['id'] == 'coder')
         self.assertTrue(coder['scope']['bashWrites'])

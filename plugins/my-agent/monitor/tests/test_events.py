@@ -301,6 +301,46 @@ class EventsTest(unittest.TestCase):
         self.assertEqual(e.log, [])
         self.assertIsNone(e.started)
 
+    def round_lines(self, verifier_stop):
+        return ['2026-11-27 23:10:00 step: n=4A name=Verify',
+                '2026-11-27 23:10:05 step: n=4B name=Review-Deliver',
+                '2026-11-27 23:10:10 call: agent=my-agent:verifier',
+                '2026-11-27 23:10:10 call: agent=my-agent:reviewer',
+                '2026-11-27 23:10:11 start: agent=my-agent:verifier id=v1 configured=sonnet',
+                '2026-11-27 23:10:11 start: agent=my-agent:reviewer id=r1 configured=sonnet',
+                *verifier_stop]
+
+    def test_overlapping_round_verifier_is_step_7(self):
+        for stops in (['2026-11-27 23:21:00 stop: id=r1 secs=60', '2026-11-27 23:22:00 stop: id=v1 secs=60'],
+                      ['2026-11-27 23:21:00 stop: id=v1 secs=60', '2026-11-27 23:22:00 stop: id=r1 secs=60']):
+            e = synth(*self.round_lines(stops))
+            self.assertEqual((agents(e, 'verifier')[0]['s'], agents(e, 'reviewer')[0]['s']), (7, 8))
+            self.assertEqual({x['a']: x['et'] for x in e.log if x['k'] == 'agent'},
+                             {'verifier': stops_end(stops, 'v1'), 'reviewer': stops_end(stops, 'r1')})
+
+    def test_sequential_round_verifier_stays_in_its_step(self):
+        e = synth('2026-11-27 23:10:00 step: n=4A name=Verify',
+                  '2026-11-27 23:10:10 call: agent=my-agent:verifier',
+                  '2026-11-27 23:10:11 start: agent=my-agent:verifier id=v1 configured=sonnet',
+                  '2026-11-27 23:20:00 stop: id=v1 secs=60',
+                  '2026-11-27 23:20:05 step: n=4B name=Review-Deliver',
+                  '2026-11-27 23:20:10 call: agent=my-agent:reviewer',
+                  '2026-11-27 23:20:11 start: agent=my-agent:reviewer id=r1 configured=sonnet',
+                  '2026-11-27 23:21:00 stop: id=r1 secs=60')
+        self.assertEqual((agents(e, 'verifier')[0]['s'], agents(e, 'reviewer')[0]['s']), (7, 8))
+        # a verifier run under 4B with no 4A line right before it keeps step 8
+        e = synth('2026-11-27 23:10:00 step: n=4A name=Verify',
+                  '2026-11-27 23:10:11 start: agent=my-agent:verifier id=v1 configured=sonnet',
+                  '2026-11-27 23:20:00 stop: id=v1 secs=60',
+                  '2026-11-27 23:20:05 step: n=4B name=Review-Deliver',
+                  '2026-11-27 23:20:11 start: agent=my-agent:verifier id=v2 configured=sonnet')
+        self.assertEqual([x['s'] for x in agents(e, 'verifier')], [7, 8])
+
+
+def stops_end(stops, ident):
+    line = next(l for l in stops if f'id={ident} ' in l)
+    return line[11:16]
+
 
 if __name__ == '__main__':
     unittest.main()

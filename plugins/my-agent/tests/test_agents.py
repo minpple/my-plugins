@@ -357,12 +357,65 @@ class AgentsTest(unittest.TestCase):
     def test_reviewer_cites_verify(self):
         """The reviewer cites verify.md and does not run the suites again."""
         r = self._agent('reviewer')
-        self.assertIn('`verify.md`, the changed-file map `changed-files.md`', r)
+        self.assertIn('`verify.md` only when there is no record, the changed-file map `changed-files.md`', r)
         self.assertIn('Do not run the full test suites or the check commands again', r)
-        self.assertIn('cited from `verify.md` `## Commands run`', r)
+        self.assertIn('cited from `checks.md` (without a record: `verify.md` `## Commands run`)', r)   # criterion 7
         self.assertNotIn('Tests and lint run and pass', r)
+        self.assertNotIn('verifier has checked the criteria and run the tests', r)
+        self.assertIn('the verifier may be judging the criteria at the same time', r)
         self.assertIn('the files L1 fixed after Verify', r)
         self.assertIn('is a BLOCKER (verification is missing)', r)
+        blocker = 'with no line in `checks.md` (without a record: in `verify.md` `## Commands run`) is a BLOCKER'
+        self.assertEqual(r.count(blocker), 2)   # general and dev rules (criterion 7)
+        self.assertIn('named in `explore.md` or `plan.md`', r)
+
+    def test_reviewer_input_completion_criteria_file(self):
+        """The reviewer gets the completion-criteria file for the dev test check only (criterion 1)."""
+        r = self._agent('reviewer')
+        inp = r.split('## Input')[1].split('## Commands')[0]
+        self.assertIn('the completion-criteria file (`scope.md`, or `plan.md` for a small task; used only by the dev check '
+                      'whether the tests actually check the completion criteria; it adds no judgment)', inp)
+        self.assertIn('`checks.md` when it exists', inp)
+
+    def test_verifier_reuses_check_record(self):
+        """A current record is read, not rerun; an untrusted one falls back to a full run (criterion 5)."""
+        v = self._agent('verifier')
+        self.assertIn('`checks.md`', v)
+        self.assertIn('`Checks: current`', v)
+        self.assertIn('run none of the check commands the record lists', v)
+        self.assertIn('`- <command> → <summary> (checks.md)`', v)
+        self.assertIn('`checks/<nn>.log:<line>`', v)
+        for check in ('the log exists and is readable', 'agrees with the exit or timeout the record states',
+                      "the record's summary text is in the log"):
+            self.assertIn(check, v)
+        self.assertIn('A failing record line fails its criterion', v)
+        for word in ('`Checks: stale`', '`missing`', '`no fingerprint`', 'a missing or unreadable log',
+                     'a summary or exit that disagrees with its log', 'run every check command', 'covered by'):
+            self.assertIn(word, v)
+        self.assertIn('one targeted test to back one criterion', v)
+        self.assertIn('one rerun of a command that failed for a reason outside the deliverable (a timeout, a guard block)', v)
+        self.assertIn('Run, or reuse from a current record, the check commands', v)
+
+    def test_verifier_keeps_rerun_carry_and_findings_rules(self):
+        """The rerun, carry, Run: and Findings bullets are unchanged (criterion 5)."""
+        v = self._agent('verifier')
+        for sentence in (
+            'Rerun (L1 passes the previous `verify.md`): re-judge each criterion that failed there, each criterion on the map\'s `Re-judge:` line',
+            'Carry each other criterion that passed there as `- <n>. PASS (carried from Run <m>) <its evidence>`',
+            '`Run:` is the previous `verify.md` value + 1 if one exists, otherwise 1.',
+            'Findings: a criterion re-judged because of a `## Findings` line is PASS only with evidence that addresses what that line names',
+            'The same evidence as the previous run alone is FAIL.',
+            'The verifier judges the criterion, not the finding.',
+            'A `[check: person]` criterion is judged from its `Scope change:` line every run, carried or not.',
+        ):
+            self.assertIn(sentence, v)
+
+    def test_verifier_and_reviewer_name_no_host(self):
+        """No host name in either judge (criterion 7)."""
+        for name in ('verifier', 'reviewer'):
+            body = self._agent(name)
+            for host in ('Codex', 'Antigravity', 'Gemini', 'codex'):
+                self.assertNotIn(host, body)
 
     def test_plan_reviewer_counts_and_mockup_colours(self):
         p = self._agent('plan-reviewer')

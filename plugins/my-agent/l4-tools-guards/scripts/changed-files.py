@@ -5,7 +5,12 @@ usage: changed-files.py --task TASK_FOLDER [--previous EARLIER_CHANGED_FILES_MD]
                         [--rework-criterion "<n>: <shortfall>"]... [--rework-finding "<path>:<line>"]...
 
 Writes <task folder>/changed-files.md and prints one line
-`changed-files: <N> files, <M> unmapped[, <K> changed since Run <r>][, <F> criteria from findings][, <k> finding(s) without a valid criterion tag (Re-judge: all)][, review not read (Verify FAIL in that run)]`.
+`changed-files: <N> files, <M> unmapped[, <K> changed since Run <r>][, <F> criteria from findings][, <k> finding(s) without a valid criterion tag (Re-judge: all)][, review not read (Verify FAIL in that run)]`
+and a second line `checks: <status>`, which is also the `Checks:` header line of the map, right after `Re-judge:`.
+The status compares <task folder>/checks.md (written by check-commands.py, see ma_checks.py) with the current working tree:
+`current` (head and files fingerprint equal), `stale (HEAD moved)`, `stale (<n> paths differ: <up to 5 paths>)`, `missing`
+(no or unreadable record while check commands exist), `no fingerprint` (the record says `Fingerprint: none`: not a git location,
+or the run changed the tree), `not needed (no check commands)`. A checks problem never changes the exit code.
 Files: in the dev profile with a git task location, `git diff --name-only HEAD` plus the untracked files, without the
 task records folder; otherwise the files under <task folder>/work/ and deliverable/, plus each file a unit lists under
 `Files to change` that exists in the task location (code a coder changed in place where git cannot list it).
@@ -21,19 +26,21 @@ Findings (a rerun after Back to Execute): the criteria of every `- BLOCKER` line
 is not read), of each --rework-criterion and of the SHOULD-FIX lines whose location --rework-finding names are added to `Re-judge:`
 (`all` stays `all`; a line without a valid `[criterion <n>[, <m>…]]` tag makes it `all`; `[criterion none]` adds nothing). Those lines
 are copied to a `## Findings` section after the table, with one `- Criterion <n> (G3 Rework): <shortfall>` line per --rework-criterion.
-A --review whose sibling verify.md says `Verdict: FAIL` is a copy from an earlier run and is not read.
+A --review whose sibling verify.md says `Verdict: FAIL` is a copy from an earlier run and is not read, unless it is newer than
+the sibling changed-files.md (a round with a check record runs both judges, and the map is written before them: that review is fresh).
 exit: 0 written, 1 intake.md or plan.md missing (or the map could not be written), 2 bad arguments, --previous or --review names no file,
 a --rework-criterion that is no completion criterion or has no shortfall, a --rework-finding without --review or matching no SHOULD-FIX line.
 """
 import argparse
-import hashlib
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
+import ma_checks  # noqa: E402
 import ma_schema  # noqa: E402
+from ma_checks import file_fp  # noqa: E402
 
 PLUGIN_PREFIX = re.compile(r'^plugins/[^/]+/')
 BACKTICKED = re.compile(r'`([^`\s]+)`')
@@ -93,11 +100,12 @@ def review_lines(text: str):
     return out
 
 
-def fingerprint(path: Path) -> str:
+def review_is_fresh(review: Path) -> bool:
+    """A review written after the sibling changed-files.md of its round: that round ran both judges."""
     try:
-        return hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+        return review.stat().st_mtime > review.with_name(ma_schema.CHANGED_FILES).stat().st_mtime
     except OSError:
-        return 'deleted'
+        return False
 
 
 def main(argv=None) -> int:
@@ -149,7 +157,7 @@ def main(argv=None) -> int:
                 verify_text = sibling.read_text(encoding='utf-8')
             except (OSError, UnicodeDecodeError) as exc:
                 return say(f'cannot read {sibling}: {exc}', 2)
-        if re.search(r'(?m)^Verdict:\s*FAIL\b', verify_text):
+        if re.search(r'(?m)^Verdict:\s*FAIL\b', verify_text) and not review_is_fresh(review):
             review_skipped = True   # a copy left over from an earlier run: no Review ran in this one
         else:
             try:
@@ -236,7 +244,7 @@ def main(argv=None) -> int:
             unit_cell = ', '.join(uid for uid, _c in own)
             nums = sorted({n for _u, crit in own for n in crit})
             crit_cell = ', '.join(map(str, nums)) or '-'
-        fp = fingerprint(in_place.get(f, root / f)) if f in files else 'reverted'
+        fp = file_fp(in_place.get(f, root / f)) if f in files else 'reverted'
         if previous is None:
             since = '-'
         else:
@@ -261,9 +269,10 @@ def main(argv=None) -> int:
             rejudge = ', '.join(map(str, sorted(have | from_findings)))
 
     run_text = '?' if run is None else str(run)
+    checks = ma_checks.status(task, location, field(itext, 'Profile'), ptext)
     lines = [f'# Changed files: {task.name}', f'Base: {base}',
              f'Previous: {previous} (Run {run_text})' if previous else 'Previous: none',
-             f'Re-judge: {rejudge}', '',
+             f'Re-judge: {rejudge}', f'Checks: {checks}', '',
              '| File | Units | Criteria | Fingerprint | Since previous |', '|---|---|---|---|---|']
     lines += [f'| {" | ".join(r)} |' for r in rows]
     copied = [line for line, _n in found] + [f'- Criterion {n} (G3 Rework): {s}' for n, s in rework]
@@ -282,6 +291,7 @@ def main(argv=None) -> int:
     if review_skipped:
         tail += ', review not read (Verify FAIL in that run)'
     print(f'changed-files: {len(rows)} files, {unmapped} unmapped{tail}')
+    print(f'checks: {checks}')
     return 0
 
 

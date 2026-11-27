@@ -2,6 +2,7 @@
 """The Intake script of the my-agent skill (step 1A): `facts` collects what Intake needs, `create` writes its records.
 
 usage: intake.py facts  [--candidate PATH]... [--cwd DIR] [--data-dir X] [--task-dir Y]
+       intake.py work-branch --loc DIR --slug SLUG [--data-dir X] [--task-dir Y]
        intake.py create --loc DIR --profile general|research|dev (--slug SLUG | --task-id ID)
                         (--request=LINE | --request-file PATH) --model MODEL [--preset NAME]
                         [--gitignore ignore|commit] [--follows TASK-ID] [--auto]
@@ -48,6 +49,14 @@ updates). On Codex it first runs the hook-health check of
   folder (data) and the run folder (current); plus the task location of every `--candidate PATH` (given), skipped
   or missing ones included. A path already printed has no second block. The skip is in the `target:` line only.
   Exit 0; 2 bad arguments.
+
+work-branch: runs `git switch -c my-agent-task/<id>` at the location (uncommitted changes come along), where <id> is
+  the task ID `create` would make from the same slug (`<date>-<slug>`, then `-b`, `-c` ... for an existing folder;
+  one function). L1 runs it only after the person picked `Fix it first` for `main`, `master` or a detached HEAD, and
+  gives `create` the printed ID with `--task-id`. Prints one line: `work-branch: switched to my-agent-task/<id> (from
+  <short sha>)` (exit 0); `work-branch: not switched: branch my-agent-task/<id> exists` (exit 1, no switch); or
+  `work-branch: not switched: <first stderr line of git>` for any other git failure (exit 1, HEAD unchanged).
+  An invalid argument or a location that is not a git work tree is exit 2 (stderr, nothing changed).
 
 create: makes every Intake record in a fixed order and starts the monitor. Arguments:
   --loc DIR          the task location (an absolute, existing folder)
@@ -460,6 +469,41 @@ def read_index(data):
     return (index, None) if isinstance(index, dict) else (None, f'{path} is not a JSON object')
 
 
+def new_task_id(root, date, slug):
+    """`<date>-<slug>`, then `-b`, `-c` ... for the first name with no folder under `root` (shared by `create` and `work-branch`)."""
+    task = f'{date}-{slug}'
+    for suffix in [''] + [f'-{chr(c)}' for c in range(ord('b'), ord('z') + 1)]:
+        if not (root / (task + suffix)).exists():
+            return task + suffix
+    raise Refuse(1, f'task folders {task}, {task}-b ... all exist')
+
+
+def work_branch(args) -> int:
+    """`git switch -c my-agent-task/<id>` at the location, with the ID `create` makes from the same slug."""
+    if not args.loc or not Path(args.loc).is_absolute() or not Path(args.loc).is_dir():
+        raise Refuse(2, '--loc must be an absolute path of an existing folder')
+    if not (args.slug and SLUG.fullmatch(args.slug) and len(args.slug) <= SLUG_MAX):
+        raise Refuse(2, f'--slug must be lowercase letters, digits and hyphens, {SLUG_MAX} characters or fewer')
+    loc = Path(args.loc)
+    if not inside_work_tree(loc):
+        raise Refuse(2, '--loc must be a git work tree')
+    task = new_task_id(ma_data.task_root(loc, args.task_dir), datetime.now().strftime('%y%m%d'), args.slug)
+    branch = f'my-agent-task/{task}'
+    if git(loc, 'show-ref', '--verify', '--quiet', f'refs/heads/{branch}')[0] == 0:
+        print(f'work-branch: not switched: branch {branch} exists')
+        return 1
+    code, out, err = git(loc, 'rev-parse', '--short', 'HEAD')
+    if code == 0:
+        sha = out.strip()
+        code, _, err = git(loc, 'switch', '-c', branch)
+    if code != 0:
+        first = next((line.strip() for line in err.splitlines() if line.strip()), f'git exited {code}')
+        print(f'work-branch: not switched: {first}')
+        return 1
+    print(f'work-branch: switched to {branch} (from {sha})')
+    return 0
+
+
 def plan(args):
     """Validate every argument and check the refusals; returns the plan dict. Writes nothing."""
     data = ma_data.data_dir(args.data_dir)
@@ -518,16 +562,7 @@ def plan(args):
     if active or broken or (root / '.active').exists():
         which = f'task {active.task}' if active else 'unreadable'
         raise Refuse(1, f'{root / ".active"} exists ({which})')
-    if args.task_id is not None:
-        task = args.task_id
-    else:
-        task = f'{date}-{args.slug}'
-        for suffix in [''] + [f'-{chr(c)}' for c in range(ord('b'), ord('z') + 1)]:
-            if not (root / (task + suffix)).exists():
-                task += suffix
-                break
-        else:
-            raise Refuse(1, f'task folders {task}, {task}-b ... all exist')
+    task = args.task_id if args.task_id is not None else new_task_id(root, date, args.slug)
     if (root / task).exists():
         raise Refuse(1, f'task folder {root / task} exists')
     run_folder = resolved(args.cwd or os.getcwd()) or Path(os.getcwd())
@@ -660,6 +695,11 @@ def parser() -> argparse.ArgumentParser:
         p.add_argument('--task-dir', default=None)
         p.add_argument('--cwd', default=None)
     sub.choices['facts'].add_argument('--candidate', action='append', default=[])
+    w = sub.add_parser('work-branch')
+    w.add_argument('--loc')
+    w.add_argument('--slug')
+    w.add_argument('--data-dir', default=None)
+    w.add_argument('--task-dir', default=None)
     c = sub.choices['create']
     c.add_argument('--loc')   # the values are checked by plan(), so a refusal names its cause and "nothing written"
     c.add_argument('--profile')
@@ -682,6 +722,12 @@ def main(argv=None) -> int:
     args = parser().parse_args(argv)
     if args.cmd == 'facts':
         return facts(args)
+    if args.cmd == 'work-branch':
+        try:
+            return work_branch(args)
+        except Refuse as refusal:
+            print(f'intake: {refusal}; nothing changed', file=sys.stderr)
+            return refusal.code
     return create(args)
 
 

@@ -6,7 +6,7 @@ A Claude Code plugin marketplace by minpple.
 
 | Plugin | Version | Description |
 |---|---|---|
-| `my-agent` | 0.36.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
+| `my-agent` | 0.37.0 | Multi-agent task skill with human approval (HITL): plan → execute → verify → review |
 | `my-agent-tray` | 0.1.8 | macOS menu bar app for the my-agent monitor (optional; needs my-agent 0.5.0 or later) |
 
 ## Requirements
@@ -69,7 +69,7 @@ python3 ~/dev/my-plugins/plugins/my-agent/l4-tools-guards/scripts/build-antigrav
 
 ## my-agent
 
-The main session (L1) takes a request, runs plan → execute → verify → review in order, and asks the person in a popup at fixed points.
+The main session (L1) takes a request, runs plan → execute → verify → review (Verify and Review start together), and asks the person in a popup at fixed points.
 
 | Level | Members |
 |---|---|

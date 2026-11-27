@@ -372,6 +372,18 @@ class AntigravityModelsAndDocsTest(unittest.TestCase):
         row = next(l for l in HOSTS_AGY.read_text(encoding='utf-8').splitlines() if l.startswith('| `WebSearch`'))
         self.assertIn('Background research', row)
 
+    def test_judges_row_follows_the_cited_source(self):
+        """Criterion 8 (exception: Antigravity cannot run two subagents at once): together only with an https source, else one after the other and why."""
+        row = next(l for l in HOSTS_AGY.read_text(encoding='utf-8').splitlines() if l.startswith('| Verifier and reviewer'))
+        self.assertIn('`accept.md` 4A item 3', row)
+        if 'one after the other' in row:
+            self.assertIn('no cited Antigravity source shows two subagents running at once', row)
+            self.assertNotIn('https://', row)
+        else:
+            self.assertRegex(row, r'two `invoke_subagent` calls in one turn')
+            self.assertRegex(row, r'https://[^ )"]+')
+            self.assertIn('invoke multiple subagents concurrently', row)
+
 
 if __name__ == '__main__':
     unittest.main()

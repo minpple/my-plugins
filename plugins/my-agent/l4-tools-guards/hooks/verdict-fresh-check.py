@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """Plugin hook (hooks.json, PreToolUse: Bash|Edit|Write|NotebookEdit): commit or deliver only on fresh verdicts
-(architecture 4.4 G3, P11).
+(architecture 4.4 G3, P11); also the main session's write guard for the check record (4.4 "Record deny").
 
 Runs in every session where the plugin is on, so it first narrows down: a call from inside a subagent (`agent_id` in
 the input) passes; no task found passes (a `.active` without `task:` warns, before the session check); a `.active`
 whose `session:` differs from the input `session_id` (both set) passes.
+
+Record deny: while a task is active, a main-session call that writes `<task folder>/checks.md` or a path under
+`<task folder>/checks/` is denied before the freshness logic (Edit, Write and NotebookEdit by their path; Bash by
+`ma_bash.write_targets` plus `ma_bash.interpreter_writes`, a command whose targets cannot be told is left to the
+freshness logic; a Codex patch or an Antigravity write arrives as one input per target). Only `check-commands.py`
+writes them. The deny writes one `guard:` line (`hook=verdict-fresh-check agent=main`); a failed write never changes
+the decision.
 
 A stale result on a commit (or a command that may be one) gets `ask` (the G2 dialog) naming the judgment; a stale
 deliver stays `deny`, also when the same command line holds a commit. A command that does not parse but has the
@@ -38,6 +45,7 @@ import ma_active  # noqa: E402
 import ma_bash  # noqa: E402
 import ma_blueprint  # noqa: E402
 import ma_host  # noqa: E402
+import ma_logline  # noqa: E402
 import ma_schema  # noqa: E402
 from ma_path import under  # noqa: E402
 
@@ -187,6 +195,20 @@ def applies(tool: str, ti: dict, cwd: Path, active, commit: bool = True):
     return False if any(under(t, deliverable) for t in targets) else None
 
 
+def writes_record(tool, ti: dict, cwd: Path, active) -> bool:
+    """The call writes the check record `T/checks.md` or a path under `T/checks/`."""
+    T = active.task_dir
+    if tool in ('Edit', 'Write', 'NotebookEdit'):
+        raw = ti.get('file_path') or ti.get('notebook_path') or ''
+        paths = [(lambda p: (p if p.is_absolute() else cwd / p).resolve())(Path(os.path.expanduser(raw)))] if raw else []
+    elif tool == 'Bash':
+        cmd = ti.get('command') or ''
+        paths = (ma_bash.write_targets(cmd, cwd) or []) + (ma_bash.interpreter_writes(cmd, cwd) or [])
+    else:
+        return False
+    return any(ma_schema.is_record_path(p, T) for p in paths)
+
+
 def judge(inp):
     """Hook output (deny, ask or a system message) for one Claude-shaped input, or None to let the call through."""
     if not isinstance(inp, dict):
@@ -200,6 +222,12 @@ def judge(inp):
     if not ma_active.owns(active, inp):
         return None
     cwd = Path(inp.get('cwd') or os.getcwd()).resolve()
+    if writes_record(inp.get('tool_name'), inp.get('tool_input') or {}, cwd, active):
+        why = ma_schema.RECORD_DENY.format(task=active.task, folder=active.task_dir)
+        ma_logline.log_guard(active, 'verdict-fresh-check', 'main', '-', inp.get('tool_name') or '-', 'deny', why,
+                             inp.get('cwd') or '-')
+        return {'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'deny',
+                                       'permissionDecisionReason': why}}
     mode = applies(inp.get('tool_name'), inp.get('tool_input') or {}, cwd, active)
     if mode is None:
         return None

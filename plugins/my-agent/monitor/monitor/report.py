@@ -147,7 +147,12 @@ def _background_research(questions, lines, status):
 def _timeline(task_dir, lines):
     steps, gates, backs, cur, starts, g3_asks = [], [], [], None, [], []
     g3_ask = g3_answer = wait_step = wait_by = None
+    verifiers, stopped = [], {}   # (row, id) of each verifier start; id -> the time of its stop
     for l in lines:
+        if l.kind == 'start' and l.f.get('agent', '').removeprefix('my-agent:') == 'verifier' and steps:
+            verifiers.append((len(steps) - 1, l.f.get('id')))
+        elif l.kind == 'stop' and l.f.get('id'):
+            stopped[l.f['id']] = l.ts
         if l.kind == 'step' and l.f.get('n'):
             n = ma_schema.step_index(l.f['n'])
             if l.f.get('back'):
@@ -175,7 +180,13 @@ def _timeline(task_dir, lines):
     wait = {'step': wait_step, 'from': _iso(g3_ask), 'until': _iso(g3_answer)} if g3_ask and g3_answer else None
     if wait and wait_by == ma_schema.ANSWERED_BY_L1:
         wait['by'] = 'L1'
-    chart_end = _rows(steps, starts, g3_asks, lines[-1].ts if lines else None)
+    held = {}   # 4A row -> the stop of a verifier started in its round after the 4B line (overlapping 4A and 4B)
+    for row, vid in verifiers:
+        stop = stopped.get(vid)
+        for i in (row - 1, row):
+            if stop and 0 <= i < len(steps) - 1 and (steps[i]['n'], steps[i + 1]['n']) == (7, 8):
+                held[i] = max(held.get(i, stop), stop)
+    chart_end = _rows(steps, starts, g3_asks, lines[-1].ts if lines else None, held)
     slots = {}
     for b in backs:
         b['slot'] = None
@@ -185,13 +196,14 @@ def _timeline(task_dir, lines):
             'steps': steps, 'gates': gates, 'backs': backs, 'wait': wait, 'cost': cost}
 
 
-def _rows(steps, starts, g3_asks, last):
+def _rows(steps, starts, g3_asks, last, held=None):
     """Add end, secs, left and width to every row; return the chart end (ISO), the latest row end, or None without rows.
     A row ends at the next row's start; the last row at the latest G3 ask at or after its start, else at the last
-    run-log line. A row never ends before it starts."""
+    run-log line. A row never ends before it starts. `held` maps a 4A row to the stop of the round's verifier: when
+    that is later than the 4B start (the two judges run together), the 4A row ends there and the rows overlap."""
     if not steps:
         return None
-    ends = [max(starts[i], starts[i + 1]) for i in range(len(steps) - 1)]
+    ends = [max(starts[i], starts[i + 1], (held or {}).get(i, starts[i])) for i in range(len(steps) - 1)]
     tail = [t for t in g3_asks if t >= starts[-1]]
     ends.append(max(starts[-1], max(tail) if tail else (last or starts[-1])))
     t0 = starts[0]

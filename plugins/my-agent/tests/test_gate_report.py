@@ -9,6 +9,7 @@ from pathlib import Path
 from helpers import L4, make_task, parse, records, rel, run_script
 
 import ma_gate_report
+import ma_logline
 
 SCRIPT = L4 / 'scripts' / 'gate-report.py'
 TASK = '261025-probe-task'
@@ -687,6 +688,50 @@ class SegmentsTest(unittest.TestCase):
         text = ma_gate_report.tally_text(lines)
         self.assertIn('| 23:00–23:05 | 1A Intake | not recorded | 0 |', text)
         self.assertIn('| 23:05–23:20 | 1B Plan | 2.50 | 500 |', text)
+
+
+def stamped(*raw):
+    """(HH:MM, kind, fields) of run-log lines, the form `segments` and `tally_text` take."""
+    return [(l[11:16], *ma_logline.parse_line(l)) for l in raw]
+
+
+class OverlapRoundTest(unittest.TestCase):
+    """4A and 4B overlap: the reviewer and the verifier run together; each judge's tokens fall in one stretch."""
+    HEAD = ('2026-11-27 23:10:00 step: n=4A name=Verify session=s1',
+            '2026-11-27 23:10:01 cost: session=s1 usd=1.00',
+            '2026-11-27 23:10:05 step: n=4B name=Review-Deliver session=s1',
+            '2026-11-27 23:10:10 call: agent=my-agent:verifier model=sonnet',
+            '2026-11-27 23:10:10 call: agent=my-agent:reviewer model=sonnet',
+            '2026-11-27 23:10:11 start: agent=my-agent:verifier id=v1 configured=sonnet',
+            '2026-11-27 23:10:11 start: agent=my-agent:reviewer id=r1 configured=sonnet')
+    REVIEWER = '2026-11-27 23:{m}:00 stop: id=r1 tokens=700 result="Verdict: APPROVE"'
+    VERIFIER = '2026-11-27 23:{m}:00 stop: id=v1 tokens=900 result="Verdict: ALL PASS"'
+    TAIL = ('2026-11-27 23:25:00 cost: session=s1 usd=2.50',)
+    REWORK = '2026-11-27 23:30:00 answer: gate=G3 choice=Rework'
+    SEQUENTIAL = ('2026-11-27 23:10:00 step: n=4A name=Verify session=s1',
+                  '2026-11-27 23:10:01 cost: session=s1 usd=1.00',
+                  '2026-11-27 23:10:10 start: agent=my-agent:verifier id=v1 configured=sonnet',
+                  VERIFIER.format(m=21),
+                  '2026-11-27 23:21:05 step: n=4B name=Review-Deliver session=s1',
+                  '2026-11-27 23:21:10 start: agent=my-agent:reviewer id=r1 configured=sonnet',
+                  REVIEWER.format(m=22))
+
+    def check(self, *stops):
+        lines = stamped(*self.HEAD, *stops, *self.TAIL)
+        segs = ma_gate_report.segments(lines)
+        self.assertEqual([s[4] for s in segs], [0, 1600])   # both judges' tokens once, in the stretch the cost line ends
+        self.assertEqual(segs[1][2], ['4B Review-Deliver'])
+        self.assertIn('| Verify runs | 1 |', ma_gate_report.tally_text(lines))
+        self.assertEqual(ma_gate_report.judge_misses(lines), 0)
+        overlap = ma_gate_report.judge_misses(stamped(*self.HEAD, *stops, self.REWORK))
+        sequential = ma_gate_report.judge_misses(stamped(*self.SEQUENTIAL, self.REWORK))
+        self.assertEqual((overlap, sequential), (1, 1))
+
+    def test_reviewer_stops_first(self):
+        self.check(self.REVIEWER.format(m=21), self.VERIFIER.format(m=22))
+
+    def test_verifier_stops_first(self):
+        self.check(self.VERIFIER.format(m=21), self.REVIEWER.format(m=22))
 
 
 if __name__ == '__main__':

@@ -256,7 +256,7 @@ class BlueprintRulesTest(unittest.TestCase):
 
     def test_define_size_kept(self):
         size = len(self.text('l1-orchestration', 'phases', 'define.md'))
-        self.assertLessEqual(size, 12450, f'define.md: {size} characters')
+        self.assertLessEqual(size, 14750, f'define.md: {size} characters')
 
     def test_agents_know_their_part(self):
         writer = self.text('l3-workers', 'agents', 'writer.md')

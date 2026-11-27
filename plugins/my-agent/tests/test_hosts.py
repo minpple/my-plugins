@@ -64,6 +64,18 @@ class HostsTest(unittest.TestCase):
             self.assertIn(text, row[2])
         self.assertIn('not available', self.find('`isolation`')[1])
 
+    def test_two_judges_start_together(self):
+        """Criterion 8: the verifier and the reviewer start in one turn and overlap; the shared rule files name no host."""
+        row = self.find('Verifier and reviewer started together')
+        self.assertIn('`accept.md` 4A item 3', row[0])
+        for text in ('both `collaborationspawn_agent` calls in one turn', 'start together in one turn and overlap'):
+            self.assertIn(text, ' '.join(row))
+        l1 = helpers.REPO / 'l1-orchestration'
+        for path in (l1 / 'phases' / 'accept.md', l1 / 'phases' / 'build.md', l1 / 'profiles' / 'dev.md', l1 / 'profiles' / 'general.md'):
+            text = path.read_text(encoding='utf-8').lower()
+            for word in ('codex', 'antigravity', 'agy', 'collaborationspawn_agent', 'invoke_subagent'):
+                self.assertNotRegex(text, rf'\b{word}\b', f'{path.name}: {word}')
+
     def test_no_fallback_wording(self):
         text = HOSTS.read_text(encoding='utf-8').lower()
         for word in ('fallback', 'workaround'):

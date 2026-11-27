@@ -329,5 +329,111 @@ class VerdictFreshCheckTest(unittest.TestCase):
         self.assertEqual(r.stdout, '')
 
 
+RECORD_REASON = ('Only check-commands.py writes checks.md and checks/ (task {task}); run python3 '
+                 '"${{CLAUDE_PLUGIN_ROOT}}/l4-tools-guards/scripts/check-commands.py" --task "{folder}"')
+CODEX_FIX = Path(__file__).resolve().parent / 'fixtures' / 'codex'
+
+
+class RecordDenyTest(unittest.TestCase):
+    """The main session may not write the check record `T/checks.md` or `T/checks/` (architecture 4.4 "Record deny")."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        self.L = self.root / 'proj'
+        self.L.mkdir()
+        self.T = make_task(self.L, task=TASK, git=False, session='s-test')
+        self.env = dict(CLAUDE_HOOK_ENV, MA_DATA_DIR=str(self.root / 'agent-tasks'))
+        self.reason = RECORD_REASON.format(task=TASK, folder=self.T)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def call(self, tool, ti, env=None, cwd=None):
+        payload = {'hook_event_name': 'PreToolUse', 'tool_name': tool, 'tool_input': ti, 'session_id': 's-test'}
+        return run_hook('verdict-fresh-check.py', None, payload, cwd or self.L, env=env or self.env)
+
+    def test_deny_text_is_the_shared_one(self):
+        import ma_schema
+        self.assertEqual(ma_schema.RECORD_DENY.format(task=TASK, folder=self.T), self.reason)
+        src = (Path(__file__).resolve().parents[1] / 'l4-tools-guards' / 'hooks' / 'verdict-fresh-check.py').read_text(encoding='utf-8')
+        self.assertNotIn('RECORD_DENY =', src)
+        self.assertIn('ma_schema.RECORD_DENY', src)
+
+    def guard_lines(self):
+        p = self.T / 'run-log.md'
+        return [x for x in p.read_text(encoding='utf-8').splitlines() if ' guard: ' in x] if p.exists() else []
+
+    def assertRecordDenied(self, r, lines=1):
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout)['hookSpecificOutput']
+        self.assertEqual((out['permissionDecision'], out['permissionDecisionReason']), ('deny', self.reason))
+        self.assertEqual(len(self.guard_lines()), lines)
+        self.assertIn('hook=verdict-fresh-check agent=main', self.guard_lines()[-1])
+
+    def assertPassed(self, r):
+        self.assertEqual((r.returncode, r.stdout), (0, ''), r.stderr)
+
+    def test_file_tools_are_denied(self):
+        n = 0
+        for tool, key in (('Write', 'file_path'), ('Edit', 'file_path'), ('NotebookEdit', 'notebook_path')):
+            for name in ('checks.md', 'checks/01.log'):
+                with self.subTest(tool=tool, name=name):
+                    n += 1
+                    self.assertRecordDenied(self.call(tool, {key: str(self.T / name)}), n)
+
+    def test_bash_writes_are_denied(self):
+        T = self.T
+        cmds = [f'echo x > {T}/checks.md', f'cp a {T}/checks/01.log', f'mv a {T}/checks.md', f'rm {T}/checks.md',
+                f'python3 -c "open(\'{T}/checks.md\',\'w\').write(\'x\')"']
+        for n, cmd in enumerate(cmds, 1):
+            with self.subTest(cmd=cmd):
+                self.assertRecordDenied(self.call('Bash', {'command': cmd}), n)
+
+    def test_codex_patch_is_denied(self):
+        d = json.loads((CODEX_FIX / 'hook-pre-tool-use-file-change.json').read_text(encoding='utf-8'))
+        d['session_id'] = '019a0000-0000-7000-8000-000000000001'
+        make_task(self.L, task=TASK, git=False, session=d['session_id'])
+        d['tool_input'] = {'command': f'*** Begin Patch\n*** Add File: {self.T}/checks.md\n+x\n*** End Patch'}
+        r = run_hook('verdict-fresh-check.py', None, d, self.L, env={'MA_DATA_DIR': str(self.root / 'agent-tasks')})
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn(self.reason, r.stderr)
+        self.assertEqual(len(self.guard_lines()), 1)
+
+    def test_antigravity_write_is_denied(self):
+        make_task(self.L, task=TASK, git=False, session='conv-1')
+        p = {'hookEventName': 'PreToolUse', 'conversationId': 'conv-1', 'cwd': str(self.L),
+             'toolCall': {'id': 't1', 'name': 'write_file', 'args': {'Path': str(self.T / 'checks.md'), 'Content': 'x'}}}
+        r = run_hook('verdict-fresh-check.py', None, p, self.L, env={'MA_DATA_DIR': str(self.root / 'agent-tasks')})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout)
+        self.assertEqual((out['decision'], out['reason']), ('deny', self.reason))
+        self.assertEqual(len(self.guard_lines()), 1)
+
+    def test_allowed_calls(self):
+        script = Path(__file__).resolve().parents[1] / 'l4-tools-guards' / 'scripts' / 'check-commands.py'
+        self.assertPassed(self.call('Bash', {'command': f'python3 {script} --task {self.T}'}))
+        self.assertPassed(self.call('Read', {'file_path': str(self.T / 'checks.md')}))
+        self.assertPassed(self.call('Write', {'file_path': str(self.T / 'notes.md'), 'content': 'x'}))
+        other = self.root / 'other'
+        self.assertPassed(self.call('Write', {'file_path': str(other / 'checks.md'), 'content': 'x'}))
+        self.assertPassed(self.call('Bash', {'command': f'echo x > {other}/checks/01.log'}))
+        self.assertEqual(self.guard_lines(), [])
+
+    def test_subagent_and_other_session_pass(self):
+        ti = {'file_path': str(self.T / 'checks.md'), 'content': 'x'}
+        payload = {'hook_event_name': 'PreToolUse', 'tool_name': 'Write', 'tool_input': ti, 'agent_id': 'ag1',
+                   'session_id': 's-test'}
+        self.assertPassed(run_hook('verdict-fresh-check.py', None, payload, self.L, env=self.env))
+        payload = {'hook_event_name': 'PreToolUse', 'tool_name': 'Write', 'tool_input': ti, 'session_id': 's-other'}
+        self.assertPassed(run_hook('verdict-fresh-check.py', None, payload, self.L, env=self.env))
+
+    def test_unwritable_run_log_keeps_the_deny(self):
+        (self.T / 'run-log.md').mkdir()   # a folder: append fails
+        r = self.call('Write', {'file_path': str(self.T / 'checks.md'), 'content': 'x'})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason'], self.reason)
+
+
 if __name__ == '__main__':
     unittest.main()

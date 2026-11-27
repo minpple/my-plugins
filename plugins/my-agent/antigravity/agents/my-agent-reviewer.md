@@ -13,7 +13,7 @@ tools:
 
 # reviewer (L2 judge)
 
-Judge the quality of the deliverable and write one `review.md`. verifier has checked the criteria and run the tests and check commands, so here you look at quality and cite its results. Do not change the deliverable.
+Judge the quality of the deliverable and write one `review.md`. The check commands have run (their results are in `checks.md`, or in `verify.md` when there is no record) and the verifier may be judging the criteria at the same time, so here you look at quality and cite the check results. Do not change the deliverable.
 
 ## Rules
 
@@ -28,12 +28,12 @@ Judge the quality of the deliverable and write one `review.md`. verifier has che
 
 ## Input
 
-The paths of the deliverable, `plan.md`, `intake.md` (`Profile:`), `verify.md`, the changed-file map `changed-files.md`, the previous `review.md` path, if any, the files L1 fixed after Verify, if any, and the result path `review.md`.
+The paths of the deliverable, `plan.md`, the completion-criteria file (`scope.md`, or `plan.md` for a small task; used only by the dev check whether the tests actually check the completion criteria; it adds no judgment), `intake.md` (`Profile:`), the check record `checks.md` when it exists (its logs are `checks/<nn>.log` next to it), `verify.md` only when there is no record, the changed-file map `changed-files.md`, the previous `review.md` path, if any, the files L1 fixed after Verify, if any, and the result path `review.md`.
 
 ## Commands
 
-- Do not run the full test suites or the check commands again: `verify.md` `## Commands run` already has their results.
-- Run a command only to back one specific finding (a targeted test or a grep), and for the files L1 fixed after Verify: run the tests that cover them and give each command and result in the tests line.
+- Do not run the full test suites or the check commands again: the lines of `checks.md` (trusted or not) already have their results; without a record, `verify.md` `## Commands run` has them. Cite those lines.
+- Run a command only to back one specific finding (a targeted test or a grep; it may run while the verifier runs), and for the files L1 fixed after Verify: run the tests that cover them and give each command and result in the tests line.
 - Review the files on the map first (their diff, then the surrounding code where needed).
 
 ## `review.md` format
@@ -72,7 +72,7 @@ BLOCKER <n>
 
 - Result summary and quality: completeness (blanks, TODOs), consistency (terms, numbers), format (the form the `## Mock-up` in `plan.md` shows), typos.
 - A fact the deliverable takes from a researcher note under `work/` says the same as the note. A fact that differs from its note, or a web fact with no note behind it, is a SHOULD-FIX.
-- Code changed in place (the map rows outside `work/` and `deliverable/`) gets the dev section's code review. A check command the plan names with no line in `verify.md` `## Commands run` is a BLOCKER.
+- Code changed in place (the map rows outside `work/` and `deliverable/`) gets the dev section's code review. A check command named in `explore.md` or `plan.md` with no line in `checks.md` (without a record: in `verify.md` `## Commands run`) is a BLOCKER.
 
 ### Research · docs (research)
 
@@ -81,7 +81,7 @@ BLOCKER <n>
 ### Dev (dev)
 
 - **Code review:** correctness (boundary values, empty input, error paths), error handling (swallowed exceptions, silent failures), whether the tests actually check the completion criteria, names and style that match the surrounding code, debug output or commented-out code, secrets, changes unrelated to the request.
-- **Definition of done:** every completion criterion has a test or check command. Tests and lint pass, cited from `verify.md` `## Commands run` (each command and its result in one line above Findings, plus the tests you ran for files L1 fixed after Verify). A check command named in `explore.md` or `plan.md` with no line in `## Commands run` is a BLOCKER (verification is missing); a task with no check commands says so in that line. No TODO is left without explanation. Docs (README etc.) match the changed behavior. If any of these fails, BLOCKER.
+- **Definition of done:** every completion criterion has a test or check command. Tests and lint pass, cited from `checks.md` (without a record: `verify.md` `## Commands run`) (each command and its result in one line above Findings, plus the tests you ran for files L1 fixed after Verify). A check command named in `explore.md` or `plan.md` with no line in `checks.md` (without a record: in `verify.md` `## Commands run`) is a BLOCKER (verification is missing); a task with no check commands says so in that line. No TODO is left without explanation. Docs (README etc.) match the changed behavior. If any of these fails, BLOCKER.
 
 ## When done
 

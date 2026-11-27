@@ -12,6 +12,7 @@ The phase, profile and agent files use Claude Code names. In a Codex session, re
 | `tools`, `maxTurns` of an agent definition | not available in Codex | The installed agent files carry neither; the role checks of scope-guard apply to the installed agents. An inline role (`agent-models.py` `pass=inline`) runs in the main session on either host, so neither these limits nor the scope-guard role checks apply to it (architecture 4.5). |
 | `isolation` | not available in Codex | The start tool has no such field. |
 | `run_in_background` | not available in Codex | The start tool has no such field. Subagents started together overlap. |
+| Verifier and reviewer started together (`accept.md` 4A item 3) | both `collaborationspawn_agent` calls in one turn | The two judges start together in one turn and overlap; read both results with `wait_agent`. |
 | `model`, `effort` call arguments | `model`, `reasoning_effort` | On this host `agent-models.py` prints the values of the `codex` section of `agent-models.json`. Pass `model` and `reasoning_effort` (for `effort`) only for the fields under `pass=`; a role without a model value inherits the main session's model. |
 | `Workflow` | not available in Codex | |
 | `SendMessage` | `send_message` | `followup_task` and `wait_agent` also exist in the main session. |

@@ -1,0 +1,17 @@
+$ python3 -m unittest discover -s tests -p 'check_*.py'
+cwd: /tmp/judge-project
+time limit: 60 s
+..F
+======================================================================
+FAIL: test_mul (check_calc.CalcTest.test_mul)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/judge-project/tests/check_calc.py", line 14, in test_mul
+    self.assertEqual(mul(3, 4), 12)
+AssertionError: 7 != 12
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=1)
+exit 1 after 1 s

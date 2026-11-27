@@ -167,7 +167,7 @@ class ArchDocTest(unittest.TestCase):
     def test_decision_log_has_q39_and_q40_once_after_q38(self):
         rows = re.findall(r'^\| (Q\d+) \|', self.text, re.M)
         self.assertEqual(len(rows), len(set(rows)), rows)
-        self.assertEqual(rows[-6:], ['Q41', 'Q42', 'Q43', 'Q44', 'Q45', 'Q46'])
+        self.assertEqual(rows[-7:], ['Q41', 'Q42', 'Q43', 'Q44', 'Q45', 'Q46', 'Q47'])
         q39 = next(l for l in self.text.splitlines() if l.startswith('| Q39 |'))
         q40 = next(l for l in self.text.splitlines() if l.startswith('| Q40 |'))
         self.assertIn('capped at 3 rounds', q39)
@@ -242,7 +242,9 @@ class ArchDocTest(unittest.TestCase):
 
     def test_status_line_starts_with_the_newest_entry(self):
         line = re.search(r'^- Status: .*$', self.text, re.M).group(0)
-        self.assertTrue(line.startswith('- Status: design draft v0.85 (2026-11-27, plugin 0.36.0:'), line[:110])
+        self.assertTrue(line.startswith('- Status: design draft v0.86 (2026-11-27, plugin 0.37.0:'), line[:110])
+        self.assertIn('v0.85 (2026-11-27, plugin 0.36.0:', line)
+        self.assertNotIn('design draft v0.85', line)
         self.assertIn('v0.84 (2026-11-26, plugin 0.35.0:', line)
         self.assertNotIn('design draft v0.84', line)
         self.assertIn('v0.83 (2026-11-26, plugin 0.34.0:', line)
@@ -671,8 +673,18 @@ class ArchDocTest(unittest.TestCase):
         start = self.text.index('**Findings table and popup text at the gate approvals')
         section = self.text[start:self.text.index('**G1-B hard gate**', start)]
         self.assert_words(section, ('List markers', '`- Next: …`', 'two sentences', 'blank line',
-                                    'findings list table', '`# | Severity | Location | Finding | Fix L1 would apply`',
+                                    'findings list table',
+                                    '`# | Severity | Location | Finding | Fix L1 would apply | Who decides`',
                                     'not the count table'))
+        bullet = self.bullet('**Findings table and popup text at the gate approvals', '**G1-B hard gate**',
+                             '- **Findings list table')
+        self.assert_words(bullet, (
+            'after every Scope Review and Plan Review judgment', 'also with no popup', '`Who decides`',
+            '`L1 applies`', '`you decide`', 'no findings', 'one line instead of a table',
+            'The popup for the marked findings stays'))
+        self.assertNotIn('five-column', bullet)
+        marked = self.line_of('- **Marked findings popup (2026-11-24, plugin 0.30.0):**')
+        self.assert_words(marked, ('findings list table', 'also when no finding is marked'))
 
     def test_codex_g2_answer_closes_with_its_result(self):
         line = next(l for l in self.section('### 4.7.2 ', '### 4.7.3 ').splitlines()
@@ -941,7 +953,7 @@ class ArchDocTest(unittest.TestCase):
         """Criterion 8: between the facts call and create, the only commands are the named facts reruns."""
         script = self.line_of('  - **Intake script (2026-11-16, plugin 0.15.0):**')
         self.assert_words(script, ('Items 1–5 and the Git check read the facts output',
-                                   'the only commands they run are the facts reruns they name'))
+                                   'the only commands they run are the facts reruns and the `work-branch` call they name'))
 
     def test_continue_it_continues_only_the_shown_task_in_design(self):
         """Criterion 8: `Continue it` never continues another task than the one the popup showed."""
@@ -1052,6 +1064,86 @@ class ArchDocTest(unittest.TestCase):
         """Criterion 16: 4.7 "File layout" lists the rule file, the state file, the store and the patch."""
         layout = self.section('### 4.7 ', '### 4.7.1 ')
         self.assert_words(layout, ('unit-copies.md', 'unit-copies.json', 'copy-store/', '<unit>.patch', 'worktree (coder unit copies'))
+
+    def test_q47_accept_speed_up_row(self):
+        """Criteria 3, 7, 12: the Q47 row holds each decision of the accept speed-up and what was not taken."""
+        row = self.line_of('| Q47 | Accept speed-up: one check run, judges together |')
+        self.assert_words(row, (
+            '`check-commands.py`', '`checks.md`', '`checks/<nn>.log`', 'in 3B', 'Not taken',
+            'the fingerprint', 'git-ignored files are not in it', "the person's choice for the limit",
+            '`<task_dir>/<task-id>/` is always left out', 'no fingerprint', 'tree changed by the run',
+            'one chat line', 'rerun once', 'stale', 'missing',
+            '`(checks.md)`', 'covered by <full suite command>', 'the evidence bar is unchanged',
+            'the criteria file', 'only the existing dev check', 'cites `checks.md`',
+            'the verifier and the reviewer start together', 'one message', 'sequential fallback',
+            'ALL PASS and BLOCKER 0', 'small fix', 'Back to Execute',
+            'the review of a Verify FAIL round', 'feeds the next round',
+            '`verdict-fresh-check.py`', '`scope-guard.py`', 'Codex starts them together',
+            'Antigravity only with a cited source', '15,000 characters',
+            '`intake.py work-branch`', '`my-agent-task/<task-id>`', 'no work branch',
+            'findings list table after every Scope Review and Plan Review judgment',
+            'judge-fixture', 'before', 'after', 'the longest time limit the host accepts',
+            'light path', 'twice the measured duration',
+            'The gate report and the monitor with 4A and 4B overlapping', "each judge's tokens once, in exactly one stretch",
+            'the Verify round count and the judge misses', 'the 4A and 4B timeline rows overlapping',
+            "the verifier's agent item on step 4A", 'ending 4A at the 4B start'))
+        self.assertNotIn('Antigravity starts them together', row)
+
+    def test_raised_size_limit_in_design(self):
+        """Criterion 10: the limit lines say 15,000; the old limit appears only in the version history and as the old value."""
+        for number, line in enumerate(self.text.splitlines(), 1):
+            if line.startswith('- Status:'):
+                continue
+            for match in re.finditer(r'12,700', line):
+                around = line[max(0, match.start() - 60):match.end() + 40]
+                self.assertTrue('from 12,700' in around or 'was 12,700' in around or 'raised' in around,
+                                f'line {number}: {around}')
+        limits = self.line_of('  - Limits (`test_skill_md`):')
+        self.assert_words(limits, ('under 15,000 characters', '6,465 tokens', '2.32 characters per token',
+                                   '5,769 tokens', '2.6 characters per token', '2026-11-27', 'from 12,700'))
+        question = self.line_of('  - **Question rules (popup clarity;')
+        self.assertIn('15,000 characters', question)
+        self.assertNotIn('limit is 12,700', question)
+        row = next(l for l in self.text.splitlines() if l.startswith('| After compaction, **only the first 5,000 tokens**'))
+        self.assert_words(row, ('while it stays under about 13,000 characters', '5,000-token cut',
+                                '2.6 characters per token', 'the end is cut', 'near the top'))
+        self.assertNotIn('so all of it is attached again', row)
+        self.assertNotIn('stays under 12,700 characters', row)
+
+    def test_file_layout_names_the_check_script_and_record(self):
+        """Criterion 12: 4.7 "File layout" lists the check rule file, its folder, the script and the module."""
+        layout = self.section('### 4.7 ', '### 4.7.1 ')
+        self.assert_words(layout, ('checks.md', 'checks/', 'check-commands.py', 'ma_checks.py'))
+
+    def test_verify_review_scope_and_guard_follow_the_check_record(self):
+        """Criteria 7, 12: the step row, the scope bullet, the guard text and the host rows follow the new flow."""
+        row = self.line_of('| **④ Accept** | 4A Verify (with 4B Review, started together) |')
+        self.assert_words(row, ('check record', 'together'))
+        scope = self.line_of('- **Verify and Review scope (2026-11-06, plugin 0.12.0):**')
+        self.assert_words(scope, (
+            '`check-commands.py`', '`checks.md`', '`Checks: current`', 'one message', 'the criteria file',
+            '`review not read (Verify FAIL in that run)`', 'not newer than'))
+        guard = self.line_of('- **Record deny (2026-11-27, plugin 0.37.0')
+        self.assert_words(guard, ('`verdict-fresh-check.py`', '`scope-guard.py`', '`checks.md`', '`checks/`',
+                                  'before every other write verdict', 'Only check-commands.py writes'))
+        judge = self.line_of('| **judge checks** |')
+        self.assert_words(judge, ('two dev fixtures', '`--out`'))
+        codex = self.line_of('| Subagent start | `Agent` with `subagent_type` `my-agent:<role>` | `spawn_agent`')
+        self.assert_words(codex, ('the verifier and the reviewer start together',))
+        agy = self.line_of('| Subagent start | `Agent` with `subagent_type` `my-agent:<role>` | `invoke_subagent`')
+        self.assert_words(agy, ('together only with a cited source', 'one after the other'))
+
+    def test_intake_work_branch_in_design(self):
+        """Criterion 13: the Intake text names the work-branch call, the rerun and the no-switch cases."""
+        git = self.line_of('  - **Git check at Intake (2026-11-10):**')
+        self.assert_words(git, ('`intake.py work-branch`', '`my-agent-task/<task-id>`', 'from the current commit',
+                                'uncommitted changes stay in the working tree', 'reruns the Git check right away',
+                                'same popup', 'an existing branch', 'a failed create or switch', 'one chat line',
+                                '`main`/`master`', 'detached HEAD'))
+        script = self.line_of('  - **Intake script (2026-11-16, plugin 0.15.0):**')
+        self.assert_words(script, ('`work-branch`', '`--task-id`'))
+        section = self.section('### 4.8.2 ', '### 4.9 ')
+        self.assert_words(section, ('`intake.py work-branch`', 'my-agent-task/<task-id>'))
 
     def test_reference_articles_list_both_local_copies(self):
         ref = (REPO / 'docs' / 'reference.md').read_text(encoding='utf-8')

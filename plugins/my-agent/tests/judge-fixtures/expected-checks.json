@@ -1,0 +1,4 @@
+{
+  "checks-stale": {"verdict": "FAIL", "criterion": 1, "ran": "python3 -m unittest discover -s tests -p"},
+  "checks-log-mismatch": {"verdict": "FAIL", "criterion": 1, "ran": "python3 -m unittest discover -s tests -p"}
+}
