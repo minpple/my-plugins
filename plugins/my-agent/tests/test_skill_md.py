@@ -788,10 +788,10 @@ class SkillMdTest(unittest.TestCase):
         self.assertIn('after a work-branch switch', self.intake_item(6))
 
     def test_size_note_in_claude_md(self):
-        """Criterion 10: CLAUDE.md names the 15,000 limit, its raise date and the token figures."""
+        """CLAUDE.md names the 15,000 limit and points to the blueprint line that holds its reason."""
         line = next(l for l in (REPO.parents[1] / 'CLAUDE.md').read_text(encoding='utf-8').splitlines()
                     if 'SKILL.md` under' in l)
-        for word in ('15,000', '6,465', '5,769', 'raised on 2026-11-27 from 12,700'):
+        for word in ('15,000', 'docs/blueprint/decisions.md'):
             self.assertIn(word, line, word)
         self.assertNotIn('under 12,700', line)
 

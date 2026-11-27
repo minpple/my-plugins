@@ -1,6 +1,6 @@
 # Scenarios (design section 4.13)
 
-For each profile, run one small task from start to finish together with the person. Run them again every time an L1 or L2 file changes (SKILL.md, phase and profile files, agent definitions), and record the results in `maintenance-notes.md`.
+For each profile, run one small task from start to finish together with the person. Run them again every time an L1 or L2 file changes (SKILL.md, phase and profile files, agent definitions), and record a failure or an unlisted popup as a `[next]` line in `docs/blueprint/backlog.md` (ID `direct-<yymmdd>-<slug>`).
 
 - Where: `~/dev/labs/my-agent-sandbox`, `claude --plugin-dir ~/dev/my-plugins/plugins/my-agent` (before install). Permission mode auto.
 - Before starting: if the sandbox still has a `<task_dir>/.active` (default `.my-agent`), pick `Abort that task and start new` in Intake popup 1.

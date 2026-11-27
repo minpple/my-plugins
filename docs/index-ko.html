@@ -916,7 +916,7 @@ claude plugin install my-agent@my-plugins</pre>
         '승인 전에 허용되는 것은 explorer·architect·plan-reviewer 호출뿐입니다. 프로토타입이 요청된 경우에 한해 writer도 허용됩니다. researcher는 배경 조사에만 허용됩니다: research 프로필이 아니고, G1-A 확인 뒤이며, 범위에 적힌 질문이어야 하고, <code>background/</code>에만 씁니다. 작업 폴더 밖의 쓰기는 거부하지 않고 확인(<code>ask</code>)을 띄우며, 작업 폴더와 데이터 폴더의 색인·프로젝트 목록 파일만 묻지 않고 통과합니다.',
         '승인 뒤에도 작업 위치·데이터 폴더·계획서가 선언한 결과 위치 밖에 쓰려 하면 거부하지 않고 사용자에게 확인(<code>ask</code>)을 띄웁니다. 자동 모드는 그런 쓰기를 확인 없이 통과시키기 때문입니다. hook 자체가 오류나 시간 초과로 실패하면 호출이 막힙니다(<code>onFailure: block</code>).',
         '알려진 한계: 이 hook은 <code>.active</code>에 적힌 세션에만 적용됩니다. 새 세션이 <code>/my-agent continue</code>로 작업을 이어받기 전에는 게이트가 걸리지 않습니다(3.4의 ‘세션 재개 알림’ 항목에 세션 알림이 있으나 안내일 뿐 강제는 아님).'],
-       'plugins/my-agent/l4-tools-guards/hooks/plan-approved-check.py · plugins/my-agent/l4-tools-guards/hooks/hooks.json · plugins/my-agent/skills/my-agent/SKILL.md · plugins/my-agent/maintenance-notes.md'],
+       'plugins/my-agent/l4-tools-guards/hooks/plan-approved-check.py · plugins/my-agent/l4-tools-guards/hooks/hooks.json · plugins/my-agent/skills/my-agent/SKILL.md'],
       ['최신 검증·검토 결과가 없으면 커밋은 확인을 띄우고 최종 전달은 막습니다.',
        '<code>verify.md</code>가 ALL PASS이고 <code>review.md</code>가 BLOCKER 0이며 둘 다 최신일 때만 커밋·전달이 통과합니다.',
        ['적용 대상은 <code>git commit</code>(결과가 오래되었으면 확인을 띄움)과 G3 전달(작업 폴더 <code>deliverable/</code>에 쓰기, 작업 폴더(기본값 <code>.my-agent/</code>, 설정 <code>task_dir</code>) 밖으로 복사·이동. 작업의 <code>work/</code>나 <code>deliverable/</code> 아래 원본만 전달로 셈)입니다.',
@@ -934,7 +934,7 @@ claude plugin install my-agent@my-plugins</pre>
        ['scope-guard는 비밀 경로를 읽기·쓰기 모두 거부하고, 이름을 소문자로 맞춰 비교하며, <code>.env</code>나 <code>*.pem</code>을 이름으로 고르는 Grep glob도 막습니다.',
         '<code>permissions.json</code>의 deny 목록에도 이름을 정한 <code>.env</code> 파일 여섯 개(<code>.env</code>, <code>.env.local</code>, <code>.env.production</code> 등)와 <code>.env.&lt;name&gt;.local</code>이 들어 있고, <code>.env.prod</code> 같은 다른 <code>.env.&lt;name&gt;</code> 파일과 <code>.env.example</code> 같은 템플릿은 들어 있지 않으며, <code>.pem</code>, <code>.key</code>, <code>*.p12</code>, <code>~/.ssh</code>, <code>~/.aws</code>, <code>~/.config/gh</code>, <code>~/.netrc</code>, <code>~/.gnupg</code>, <code>~/.config/gcloud</code>, <code>~/.kube</code>, <code>~/.docker/config.json</code>, <code>~/.npmrc</code>, <code>~/.pypirc</code>, <code>~/.git-credentials</code> 읽기가 들어 있습니다.',
         '플러그인은 권한 규칙을 실을 수 없으므로 <code>permission-guard.py</code> 훅이 이 목록을 적용하며, 작업이 진행 중일 때 그 작업을 수행하는 세션에만 적용합니다. 사용자 설정에는 아무것도 병합하지 않습니다.'],
-       'plugins/my-agent/l4-tools-guards/hooks/scope-guard.py · plugins/my-agent/l4-tools-guards/hooks/permission-guard.py · plugins/my-agent/l4-tools-guards/permissions/permissions.json · plugins/my-agent/maintenance-notes.md'],
+       'plugins/my-agent/l4-tools-guards/hooks/scope-guard.py · plugins/my-agent/l4-tools-guards/hooks/permission-guard.py · plugins/my-agent/l4-tools-guards/permissions/permissions.json'],
       ['위험한 동작은 권한 규칙으로 확인을 받거나 거부합니다 (G2).',
        '작업 중에는 커밋·푸시·설치·외부 쓰기 도구는 사람에게 확인을 받고, 강제 푸시와 검증 우회는 거부합니다. 작업 밖에서는 이 규칙이 작동하지 않습니다.',
        ['확인(<code>ask</code>) 대상은 git commit·push, <code>rm -rf</code>, npm·pip·brew 설치, Slack 메시지 보내기, GitHub PR 생성·파일 푸시, Vercel 배포 생성 등입니다.',
@@ -956,7 +956,7 @@ claude plugin install my-agent@my-plugins</pre>
        '모든 작업자(L3)에게 최대 턴 수가 정해져 있어 무한히 돌지 않습니다.',
        ['현재 한도는 explorer 30, researcher 40, writer 40, coder 60입니다.',
         '한도에 걸려 끝난 작업자는 정상 종료 이벤트가 없으므로, 기록 단계가 이를 <code>partial</code>로 따로 잡아냅니다(3.4의 ‘run-log’ 항목 참고). 같은 작업 단위가 두 번 멈추면 사람에게 올리는 에스컬레이션(E)이 열립니다.'],
-       'plugins/my-agent/maintenance-notes.md · plugins/my-agent/l1-orchestration/phases/accept.md']
+       'plugins/my-agent/l3-workers/agents/ · plugins/my-agent/l1-orchestration/phases/accept.md']
     ]},
     { name: '기록·모니터·피드백', feats: [
       ['run-log: L1과 hook이 나눠서 자동 기록합니다.',
@@ -1305,7 +1305,7 @@ claude plugin install my-agent@my-plugins</pre>
   /* ---------- 5. differentiators ---------- */
   var diffs = [
     { tags: ['A4'], title: '규칙을 hook이 코드로 막는다 (A4).',
-      text: `my-agent는 계획 승인 전 위임·쓰기, 최신 판정 없는 커밋·전달, 에이전트별 경로 범위를 hook이 거부합니다. 확인한 문서 기준으로 이 셋이 한 칸에 함께 적힌 것은 my-agent뿐입니다. superpowers와 10x-Team은 규칙이 프롬프트(스킬 텍스트)에 있고, Claude Code 내장은 도구 허용·거부 목록과 hook, OpenAI Agents SDK는 가드레일, CrewAI는 호출 전 훅으로 막습니다. 한계: 이 hook은 <code>.active</code>에 적힌 세션에만 걸립니다(<code>plugins/my-agent/maintenance-notes.md</code>). 근거 칸: A4 열 ⁴, ¹¹, ¹⁸, ²⁵, ³⁹, ⁴⁶.` },
+      text: `my-agent는 계획 승인 전 위임·쓰기, 최신 판정 없는 커밋·전달, 에이전트별 경로 범위를 hook이 거부합니다. 확인한 문서 기준으로 이 셋이 한 칸에 함께 적힌 것은 my-agent뿐입니다. superpowers와 10x-Team은 규칙이 프롬프트(스킬 텍스트)에 있고, Claude Code 내장은 도구 허용·거부 목록과 hook, OpenAI Agents SDK는 가드레일, CrewAI는 호출 전 훅으로 막습니다. 한계: 이 hook은 <code>.active</code>에 적힌 세션에만 걸립니다(<code>plugins/my-agent/docs/build-guide/my-agent-architecture.md</code>). 근거 칸: A4 열 ⁴, ¹¹, ¹⁸, ²⁵, ³⁹, ⁴⁶.` },
     { tags: ['A5'], title: '판정이 필수 단계이고, 최신 판정이 없으면 막는다 (A5).',
       text: `my-agent는 계획 검토·검증·리뷰를 별도 에이전트가 하고, 작성자의 설명을 넘기지 않으며, 검증과 리뷰는 어느 프로필에서도 건너뛰지 않습니다. superpowers도 작업마다 코디네이터가 보내는 리뷰가 있습니다(비슷한 점). 그 밖의 시스템 칸은 개발자가 구성하는 패턴이거나(LangGraph, OpenAI Agents SDK, AutoGen, 내장 워크플로), 같은 세션 안의 역할(10x-Team), 출력 검증 guardrail(CrewAI)이거나, 분리 규칙이 문서에 없습니다. 근거 칸: A5 열 ⁵, ¹², ¹⁹, ²⁶, ³³, ⁴⁰, ⁴⁷, ⁵⁴.` },
     { tags: ['A2'], title: '작업 종류별 프로필이 흐름을 바꾼다 (A2).',

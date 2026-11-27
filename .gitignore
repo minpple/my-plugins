@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 .superpowers/
+# personal Claude Code instructions for this checkout
+CLAUDE.local.md
 
 # my-agent
 plugins/my-agent/.superpowers/

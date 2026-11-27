@@ -161,7 +161,7 @@ flowchart TD
         R["Router<br/>profile choice"]
         O["Orchestrator<br/>phase progress · delegation · merge"]
         G["Gatekeeper<br/>every question by popup · gate checks"]
-        RC["Recorder<br/>run-log · maintenance notes · feedback"]
+        RC["Recorder<br/>run-log · feedback"]
     end
 
     subgraph L2["L2 design · judging (writes only its own result file, Bash for reading and checking only)"]
@@ -675,7 +675,7 @@ L2: 6, L3: 4, 10 in all. Every agent drops the `Agent` tool. Definition file fro
 - Not the ask/deny lists (4.4, 4.12) since plugin 0.26.0: plugin settings accept only `agent` and `subagentStatusLine`, so permission rules cannot go in the plugin, and rules in the user settings would act in every session. `permission-guard.py` applies the list as a plugin hook, during a task only (4.4).
 - `worktree.baseRef: "head"` (Q9, set at install on 2026-10-25): since plugin 0.36.0 coder units no longer use harness worktrees, so nothing in my-agent relies on it; it stays in a user's file harmlessly and affects the person's other worktree use, and a new install does not need it.
 - `my-agent@my-plugins` in `enabledPlugins`: written by the install command.
-- This file is outside `~/dev`, so under the CLAUDE.md rules **each edit needs user approval**. Back up the original before editing, and write how to revert in the L4 section of `maintenance-notes.md`.
+- This file is outside `~/dev`, so under the CLAUDE.md rules **each edit needs user approval**. Back up the original before editing, and write how to revert as a line in `docs/blueprint/decisions.md`.
 
 **Install (once, with user approval)**
 
@@ -790,7 +790,6 @@ The repository top level has one folder per level. In maintenance, deciding "whi
 │   └── scripts/                    #   run-log · feedback (add · count · list · done) · gate-report (tally · copy) · check-run · plan-lint · secret-scan · usage-snapshot · archive-tasks (4.8.2) · archive (4.8.1) · blueprint (check, 4.7.5) · worktree (coder unit copies: create · merge · keep · remove · list · cleanup, 4.6) · cd-guard (4.6) · check-commands (the check run of 3B: runs the plan's and the explore result's check commands once, writes `checks.md` and the logs `checks/<nn>.log` in the task folder, 4.3 "Verify and Review scope", Q47)
 ├── tests/                          # tests for L1~L4 (outside the levels): unit tests, scenarios/, judge-fixtures/, probe/ (build step 0 probes, 4.13)
 ├── monitor/                        # monitor (read-only, outside the levels): server.py · monitor-up.py · monitor/ · web/ · tools/ · tests/ (4.7.4)
-├── maintenance-notes.md            # 4 sections, one per level (4.11)
 └── docs/ref/                       # reference material, dev-profile-validation.md (dev profile validation record)
 
 <task project>/docs/blueprint/         # the project blueprint: features.md · decisions.md · backlog.md, committed (4.7.5)
@@ -942,7 +941,7 @@ Limits taken from the skills docs, and the writing rules that fit them.
   - **Levels row and failure handling (items 1, 21, 25):** an L1 fix that changes a decision the person made is asked in a popup first; after an L1 edit in an HTML file L1 runs a syntax check; after the second Verify FAIL on one criterion the fixer's new call gives a structural argument first, or L1 offers `Change scope` through E.
 - **Paths in the skill text (plugin 0.11.0):** the Phase files block and every script call name their files with `${CLAUDE_PLUGIN_ROOT}/l1-orchestration/phases/<phase>.md` and so on; the skill-folder variable is no longer used, because the skill folder is no longer the plugin folder. On Codex the variable is passed literally and read as the plugin folder.
   - **Host pointer line:** the one line `- Codex: read `l1-orchestration/hosts.md` in the plugin folder, two levels above the folder of this `SKILL.md`.` The clause is a fact about the layout (`<plugin folder>/skills/my-agent/SKILL.md`), true on both hosts, so a Codex session can follow the line before it has read `hosts.md`. The host rule itself (the session line first) stays in `hosts.md`.
-- **Other files in the skill folder:** `docs/`, `maintenance-notes.md` and the agent definitions are not read automatically when the skill is called. Agent definitions are loaded because `plugin.json` points to them (4.5.1).
+- **Other files in the skill folder:** `docs/` and the agent definitions are not read automatically when the skill is called. Agent definitions are loaded because `plugin.json` points to them (4.5.1).
 
 ### 4.7.2 run-log records: hooks record subagent calls automatically [proposed]
 
@@ -1047,7 +1046,7 @@ Limits taken from the skills docs, and the writing rules that fit them.
 - `run-log.py inline agent=my-agent:<role> unit=<u|-> file=<result file|-> [result=…]` records a role the main session ran itself (4.5 "Inline roles"). The fields are `agent unit file result model`; `result=` is the first non-empty line of the result file (cut to 200 characters), and for `my-agent:coder` with `file=-` it is given as `result=`. A file of only blank lines gives `-`. A result file that is missing is refused (`run-log: inline needs the result file <path> (missing)`, exit 1, nothing written), and `agent=my-agent:main` is refused (exit 2).
 
   ```text
-  2026-11-04 15:10:02 inline: agent=my-agent:verifier unit=- file=/Users/jahoonjin/dev/my-plugins/.my-agent/261104-x/verify.md result="Verdict: ALL PASS" model=claude-opus-5-5
+  2026-11-04 15:10:02 inline: agent=my-agent:verifier unit=- file=/Users/x/dev/my-plugins/.my-agent/261104-x/verify.md result="Verdict: ALL PASS" model=claude-opus-5-5
   ```
 
 - **Readers:** the tally counts an `inline` line as one run of its role: `Verify runs`, `Scope Review runs` and `Plan Review runs` include the inline verifier, scope-reviewer and plan-reviewer, and `Subagents` reads `n (inline k)` when there is any (`| Subagents | 5 |` without). The monitor shows each as a finished agent item, for example `verifier · inline`. Without `inline` lines every reader prints what it printed in 0.10.0.
@@ -1254,7 +1253,7 @@ change request during a task ──► 4.8.1
   - It is a session running total. `/clear` resets it to 0, and other work in the same session is included.
   - Subagent cost is included too (F32, probe 9).
   - With a Pro or Max subscription it has nothing to do with the actual bill (costs docs).
-- **When the file is missing:** if the status line was changed or claude-sessions is not used, the file does not exist. Then the amount line is left out and the task goes on. If the value went down from before (`/clear`), the `cost:` line gets `reset=1`. A missing, unreadable or number-less file prints `run-log: no cost line (<reason>)` and writes nothing. This dependency is noted in the L4 section of `maintenance-notes.md`.
+- **When the file is missing:** if the status line was changed or claude-sessions is not used, the file does not exist. Then the amount line is left out and the task goes on. If the value went down from before (`/clear`), the `cost:` line gets `reset=1`. A missing, unreadable or number-less file prints `run-log: no cost line (<reason>)` and writes nothing.
 
 **Rollback base point (dev profile)**
 
@@ -1484,7 +1483,7 @@ A Review BLOCKER that is not a small fix, and a G3 `Rework` that is not on the l
 - **remaining risk (accepted as an exception to principle 2):**
   - This notice is an instruction. If Claude does not follow it, nothing stops it.
   - It is the result of choosing not to block other sessions of the same project while waiting for approval (Q21 choice 1).
-  - It is noted in the L4 section of `maintenance-notes.md`. If the retrospective shows a case that actually went ahead without approval, removing the `session:` check (choice 2: the gate applies to every main session of the repository) is reconsidered.
+  - If the retrospective shows a case that actually went ahead without approval, removing the `session:` check (choice 2: the gate applies to every main session of the repository) is reconsidered.
 
 **Concurrent tasks**
 
@@ -1612,9 +1611,9 @@ The user maintains this system directly. When something goes wrong, looking in t
 | Low deliverable quality, edits outside the scope, the same failure again and again | **L3** | The worker's transcript, the diff | `l3-workers/agents/*.md` |
 | Fails to block what it should, blocks the wrong thing, wrong records | **L4** | Hook output, `/hooks`, the Errors tab of `/plugin`, `claude plugin validate --strict`, `claude --debug` logs | `l4-tools-guards/` (including tests) |
 
-**Maintenance notes and when to step in**
+**Maintenance records and when to step in**
 
-- **`maintenance-notes.md`:** split into four sections by level (L1–L4); each section records "current state · dependencies on external behavior · things to watch".
+- **Project blueprint (`docs/blueprint/`):** the record of what the system is now (4.7.5). Dependencies on external behavior, things to watch and accepted limits are lines in `decisions.md`; open risks and probes still to run are `[next]` lines in `backlog.md`. A separate maintenance-notes file was dropped on 2026-11-27: its change entries repeated the blueprint, this document's status line and git.
 - **When to step in:**
   - A retrospective is held in the ④ Accept phase at the end of every task. Improvement points from the retrospective are recorded with their level in `<data folder>/feedback.md` (my-dev retro style; `$MA_FEEDBACK_FILE` overrides the file). `scripts/feedback.py` adds items (`add`) and counts open items per level (`count`). A fixed item is closed by looking up its number with `list` and running `done <number> "<what was fixed>"` (v0.27).
   - **`feedback.md` format:** created on the first `add`. Two sections under `# my-agent feedback`, `## Open` and `## Done`; one line per item, `- [open|done] L<1-4> <YYYY-MM-DD> <task-id>: <text>`. `done` moves that line to the end of `## Done` and turns it into `- [done] … → <what was fixed>`.
@@ -1640,13 +1639,13 @@ The user maintains this system directly. When something goes wrong, looking in t
     - An aborted task has no retrospective, so it has no report either.
     - If the session is cut off during the retrospective, the next `continue` only clears `.active` (4.8.2). The retrospective is not redone.
   - When 4 or more open improvement points pile up in one level, the Recorder tells the person. It is a signal that the level needs cleanup.
-- **how to fix the system:** my-agent is fixed through its own dev profile. So the fix goes through G1-B (plan approval) and G3 (commit approval). If the person decides to fix it directly in a normal session, do so, and record that decision and the changes in the matching level section of `maintenance-notes.md` (for example, the 2026-10-28 review changes).
-  - Before the dev profile is validated (before finishing step 7 of chapter 6), fix it directly in a normal session and record the changes in the matching level section of `maintenance-notes.md`. Even then, commit and push go through the G2 `ask`.
+- **how to fix the system:** my-agent is fixed through its own dev profile. So the fix goes through G1-B (plan approval) and G3 (commit approval). If the person decides to fix it directly in a normal session, do so, and update the blueprint entries the change affects with the ID `direct-<yymmdd>-<slug>` (4.7.5).
+  - Before the dev profile is validated (before finishing step 7 of chapter 6), fix it directly in a normal session and update the blueprint the same way. Even then, commit and push go through the G2 `ask`.
 - **Not locking itself out (self-modification):**
   - The plugin reads the repository in place (F17), and the plugin hooks run the scripts in `~/dev/my-plugins/plugins/my-agent` directly. So when my-agent fixes my-agent, the coder edits hook scripts that are running right now.
   - If a script breaks, `onFailure: block` blocks. A broken plan approval hook or verdict freshness hook blocks writes and delegation (and for the verdict hook, commits) in every session that has the plugin on, not only the one working on the task (plugin hooks, Q21); a broken scope-guard blocks my-agent agents in every session, and a broken permission-guard blocks Bash, Read, Grep, Glob and MCP tools in every session.
   - **Prevention:** a work unit that changes `l4-tools-guards/hooks/` is merged only after it passes that hook's unit tests and `claude plugin validate --strict`. The architect writes this condition into the plan, and the plan-reviewer checks it.
-  - **Way out** (noted in the L4 section of `maintenance-notes.md`):
+  - **Way out:**
     1. In a normal terminal, turn the plugin off with `claude plugin disable my-agent@my-plugins`. All plugin hooks go away. This is the only way out when a gate hook breaks, because a new session has the plugin's hooks too.
     2. Restore the changed file with `git checkout -- <file>`, then turn the plugin back on with `claude plugin enable my-agent@my-plugins`.
 
@@ -1732,7 +1731,7 @@ The user maintains this system directly. When something goes wrong, looking in t
 | **Probes (implementation step 0)** | Temporary hooks that only write their input to a file check the [unverified] items for real. Confirmed results are added to chapter 2 as facts from F19 on, and only then are the real hooks built. | `tests/probe/` |
 | **Hook unit tests** | Each hook has input JSON cases that check allow/deny/pass. Real inputs collected by the probes serve as cases. First, `claude plugin validate --strict` confirms that the manifest, agent frontmatter and `hooks.json` all load (4.5.1). | `tests/` |
 | **Practice project** | The plugin is not installed; it is loaded only in sessions started with `claude --plugin-dir ~/dev/my-plugins/plugins/my-agent` in a practice project. The ask/deny list is tested in the practice project's `.claude/settings.json`. After the scenarios pass, the plugin is installed and ask/deny is moved to `~/.claude/settings.json` (user approval). This keeps a bug in an `onFailure: block` hook from blocking other work. | `~/dev/labs/my-agent-sandbox/` |
-| **scenarios** | One small sample task per profile, 3 in all, run from start to end. They are rerun whenever L1 or L2 files (SKILL.md, phase rules, agent definitions) change, and the results go into `maintenance-notes.md`. | `tests/scenarios/` |
+| **scenarios** | One small sample task per profile, 3 in all, run from start to end. They are rerun whenever L1 or L2 files (SKILL.md, phase rules, agent definitions) change; a failure or an unlisted popup goes into `docs/blueprint/backlog.md` as a `[next]` line. | `tests/scenarios/` |
 | **judge checks** | 2–3 deliberately broken deliverables (a note that breaks one criterion, a note with a broken quote, a note with instructions mixed in), and since plugin 0.37.0 two dev fixtures for the check record (a record whose fingerprint does not match, a record whose summary disagrees with its log). Whenever verifier or reviewer changes, check that it catches them. `run-judge-check.sh` runs one fixture per call (`run-judge-check.sh --out <file> <name>`; `--out` appends each result to a file in the task's `work/`), so each call stays within a host's command time limit. | `tests/judge-fixtures/` |
 
 **Tests for the gate-report retrospective feature (2026-10-26)** (`tests/`)
