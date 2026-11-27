@@ -1,5 +1,14 @@
 # my-plugins
 
+Claude Code plugin marketplace: `my-agent` and `my-agent-tray`.
+
+## Layout
+
+- `plugins/my-agent/`: `skills/` (`my-agent/SKILL.md` core rules, `monitor`, `mock-up`), `l1-orchestration/` (procedures, phases, profiles, host notes), `l2-design-judge/agents/` (planner and judges), `l3-workers/agents/` (explorer, researcher, writer, coder), `l4-tools-guards/` (hooks, scripts, shared `lib/`), `codex/` and `antigravity/` (generated host copies), `monitor/` (read-only web monitor), `tests/`, `docs/build-guide/` (the architecture document).
+- `plugins/my-agent-tray/`: the menu bar app (macOS Swift, Windows).
+- `docs/`: GitHub Pages (`architecture.html` generated, `index.html` and `index-ko.html` by hand) and `blueprint/` (the project record).
+- `tools/`: `build-docs.py` and `docs-template.html` (the architecture page), `codex-probe/`, `claude-skill-check.py` (which skills a fresh session registers), `claude_mcp_server.py`. `tests/`: tests for `tools/`, the pages and the READMEs.
+
 ## Commands
 
 ```sh
@@ -15,6 +24,8 @@ cd plugins/my-agent-tray && python3 -m unittest discover -s tests            # m
 - There is no build step (Python and static HTML). Exception: the Swift app in `plugins/my-agent-tray/macos/menubar/` is built with `sh plugins/my-agent-tray/macos/menubar/build.sh` (optional).
 - Environment: the tool versions are under "Requirements" in `README.md`; do not copy them here.
 
+## After a change
+
 ### Which tests a change needs
 
 | Changed | Run |
@@ -26,27 +37,9 @@ cd plugins/my-agent-tray && python3 -m unittest discover -s tests            # m
 | `CLAUDE.md` | `test_skill_md` (it pins the size line) |
 | `docs/blueprint/*.md` | `python3 plugins/my-agent/l4-tools-guards/scripts/blueprint.py check --loc . --data-dir ~/.my-agent-data` only |
 | `docs/handoff/` (not in git) | nothing |
-| code, rules, agent definitions, hooks, tests | the suites that cover them, and the generators below |
+| code, rules, agent definitions, hooks, tests | the suites that cover them, and the generators in the next table |
 
-## Layout
-
-- `plugins/my-agent/`: `skills/` (`my-agent/SKILL.md` core rules, `monitor`, `mock-up`), `l1-orchestration/` (procedures, phases, profiles, host notes), `l2-design-judge/agents/` (planner and judges), `l3-workers/agents/` (explorer, researcher, writer, coder), `l4-tools-guards/` (hooks, scripts, shared `lib/`), `codex/` and `antigravity/` (generated host copies), `monitor/` (read-only web monitor), `tests/`, `docs/build-guide/` (the architecture document).
-- `plugins/my-agent-tray/`: the menu bar app (macOS Swift, Windows).
-- `docs/`: GitHub Pages (`architecture.html` generated, `index.html` and `index-ko.html` by hand) and `blueprint/` (the project record).
-- `tools/`: `build-docs.py` and `docs-template.html` (the architecture page), `codex-probe/`, `claude-skill-check.py` (which skills a fresh session registers), `claude_mcp_server.py`. `tests/`: tests for `tools/`, the pages and the READMEs.
-
-## Conventions
-
-- Write all documents, comments, prompts and messages in this repository in English. Exceptions: `README-ko.md` (the Korean README), `docs/index-ko.html` (the Korean feature page) and the Korean UI strings of the monitor (`plugins/my-agent/monitor/web/index.html`).
-- File and folder names: English, lowercase, hyphen-separated (`aa-bb-cc.md`); underscores only where a tool or format requires them (Python modules, `test_*.py`). This is the "CLAUDE.md naming rule" the architecture document cites.
-- Plugin code is Python standard library only. `tools/claude_mcp_server.py` is the exception: a local tool that needs `.venv` with `anthropic` and `mcp`.
-- Write home paths in tracked files as `~/`, never as an absolute `/Users/<name>/` path (examples use `/Users/x/`).
-- Write every run-log command in a rule file in full, `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" <kind> …`: `test_run_log_templates_run` runs only commands written that way.
-- Keep `plugins/my-agent/skills/my-agent/SKILL.md` under 15,000 characters: it holds the core rules and the arguments only, and the procedures are in `plugins/my-agent/l1-orchestration/` (`new-task.md`, `resume.md`, `recorder.md`, `gates.md`, `retro.md`, `changes.md`). Every file L1 reads in one go (those procedure files, the phase and profile files, `hosts.md`) stays under 15,000 characters too (`test_skill_md` checks both). Rules are placed by purpose, not by the room left; the reason for the limit and its token figures are in the size-limit line under `## Constraints` in `docs/blueprint/decisions.md`. Measure a size with Python `len()` on the UTF-8-decoded text; `wc -m` in a C locale counts bytes and reads high.
-- my-agent must behave only as designed in `plugins/my-agent/docs/build-guide/my-agent-architecture.md`: change the design there first, then the rules. Do not put temporary exceptions or workaround wording into the runtime rules.
-- A new plugin goes in `plugins/<name>/` with an entry in `.claude-plugin/marketplace.json` (and in `.agents/plugins/marketplace.json` for Codex).
-
-## Generated files and pairs
+### Generated files and pairs
 
 | Edit | Then |
 |---|---|
@@ -59,6 +52,17 @@ cd plugins/my-agent-tray && python3 -m unittest discover -s tests            # m
 - The pre-commit hook `.githooks/pre-commit` runs `tools/build-docs.py` on every commit and stages the page. Turn it on once per clone: `git config core.hooksPath .githooks`.
 - Generated, never edited by hand: `docs/architecture.html` (`build-docs.py`); `plugins/my-agent/.codex-plugin/plugin.json` and `codex/` (`build-codex.py`); `plugins/my-agent/.antigravity-plugin/plugin.json`, `antigravity/`, `rules/AGENTS.md` and the plugin-root `hooks.json` (`build-antigravity.py`).
 - `plugins/my-agent/monitor/web/index.html` is edited by hand; it has no generator.
+
+## Conventions
+
+- Write all documents, comments, prompts and messages in this repository in English. Exceptions: `README-ko.md` (the Korean README), `docs/index-ko.html` (the Korean feature page) and the Korean UI strings of the monitor (`plugins/my-agent/monitor/web/index.html`).
+- File and folder names: English, lowercase, hyphen-separated (`aa-bb-cc.md`); underscores only where a tool or format requires them (Python modules, `test_*.py`). This is the "CLAUDE.md naming rule" the architecture document cites.
+- Plugin code is Python standard library only. `tools/claude_mcp_server.py` is the exception: a local tool that needs `.venv` with `anthropic` and `mcp`.
+- Write home paths in tracked files as `~/`, never as an absolute `/Users/<name>/` path (examples use `/Users/x/`).
+- Write every run-log command in a rule file in full, `python3 "${CLAUDE_PLUGIN_ROOT}/l4-tools-guards/scripts/run-log.py" <kind> …`: `test_run_log_templates_run` runs only commands written that way.
+- Keep `plugins/my-agent/skills/my-agent/SKILL.md` under 15,000 characters: it holds the core rules and the arguments only, and the procedures are in `plugins/my-agent/l1-orchestration/` (`new-task.md`, `resume.md`, `recorder.md`, `gates.md`, `retro.md`, `changes.md`). Every file L1 reads in one go (those procedure files, the phase and profile files, `hosts.md`) stays under 15,000 characters too (`test_skill_md` checks both). Rules are placed by purpose, not by the room left; the reason for the limit and its token figures are in the size-limit line under `## Constraints` in `docs/blueprint/decisions.md`. Measure a size with Python `len()` on the UTF-8-decoded text; `wc -m` in a C locale counts bytes and reads high.
+- my-agent must behave only as designed in `plugins/my-agent/docs/build-guide/my-agent-architecture.md`: change the design there first, then the rules. Do not put temporary exceptions or workaround wording into the runtime rules.
+- A new plugin goes in `plugins/<name>/` with an entry in `.claude-plugin/marketplace.json` (and in `.agents/plugins/marketplace.json` for Codex).
 
 ## Versioning
 
