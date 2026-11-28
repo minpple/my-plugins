@@ -463,3 +463,14 @@
 
 1. After `Fix it first` for `main`, `master` or a detached HEAD, `intake.py work-branch` creates and switches to `my-agent-task/<task-id>` from the current commit (uncommitted changes stay), L1 reruns the Git check right away, and remaining problems are asked again in the same popup; an existing branch or a failed switch gives one chat line and the person fixes it as today [check: command] → `intake.py:481` `work_branch`; `new-task.md:54-57`; `test_intake.py:844` `WorkBranchTest` Ran 97 tests OK; `test_skill_md.py:774`; `test_arch_doc.py:1136`
 2. After every Scope Review and Plan Review judgment L1 shows all findings as one table (`# | Severity | Location | Finding | Fix L1 would apply | Who decides`), also when no finding needs the person, and a judgment with no findings gets one line instead; the marked-findings popup stays [check: command] → `define.md:61`, `plan.md:30`; `test_skill_md.py:919` Ran 210 OK; `test_arch_doc.py:671` Ran 102 OK
+
+## Judge-check consent wording
+- Purpose: Judge checks (the judge-fixture runner script) run without asking the owner; the design entries, the script header and the owner's personal instructions say so, and used by the owner and L1 in later tasks.
+- Where: plugins/my-agent/docs/build-guide/my-agent-architecture.md, plugins/my-agent/tests/judge-fixtures/run-judge-check.sh, plugins/my-agent/tests/test_arch_doc.py, plugins/my-agent/tests/test_judge_fixtures.py
+- Tasks: 261128-judge-check-consent
+- Updated: 2026-11-28
+
+1. The owner's personal, uncommitted project instructions hold one instruction that judge checks run without asking, also inside my-agent tasks (no popup, no approval item; a criterion only notes the run; the budget cap stays; `git push` and `git tag` not covered) [check: file] → `CLAUDE.local.md:7` (git-ignored; identical to the plan's Case A line, the earlier lines unchanged)
+2. The architecture document's Q47 item (14) and Q48 item (10) each carry `(superseded 2026-11-28: these runs no longer need a popup)` right after "each after a popup the person answers", the rest unchanged [check: file] → `my-agent-architecture.md:1947`, `:1948`; `test_arch_doc.py` `test_judge_fixture_popups_superseded`
+3. The header comment of `run-judge-check.sh` no longer says "Paid"; it says each fixture run starts a session that calls a real model, capped by `--max-budget-usd`, and no command, flag or cap changed [check: file] → `run-judge-check.sh:3-4`; `test_judge_fixtures.py` `test_runner_header_names_a_real_model_run`
+4. The generated architecture page is up to date, and the plugin suite and the root suite pass [check: command] → `build-docs.py --check` up to date; plugin Ran 927 and 971 tests OK; root Ran 119 tests OK

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Judge check (architecture 4.13 "judge checks"): run my-agent:verifier on each fixture and compare the verify.md it
-# writes with expected.json (notes) or expected-checks.json (folder fixtures). Paid (one verifier run per fixture,
-# capped by --max-budget-usd); run it by hand after changing verifier.md or reviewer.md. Each fixture gets its own
+# writes with expected.json (notes) or expected-checks.json (folder fixtures). Each fixture run starts a session that
+# calls a real model (one verifier run per fixture, capped by --max-budget-usd);
+# run it by hand after changing verifier.md or reviewer.md. Each fixture gets its own
 # throwaway git project with a <task_dir>/.active (${MA_TASK_DIR:-.my-agent}), so scope-guard applies exactly as in a
 # real task.
 # - A note runs as a research task: its first verify.md line must match expected.json.

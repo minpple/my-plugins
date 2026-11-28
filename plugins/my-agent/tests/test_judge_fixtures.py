@@ -73,6 +73,18 @@ def files_hash(items: dict) -> str:
 
 
 class JudgeFixturesTest(unittest.TestCase):
+    def test_runner_header_names_a_real_model_run(self):
+        """Criterion 3: the runner header says a fixture run calls a real model, not "Paid"; caps and model stay."""
+        script = read(FIXTURES / 'run-judge-check.sh')
+        head = script.split('\n', 1)[1].split('set -uo pipefail')[0]
+        header = ' '.join(re.sub(r'^# ?', '', l) for l in head.splitlines())
+        header = re.sub(r'\s+', ' ', header)
+        self.assertNotIn('Paid', header)
+        self.assertIn('starts a session that calls a real model', header)
+        self.assertIn('--max-budget-usd', header)
+        self.assertEqual(script.count('--max-budget-usd 2'), 2)
+        self.assertEqual(script.count('--model haiku'), 2)
+
     def test_expected_checks_and_their_files(self):
         """Five folder fixtures; the two old ones are an expected FAIL of criterion 1 with a `ran` text (criterion 11);
         the three new ones carry their own keys (criterion 8)."""

@@ -210,6 +210,18 @@ class ArchDocTest(unittest.TestCase):
                       '`Re-judge: all`', 'Applied after review', 'Verdict: FAIL', 'plugin 0.29.0'):
             self.assertIn(token, para)
 
+    def test_judge_fixture_popups_superseded(self):
+        """Criterion 2: the popup wording of the judge-fixture runs (Q47 item 14, Q48 item 10) carries a superseded mark."""
+        popup = 'each after a popup the person answers'
+        mark = ' (superseded 2026-11-28: these runs no longer need a popup)'
+        row47 = self.line_of('| Q47 | Accept speed-up: one check run, judges together |')
+        self.assertIn('**The judge-fixture order:**', row47)
+        self.assertIn(popup + mark + ', and a declined run', row47.split('**The judge-fixture order:**')[1])
+        row48 = self.line_of('| Q48 |')
+        self.assertIn(popup + mark + '. (11)', row48)
+        self.assertEqual(self.text.count(popup), 2)
+        self.assertEqual(self.text.count(popup + mark), 2)
+
     def line_of(self, marker):
         found = [l for l in self.text.splitlines() if marker in l]
         self.assertEqual(len(found), 1, marker)
